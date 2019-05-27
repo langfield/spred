@@ -33,3 +33,12 @@ Stock prediction via blind internet trust
     *	depends on target market(s)
 *	look into APIs
   *	robinhood, binance, ...
+
+## Additional Notes
+
+*   I think it would be unwise to `reinvent the wheel' as it were as far as using Golang over Python3 for model development. 
+*   Your note about the time window size is perhaps one of the most interesting problems in all of this. I've actually thought quite a bit about this intermittently over the years. We should talk more next week. 
+*   As far as training, I have access to research servers at no cost. We have several machines with dual 1080s, but to be honest I don't think the training will necessitate them. 
+*   I think crypto is most interesting because of relatively low commissions and higher probabilities of transparent and well-designed APIs. Kraken in particular is an exchange I think we should consider carefully. There are many other fair candidates as well. 
+*   The data question is also very interesting. There are several sources of minute and tick granularity data which are open source. The problem is that they flush what's available to download every 48 hours or so. We'd have to write a simple little script to continuously download and stockpile fine-granularity training data, depending on our proposed time-window solution. 
+*   My proposal for a first step is to pick a security-flavor as well as an exchange and learn how to make simple, automated API calls. 
