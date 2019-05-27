@@ -3,7 +3,7 @@ Stock prediction via blind internet trust
 
 ##	Web scraper
 * Go
-    * [Go-Colly](http://go-colly.org "Go-Colly") might be a useful library
+    * [Go-Colly](http://go-colly.org) might be a useful library
 *	media
     *	twitter
     *	reddit
@@ -22,10 +22,12 @@ Stock prediction via blind internet trust
 *	type of model
 *	figure out how to train/what data to use with historical data/social media dumps?
     *	how big of a time window best predicts
+         * 50-Day simple moving average (SMA) and 200-Day SMA to find [golden cross](https://www.investopedia.com/terms/g/goldencross.asp) and [death cross](https://www.investopedia.com/terms/d/deathcross.asp) patterns. Could a similar comparison be used with media data?
 *	what features should be looked at?
     *	general mood
     *	mood per stock
     *	volume of data
+    * [Market Sentiment](https://www.investopedia.com/terms/m/marketsentiment.asp)
 *	training
     *	I have an RTX 2070, an R9 380X, and might be able to get ahold of a GTX 970 or two
 ##	Transactions
