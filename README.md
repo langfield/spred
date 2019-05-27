@@ -3,21 +3,22 @@ Stock prediction via blind internet trust
 
 ##	Web scraper
 * Go
+    * [Go-Colly](tar -C /usr/local -xzf go$VERSION.$OS-$ARCH.tar.gz "Go-Colly") might be a useful library
 *	media
     *	twitter
     *	reddit
     *	articles/article frequency?
 *	Target market(s)
     *	crypto
-    *	penny stocks
-    *	large stock exchanges
+    *	~~penny stocks
+    *	~~large stock exchanges
     *	volatility in crypto/penny stocks might make prediction harder but also more fun
-        *	penny cryptos/ERC-20 tokens for maximum fun
+        * penny cryptos/ERC-20 tokens for maximum fun
 *	Could run a scraper on my core 2 duo server 24/7
     *	how much data do we need?
     *	how much time does it take to get enough data?
 ##	Prediction Model
-*	Python3? (Gorgonia is a deep learning package for Go if we wanted to go 100% in this direction)
+*	Python3. ~~(Gorgonia is a deep learning package for Go if we wanted to go 100% in this direction)~~
 *	type of model
 *	figure out how to train/what data to use with historical data/social media dumps?
     *	how big of a time window best predicts
@@ -32,7 +33,7 @@ Stock prediction via blind internet trust
 *	figure out what platform we want to trade on
     *	depends on target market(s)
 *	look into APIs
-  *	robinhood, binance, ...
+    * robinhood, binance, ...
 
 ## Additional Notes
 
