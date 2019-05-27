@@ -3,7 +3,7 @@ Stock prediction via blind internet trust
 
 ##	Web scraper
 * Go
-    * [Go-Colly](tar -C /usr/local -xzf go$VERSION.$OS-$ARCH.tar.gz "Go-Colly") might be a useful library
+    * [Go-Colly](http://go-colly.org "Go-Colly") might be a useful library
 *	media
     *	twitter
     *	reddit
