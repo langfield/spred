@@ -10,8 +10,8 @@ Stock prediction via blind internet trust
     *	articles/article frequency?
 *	Target market(s)
     *	crypto
-    *	~~penny stocks
-    *	~~large stock exchanges
+    *	~~penny stocks~~
+    *	~~large stock exchanges~~
     *	volatility in crypto/penny stocks might make prediction harder but also more fun
         * penny cryptos/ERC-20 tokens for maximum fun
 *	Could run a scraper on my core 2 duo server 24/7
