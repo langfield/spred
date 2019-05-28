@@ -28,6 +28,11 @@ Stock prediction via blind internet trust
     *	mood per stock
     *	volume of data
     * [Market Sentiment](https://www.investopedia.com/terms/m/marketsentiment.asp)
+    * how could we detect sarcasm?
+         * are there trends in data/keywords that indicate high sarcastic probability?
+         * should we be worried about these comments?
+         * is sarcasm more likely when outlook is good/bad?
+         * if we know the sarcasm skew for positive, negative, and neutral data points, could we correct it?
 *	training
     *	I have an RTX 2070, an R9 380X, and might be able to get ahold of a GTX 970 or two
 ##	Transactions
