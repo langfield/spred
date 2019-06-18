@@ -13,12 +13,13 @@ type item struct {
     likes int
     retweets int
     replies int
+    time string
 }
 
 func main() {
     // set up command line arguments
-    hashtagPtr := flag.String("h", "bitcoin", "a string")
-    tweetPagePtr := flag.Int("c", 1, "an int")
+    hashtagPtr := flag.String("h", "bitcoin", "hashtag being scraped")
+    tweetPagePtr := flag.Int("c", 1, "number of pages to scrape")
     flag.Parse()
 
 	tweets := []item{}
@@ -35,10 +36,16 @@ func main() {
 	c.OnHTML(".content", func(e *colly.HTMLElement) {
 		temp := item{}
 		temp.text = e.ChildText("p")
-        temp.replies, _ = strconv.Atoi(e.ChildAttr("span[class=\"ProfileTweet-actionCount\"]", "data-tweet-stat-count"))
+        tweetData := e.ChildAttrs("span[class=\"ProfileTweet-actionCount\"]", "data-tweet-stat-count")
+        temp.replies, _ = strconv.Atoi(tweetData[0])
+        temp.retweets, _ = strconv.Atoi(tweetData[1])
+        temp.likes, _ = strconv.Atoi(tweetData[2])
+        temp.time = e.ChildAttr("class=\"tweet-timestamp[data-original-title]", "data-original-title")
 
-		tweets = append(tweets, temp)
+        tweets = append(tweets, temp)
 		fmt.Println(temp.text)
+        fmt.Println(tweetData)
+        fmt.Println(temp.time)
 	})
 
 	c.OnHTML(".stream-container", func(e *colly.HTMLElement) {
