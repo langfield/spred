@@ -52,8 +52,8 @@ func main() {
 	})
 
 	// Crawl tweets
-	btc := "https://twitter.com/search?vertical=news&q=" +
-            *hashtagPtr +
+	btc := "https://twitter.com/search?f=tweets&vertical=news&q="
+            + *hashtagPtr +
             "&src=typd&lang=en"
 	c.Visit(btc)
 	c.Wait()
