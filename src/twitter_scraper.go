@@ -9,12 +9,15 @@ import (
 
 type item struct {
 	text string
+    likes int
+    retweets int
+    replies int
 }
 
 func main() {
     // set up command line arguments
     hashtagPtr := flag.String("h", "bitcoin", "a string")
-    tweetPagePtr := flag.Int("c", 10, "an int")
+    tweetPagePtr := flag.Int("c", 1, "an int")
     flag.Parse()
 
 	tweets := []item{}
@@ -30,7 +33,9 @@ func main() {
 	// This class is unique to the div that holds all information about a tweet
 	c.OnHTML(".content", func(e *colly.HTMLElement) {
 		temp := item{}
-		temp.text = e.ChildText("p[data-aria-label-part=\"0\"]")
+		temp.text = e.ChildText("p")
+        temp.replies = e.ChildAttr("span[class=\"ProfileTweet-actionCount\"]", "data-tweet-stat-count")
+
 		tweets = append(tweets, temp)
 		fmt.Println(temp.text)
 	})
@@ -47,7 +52,7 @@ func main() {
 	})
 
 	// Crawl tweets
-	btc := "https://twitter.com/search?f=tweets&vertical=news&q=" +
+	btc := "https://twitter.com/search?vertical=news&q=" +
             *hashtagPtr +
             "&src=typd&lang=en"
 	c.Visit(btc)
