@@ -5,6 +5,7 @@ import (
 	"github.com/gocolly/colly"
 	"time"
     "flag"
+    "strconv"
 )
 
 type item struct {
@@ -34,7 +35,7 @@ func main() {
 	c.OnHTML(".content", func(e *colly.HTMLElement) {
 		temp := item{}
 		temp.text = e.ChildText("p")
-        temp.replies = e.ChildAttr("span[class=\"ProfileTweet-actionCount\"]", "data-tweet-stat-count")
+        temp.replies, _ = strconv.Atoi(e.ChildAttr("span[class=\"ProfileTweet-actionCount\"]", "data-tweet-stat-count"))
 
 		tweets = append(tweets, temp)
 		fmt.Println(temp.text)
@@ -52,7 +53,7 @@ func main() {
 	})
 
 	// Crawl tweets
-	btc := "https://twitter.com/search?vertical=news&q=" +
+	btc := "https://twitter.com/search?f=tweets&vertical=news&q=" +
             *hashtagPtr +
             "&src=typd&lang=en"
 	c.Visit(btc)
