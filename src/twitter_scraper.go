@@ -13,6 +13,7 @@ type item struct {
     likes int
     retweets int
     replies int
+    date string
 }
 
 func main() {
@@ -36,9 +37,10 @@ func main() {
 		temp := item{}
 		temp.text = e.ChildText("p")
         temp.replies, _ = strconv.Atoi(e.ChildAttr("span[class=\"ProfileTweet-actionCount\"]", "data-tweet-stat-count"))
+        temp.date = e.ChildAttr("span[data-long-form=\"true\"]", "data-time")
 
 		tweets = append(tweets, temp)
-		fmt.Println(temp.text)
+		fmt.Println(temp.date)
 	})
 
 	c.OnHTML(".stream-container", func(e *colly.HTMLElement) {
