@@ -50,3 +50,5 @@ Stock prediction via blind internet trust
 *   I think crypto is most interesting because of relatively low commissions and higher probabilities of transparent and well-designed APIs. Kraken in particular is an exchange I think we should consider carefully. There are many other fair candidates as well. 
 *   The data question is also very interesting. There are several sources of minute and tick granularity data which are open source. The problem is that they flush what's available to download every 48 hours or so. We'd have to write a simple little script to continuously download and stockpile fine-granularity training data, depending on our proposed time-window solution. 
 *   My proposal for a first step is to pick a security-flavor as well as an exchange and learn how to make simple, automated API calls. 
+
+*   .pem test. 
