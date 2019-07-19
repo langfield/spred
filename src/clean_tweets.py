@@ -21,13 +21,23 @@ df = pd.DataFrame(dictlist)
 df = df.replace({'\n': ' '}, regex=True)
 df = df.replace({'\t': ' '}, regex=True)
 df = df.replace({'\r': ' '}, regex=True)
+df = df.replace({'http[^\s]+': ' '}, regex=True)
+df = df.replace({'bit.ly[^\s]+': ' '}, regex=True)
+df = df.replace({'youtu.be[^\s]+': ' '}, regex=True)
+df = df.replace({'[^\s]+.com[^\s]+': ' '}, regex=True)
 df = df.replace({'\.': ' . '}, regex=True)
+df = df.replace({'\(': ' ( '}, regex=True)
+df = df.replace({'\)': ' ) '}, regex=True)
+df = df.replace({'\)': ' ) '}, regex=True)
+df = df.replace({'\?': ' ? '}, regex=True)
 
-punctuation = ['`', '~', '!', '@', '#', '$', '%', '\^', '&', '\*', '\(', '\)', '-', '_', '\+', '=', '\[', '\]', '{', '}', '\\\\', '\|', ';', ':', '"', '\'', ',', '<', '>', '/', '\?']
+punctuation = ['`', '~', '!', '@', '#', '$', '%', '\^', '&', '\*', '-', '_', '\+', '=', '\[', '\]', '{', '}', '\\\\', '\|', ';', ':', '"', '\'', ',', '<', '>', '/']
 
 for char in punctuation:
   new_string = ' ' + char + ' '
   df = df.replace({char: new_string}, regex=True)
+
+df = df.replace({' +': ' '}, regex=True)
 
 df['index'] = df.index
 print(df.columns)
