@@ -3,12 +3,12 @@ import glob
 import json
 import os
 
-tweetscraper_dir = '/homes/3/whitaker.213/packages/TweetScraper'
+tweetscraper_dir = '../../'
 path = os.path.join(tweetscraper_dir, 'TweetScraper/Data/tweet/')
-print(path)
+#print(path)
 assert os.path.exists(path)
 files = glob.glob(path + '*')
-print(files)
+#print(files)
 
 dictlist = []
 
@@ -21,6 +21,13 @@ df = pd.DataFrame(dictlist)
 df = df.replace({'\n': ' '}, regex=True)
 df = df.replace({'\t': ' '}, regex=True)
 df = df.replace({'\r': ' '}, regex=True)
+df = df.replace({'\.': ' . '}, regex=True)
+
+punctuation = ['`', '~', '!', '@', '#', '$', '%', '\^', '&', '\*', '\(', '\)', '-', '_', '\+', '=', '\[', '\]', '{', '}', '\\\\', '\|', ';', ':', '"', '\'', ',', '<', '>', '/', '\?']
+
+for char in punctuation:
+  new_string = ' ' + char + ' '
+  df = df.replace({char: new_string}, regex=True)
 
 df['index'] = df.index
 print(df.columns)
