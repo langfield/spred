@@ -17,4 +17,3 @@ df = df.replace({'\t': ' '}, regex=True)
 df = df.replace({'\r': ' '}, regex=True)
 
 df.to_csv("data.tsv", sep = '\t')
-
