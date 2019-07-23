@@ -379,9 +379,6 @@ def main():
                             args.gradient_accumulation_steps))
 
     args.train_batch_size = args.train_batch_size // args.gradient_accumulation_steps
-    #===MOD===
-    # Deleted tokenizer. 
-    #===MOD===
 
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -409,9 +406,7 @@ def main():
             num_train_optimization_steps = num_train_optimization_steps // torch.distributed.get_world_size()
 
     # Prepare model 
-    #===MOD===
     model = XLNetModel.from_pretrained(args.xlspred_model)
-    #===MOD===
     if args.fp16:
         model.half()
     model.to(device)
@@ -466,9 +461,6 @@ def main():
             #TODO: check if this works with current data generator from disk that relies on next(file)
             # (it doesn't return item back by index)
             train_sampler = DistributedSampler(train_dataset)
-        #===COMMENT===
-        # Should only need to rewrite BertDataset class, not DataLoader class. 
-        #===COMMENT===
         train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
 
         model.train()
@@ -501,6 +493,7 @@ def main():
         if args.do_train and ( n_gpu > 1 and torch.distributed.get_rank() == 0  or n_gpu <=1):
             logger.info("** ** * Saving fine - tuned model ** ** * ")
             model.save_pretrained(args.output_dir)
+
 
 def accuracy(out, labels):
     outputs = np.argmax(out, axis=1)
