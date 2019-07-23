@@ -1,9 +1,12 @@
+import json
 import torch
 from pytorch_transformers import *
 
 print('Getting config...')
-config = XLNetConfig.from_pretrained('xlnet-base-cased')
+config = XLNetConfig.from_pretrained('config.json')
 print("Config file:", config)
+# config.save_pretrained("./")
+
 print('Getting tokenizer...')
 tokenizer = XLNetTokenizer.from_pretrained('xlnet-base-cased')
 print('Getting model...')
