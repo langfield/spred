@@ -41,9 +41,7 @@ logger = logging.getLogger(__name__)
 
 
 class BERTDataset(Dataset):
-    def __init__(self, corpus_path, tokenizer, seq_len, encoding="utf-8", corpus_lines=None, on_memory=True):
-        self.vocab = tokenizer.vocab
-        self.tokenizer = tokenizer
+    def __init__(self, corpus_path, seq_len, encoding="utf-8", corpus_lines=None, on_memory=True):
         self.seq_len = seq_len
         self.on_memory = on_memory
         self.corpus_lines = corpus_lines  # number of non-empty lines in input corpus
@@ -495,6 +493,9 @@ def main():
                             args.gradient_accumulation_steps))
 
     args.train_batch_size = args.train_batch_size // args.gradient_accumulation_steps
+    #===MOD===
+    # Deleted tokenizer. 
+    #===MOD===
 
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -510,13 +511,11 @@ def main():
     if not os.path.exists(args.output_dir) and ( n_gpu > 1 and torch.distributed.get_rank() == 0  or n_gpu <=1 ):
         os.makedirs(args.output_dir)
 
-    tokenizer = BertTokenizer.from_pretrained(args.bert_model, do_lower_case=args.do_lower_case)
-
     #train_examples = None
     num_train_optimization_steps = None
     if args.do_train:
         print("Loading Train Dataset", args.train_corpus)
-        train_dataset = BERTDataset(args.train_corpus, tokenizer, seq_len=args.max_seq_length,
+        train_dataset = BERTDataset(args.train_corpus, seq_len=args.max_seq_length,
                                     corpus_lines=None, on_memory=args.on_memory)
         num_train_optimization_steps = int(
             len(train_dataset) / args.train_batch_size / args.gradient_accumulation_steps) * args.num_train_epochs
@@ -524,7 +523,9 @@ def main():
             num_train_optimization_steps = num_train_optimization_steps // torch.distributed.get_world_size()
 
     # Prepare model 
-    model = BertForPreTraining.from_pretrained(args.bert_model)
+    #===MOD===
+    model = XLNetModel.from_pretrained(args.bert_model)
+    #===MOD===
     if args.fp16:
         model.half()
     model.to(device)
@@ -579,6 +580,9 @@ def main():
             #TODO: check if this works with current data generator from disk that relies on next(file)
             # (it doesn't return item back by index)
             train_sampler = DistributedSampler(train_dataset)
+        #===COMMENT===
+        # Should only need to rewrite BertDataset class, not DataLoader class. 
+        #===COMMENT===
         train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
 
         model.train()
@@ -611,8 +615,9 @@ def main():
         if args.do_train and ( n_gpu > 1 and torch.distributed.get_rank() == 0  or n_gpu <=1):
             logger.info("** ** * Saving fine - tuned model ** ** * ")
             model.save_pretrained(args.output_dir)
-            tokenizer.save_pretrained(args.output_dir)
-
+            #===MOD===
+            # Deleted tokenizer.save_pretrained(args.output_dir)
+            #===MOD===
 
 def _truncate_seq_pair(tokens_a, tokens_b, max_length):
     """Truncates a sequence pair in place to the maximum length."""
