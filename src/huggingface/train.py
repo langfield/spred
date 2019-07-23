@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""BERT finetuning runner."""
+"""XLSpred finetuning runner."""
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
@@ -48,6 +48,7 @@ class XLSpredDataset(Dataset):
         self.corpus_path = corpus_path
         self.encoding = encoding
         self.current_doc = 0  # to avoid random sentence from same doc
+        self.sample_counter = 0
 
         # load samples into memory
         self.data = pd.read_csv(corpus_path)
@@ -60,15 +61,15 @@ class XLSpredDataset(Dataset):
         self.data["Volume_ld"] = (np.log(self.data['Volume']) - 
                                    np.log(self.data['Volume']).shift(1))
         self.data = self.data[1:]
-        print(self.data.head(2))
+        # print(self.data.head(2))
 
-        input_feature = self.data.iloc[:,[7,8]].values
-        print(self.data.iloc[:,[7,8]].head(2))
+        self.tensor_data = torch.tensor(self.data.iloc[:,[7,8]].values)
+        print('tensor data', self.tensor_data)
 
     def __len__(self):
         # number of sequences = number of data points / sequence length
         # note: remainder data points will not be used
-        return self.data.size//self.seq_len
+        return self.tensor_data.shape[0]//self.seq_len
 
     def __getitem__(self, item):
         cur_id = self.sample_counter
@@ -79,11 +80,8 @@ class XLSpredDataset(Dataset):
                 self.file.close()
                 self.file = open(self.corpus_path, "r", encoding=self.encoding)
 
-        t1, t2, is_next_label = self.random_sent(item)
-
-        # tokenize
-        tokens_a = self.tokenizer.tokenize(t1)
-        tokens_b = self.tokenizer.tokenize(t2)
+        assert item < self.tensor_data.shape[0]//self.seq_len
+        sample = self.tensor_data[self.seq_len*item:self.seq_len*item+self.seq_len]
 
         # combine to one sample
         cur_example = InputExample(guid=cur_id, tokens_a=tokens_a, tokens_b=tokens_b, is_next=is_next_label)
@@ -398,7 +396,7 @@ def main():
     num_train_optimization_steps = None
     if args.do_train:
         print("Loading Train Dataset", args.train_corpus)
-        train_dataset = BERTDataset(args.train_corpus, seq_len=args.max_seq_length,
+        train_dataset = XLSpredDataset(args.train_corpus, seq_len=args.max_seq_length,
                                     corpus_lines=None, on_memory=args.on_memory)
         num_train_optimization_steps = int(
             len(train_dataset) / args.train_batch_size / args.gradient_accumulation_steps) * args.num_train_epochs
