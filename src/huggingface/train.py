@@ -31,7 +31,7 @@ from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange
 
 from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME
-from pytorch_transformers.modeling_xlnet import XLNetModel
+from pytorch_transformers.modeling_xlnet import XLNetModel, XLNetConfig
 from pytorch_transformers.optimization import AdamW, WarmupLinearSchedule
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
@@ -40,7 +40,7 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message
 logger = logging.getLogger(__name__)
 
 
-class BERTDataset(Dataset):
+class XLSpredDataset(Dataset):
     def __init__(self, corpus_path, seq_len, encoding="utf-8", corpus_lines=None, on_memory=True):
         self.seq_len = seq_len
         self.on_memory = on_memory
@@ -405,8 +405,9 @@ def main():
         if args.local_rank != -1:
             num_train_optimization_steps = num_train_optimization_steps // torch.distributed.get_world_size()
 
-    # Prepare model 
-    model = XLNetModel.from_pretrained(args.xlspred_model)
+    # Prepare model
+    config = XLNetConfig.from_pretrained(args.xlspred_model)
+    model = XLNetModel(config)
     if args.fp16:
         model.half()
     model.to(device)
