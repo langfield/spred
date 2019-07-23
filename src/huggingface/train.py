@@ -72,6 +72,8 @@ class XLSpredDataset(Dataset):
         return self.tensor_data.shape[0]//self.seq_len
 
     def __getitem__(self, item):
+        # item is an index 0-__len__() where __len__ is the number of sequences
+        # of length number of data points//seq_len
         cur_id = self.sample_counter
         self.sample_counter += 1
         if not self.on_memory:
@@ -81,10 +83,8 @@ class XLSpredDataset(Dataset):
                 self.file = open(self.corpus_path, "r", encoding=self.encoding)
 
         assert item < self.tensor_data.shape[0]//self.seq_len
+        # shape(seq_len, feature_count)
         sample = self.tensor_data[self.seq_len*item:self.seq_len*item+self.seq_len]
-
-        # combine to one sample
-        cur_example = InputExample(guid=cur_id, tokens_a=tokens_a, tokens_b=tokens_b, is_next=is_next_label)
 
         # transform sample to features
         cur_features = convert_example_to_features(cur_example, self.seq_len, self.tokenizer)
@@ -96,28 +96,6 @@ class XLSpredDataset(Dataset):
                        torch.tensor(cur_features.is_next))
 
         return cur_tensors
-
-
-class InputExample(object):
-    """A single training/test example for the language model."""
-
-    def __init__(self, guid, tokens_a, tokens_b=None, is_next=None, lm_labels=None):
-        """Constructs a InputExample.
-
-        Args:
-            guid: Unique id for the example.
-            tokens_a: string. The untokenized text of the first sequence. For single
-            sequence tasks, only this sequence must be specified.
-            tokens_b: (Optional) string. The untokenized text of the second sequence.
-            Only must be specified for sequence pair tasks.
-            label: (Optional) string. The label of the example. This should be
-            specified for train and dev examples, but not for test examples.
-        """
-        self.guid = guid
-        self.tokens_a = tokens_a
-        self.tokens_b = tokens_b
-        self.is_next = is_next  # nextSentence
-        self.lm_labels = lm_labels  # masked words for language model
 
 
 class InputFeatures(object):
@@ -170,7 +148,7 @@ def random_word(tokens, tokenizer):
     return tokens, output_label
 
 
-def convert_example_to_features(example, max_seq_length, tokenizer):
+def convert_example_to_features(example, max_seq_length):
     """
     Convert a raw sample (pair of sentences as tokenized strings) into a proper training sample with
     IDs, LM labels, input_mask, CLS and SEP tokens etc.
@@ -179,12 +157,6 @@ def convert_example_to_features(example, max_seq_length, tokenizer):
     :param tokenizer: Tokenizer
     :return: InputFeatures, containing all inputs and labels of one sample as IDs (as used for model training)
     """
-    tokens_a = example.tokens_a
-    tokens_b = example.tokens_b
-    # Modifies `tokens_a` and `tokens_b` in place so that the total
-    # length is less than the specified length.
-    # Account for [CLS], [SEP], [SEP] with "- 3"
-    _truncate_seq_pair(tokens_a, tokens_b, max_seq_length - 3)
 
     tokens_a, t1_label = random_word(tokens_a, tokenizer)
     tokens_b, t2_label = random_word(tokens_b, tokenizer)
@@ -262,23 +234,6 @@ def convert_example_to_features(example, max_seq_length, tokenizer):
                              lm_label_ids=lm_label_ids,
                              is_next=example.is_next)
     return features
-
-
-def _truncate_seq_pair(tokens_a, tokens_b, max_length):
-    """Truncates a sequence pair in place to the maximum length."""
-
-    # This is a simple heuristic which will always truncate the longer sequence
-    # one token at a time. This makes more sense than truncating an equal percent
-    # of tokens from each, since if one sequence is very short then each token
-    # that's truncated likely contains more information than a longer sequence.
-    while True:
-        total_length = len(tokens_a) + len(tokens_b)
-        if total_length <= max_length:
-            break
-        if len(tokens_a) > len(tokens_b):
-            tokens_a.pop()
-        else:
-            tokens_b.pop()
 
 
 def main():
