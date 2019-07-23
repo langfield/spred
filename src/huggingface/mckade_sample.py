@@ -1,3 +1,4 @@
+import copy
 import json
 import torch
 from pytorch_transformers import *
@@ -12,8 +13,9 @@ print('Getting tokenizer...')
 print('Getting model...')
 model = XLNetModel(config)
 print('Tokenizing input...')
-#input_ids = torch.tensor(tokenizer.encode("Hello, my dog is cute")).unsqueeze(0)  # Batch 
-# shape(seq_length, batch_size, embedding_dim)
+print('Tokenizer encode output:', tokenizer.encode("Hello, my dog is cute"))
+seq = tokenizer.encode("Hello, my dog is cute")
+input_ids = torch.tensor([seq, copy.deepcopy(seq)])  # Batch size 1
 input_ids = torch.tensor(
     [[[ 0.0036,  0.0227],
      [ 0.0036,  0.0227]],
