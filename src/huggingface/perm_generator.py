@@ -34,15 +34,16 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
    
     # EXAMPLE
     # `seq_len` is 5.  
-    # `index` is a permutation of the form [5, 3, 2, 1, 4].
+    # `index` is a permutation of the form [4, 2, 1, 0, 3].
     # `smallest_index` is a tensor of the form [-1, -1, -1, -1, -1]. 
     # `non_mask_tokens` is a tensor of booleans of the form [True, True, True, True, False]
     # `rev_index` is a copy of index where all positions which are `False` in `non_mask_tokens`
     #       are set to -1. 
-    # `rev_index` is thus a tensor of the form [5, 3, 2, 1, -1]. 
+    # `rev_index` is thus a tensor of the form [4, 2, 1, 0, -1]. 
     smallest_index = -tf.ones([seq_len], dtype=tf.int64) # Just all -1s
     rev_index = tf.where(non_mask_tokens, smallest_index, index)
-    
+    # In `rev_index` the non-masked tokens are -1.    
+ 
     # Create `target_mask`: non-functional and masked tokens
     # 1: use mask as input and have loss
     # 0: use token (or [SEP], [CLS]) as input and do not have loss
@@ -51,7 +52,10 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
     
     # Create `perm_mask`
     # `target_tokens` cannot see themselves
+    
+    # The -1s are the non-masked, non-functional, the target tokens are masked, non-functional. 
     self_rev_index = tf.where(target_tokens, rev_index, rev_index + 1)
+    # `self_rev_index` has original indices for masked, non-functional tokens, 0 for non-masked tokens, and original indices + 1 for masked, functional tokens. 
     
     # 1: cannot attend if i <= j and j is not non-masked (masked_or_func_tokens)
     # 0: can attend if i > j or j is non-masked
