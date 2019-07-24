@@ -14,7 +14,13 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
         perm_size: the length of longest permutation. Could be set to be reuse_len.
         Should not be larger than reuse_len or there will be data leaks.
         seq_len: int, sequence length.
+
+        reuse_len: the number of tokens in the currect batch to be cached
+      and reused in the future.
     """
+
+    SEP_ID = 3
+    CLS_ID = 4
 
     # Generate permutation indices
     index = tf.range(seq_len, dtype=tf.int64)
@@ -76,7 +82,7 @@ if __name__ == "__main__":
         inputs = tf.constant([3,4,5,6,7,8])
         targets = tf.constant([3,4,5,6,7,8])
         is_masked = tf.constant([False, False, False, False, False, True], bool)
-        perm_size = 15
+        perm_size = 6
         seq_len = 6
         _local_perm(inputs, targets, is_masked, perm_size, seq_len)
         
