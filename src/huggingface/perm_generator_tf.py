@@ -1,5 +1,6 @@
-import torch
-import numpy as np
+import tensorflow as tf
+import os
+
 
 def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
     """
@@ -14,21 +15,14 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
         Should not be larger than reuse_len or there will be data leaks.
         seq_len: int, sequence length.
     """
-    
-    # Generate permutation indices
-    index = torch.Tensor([i for i in range(seq_len)])
-    print("index:", index)
-    index = torch.transpose(index.view(-1, perm_size), 0, 1)
-    print("index:", index)
-    for i, row in enumerate(index):
-        index[i] = row[np.random.shuffle(np.array(range(perm_size)))]
-        print(index[i])
-    print("index:", index)
-    index = torch.transpose(index, 0, 1).reshape(-1)
-    print("index:", index)
 
-    return 
-    
+    # Generate permutation indices
+    index = tf.range(seq_len, dtype=tf.int64)
+    index = tf.transpose(tf.reshape(index, [-1, perm_size]))
+    index = tf.random_shuffle(index)
+    index = tf.reshape(tf.transpose(index), [-1])
+    print(index.eval())
+
     # `perm_mask` and `target_mask`
     # non-functional tokens
     non_func_tokens = tf.logical_not(tf.logical_or(
@@ -42,31 +36,18 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
     # smallest index (-1):
     # (1) they can be seen by all other positions
     # (2) they cannot see masked positions, so there won"t be information leak
-   
-    # EXAMPLE
-    # `seq_len` is 5.  
-    # `index` is a permutation of the form [4, 2, 1, 0, 3].
-    # `smallest_index` is a tensor of the form [-1, -1, -1, -1, -1]. 
-    # `non_mask_tokens` is a tensor of booleans of the form [True, True, True, True, False]
-    # `rev_index` is a copy of index where all positions which are `False` in `non_mask_tokens`
-    #       are set to -1. 
-    # `rev_index` is thus a tensor of the form [4, 2, 1, 0, -1]. 
-    smallest_index = -tf.ones([seq_len], dtype=tf.int64) # Just all -1s
+    smallest_index = -tf.ones([seq_len], dtype=tf.int64)
     rev_index = tf.where(non_mask_tokens, smallest_index, index)
-    # In `rev_index` the non-masked tokens are -1.    
- 
-    # Create `target_mask`: non-functional and masked tokens
+    
+    # Create `target_mask`: non-funcional and maksed tokens
     # 1: use mask as input and have loss
     # 0: use token (or [SEP], [CLS]) as input and do not have loss
-    target_tokens = tf.logical_and(masked_or_func_tokens, non_func_tokens) # Gets masked, non-functional tokens. 
+    target_tokens = tf.logical_and(masked_or_func_tokens, non_func_tokens)
     target_mask = tf.cast(target_tokens, tf.float32)
     
     # Create `perm_mask`
     # `target_tokens` cannot see themselves
-    
-    # The -1s are the non-masked, non-functional, the target tokens are masked, non-functional. 
     self_rev_index = tf.where(target_tokens, rev_index, rev_index + 1)
-    # `self_rev_index` has original indices for masked, non-functional tokens, 0 for non-masked tokens, and original indices + 1 for masked, functional tokens. 
     
     # 1: cannot attend if i <= j and j is not non-masked (masked_or_func_tokens)
     # 0: can attend if i > j or j is non-masked
@@ -87,17 +68,15 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
     
     return perm_mask, new_targets, target_mask, inputs_k, inputs_q
 
-
 if __name__ == "__main__":
-    inputs = torch.Tensor([3,4,5,6,7,8])
-    targets = inputs
-    is_masked = torch.Tensor([0,0,0,0,0,1]).byte()
-    perm_size = 6
-    seq_len = 6
 
-    print("inputs:", inputs)
-    print("targets:", targets)
-    print("is_masked:", is_masked)
-
-    _local_perm(inputs, targets, is_masked, perm_size, seq_len)
-
+    os.environ["CUDA_VISIBLE_DEVICES"]="-1"  
+    sess = tf.Session()
+    with sess.as_default():
+        inputs = tf.constant([3,4,5,6,7,8])
+        targets = tf.constant([3,4,5,6,7,8])
+        is_masked = tf.constant([False, False, False, False, False, True], bool)
+        perm_size = 15
+        seq_len = 6
+        _local_perm(inputs, targets, is_masked, perm_size, seq_len)
+        
