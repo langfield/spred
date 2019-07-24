@@ -1,19 +1,6 @@
 import torch
 import numpy as np
 
-if __name__ == "__main__":
-    inputs = torch.Tensor([3,4,5,6,7,8])
-    targets = inputs
-    is_masked = torch.Tensor([0,0,0,0,0,1]).byte()
-    perm_size = 6
-    seq_len = 6
-
-    print("inputs:", inputs)
-    print("targets:", targets)
-    print("is_masked:", is_masked)
-
-    _local_perm(inputs, targets, is_masked, perm_size, seq_len)
-
 def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
     """
     Sample a permutation of the factorization order, and create an
@@ -34,7 +21,7 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
     index = torch.transpose(index.view(-1, perm_size), 0, 1)
     print("index:", index)
     for i, row in enumerate(index):
-        index[i] = row[np.random.shuffle(np.array(range(perm_size))]
+        index[i] = row[np.random.shuffle(np.array(range(perm_size)))]
     print("index:", index)
     index = torch.transpose(index).reshape(-1)
     print("index:", index)
@@ -98,3 +85,18 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
     inputs_q = target_mask
     
     return perm_mask, new_targets, target_mask, inputs_k, inputs_q
+
+
+if __name__ == "__main__":
+    inputs = torch.Tensor([3,4,5,6,7,8])
+    targets = inputs
+    is_masked = torch.Tensor([0,0,0,0,0,1]).byte()
+    perm_size = 6
+    seq_len = 6
+
+    print("inputs:", inputs)
+    print("targets:", targets)
+    print("is_masked:", is_masked)
+
+    _local_perm(inputs, targets, is_masked, perm_size, seq_len)
+
