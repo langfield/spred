@@ -87,16 +87,18 @@ class XLSpredDataset(Dataset):
                 self.file.close()
                 self.file = open(self.corpus_path, "r", encoding=self.encoding)
 
-        assert item < self.tensor_data.shape[0]//self.seq_len
+        assert item < self.__len__()
         # shape(seq_len, feature_count)
-        sample = self.tensor_data[self.seq_len*item:self.seq_len*item+self.seq_len]
+        # -2 to account for separators
+        sample = np.arange(self.seq_len*item,self.seq_len*item+self.seq_len - 2)
 
         # combine to one sample
-        cur_example = InputExample(guid=cur_id, sample=sample)
+        cur_example = InputExample(guid=cur_id, sample=sample.tolist())
 
         # transform sample to features
-        cur_features = convert_example_to_features(cur_example, self.seq_len)
+        cur_features = convert_example_to_features(cur_example, self.seq_len, self.__len__())
 
+        # TODO: convert row indices to data tensors
         cur_tensors = (torch.tensor(cur_features.input_ids),
                        torch.tensor(cur_features.input_mask),
                        torch.tensor(cur_features.segment_ids),
@@ -125,20 +127,21 @@ class InputExample(object):
 class InputFeatures(object):
     """A single set of features of data."""
 
-    def __init__(self, input_ids, input_mask, segment_ids, is_next, lm_label_ids):
+    def __init__(self, input_ids, input_mask, lm_label_ids):
         self.input_ids = input_ids
         self.input_mask = input_mask
-        self.segment_ids = segment_ids
-        self.is_next = is_next
         self.lm_label_ids = lm_label_ids
 
 
-def random_word(tokens):
+def random_word(tokens, num_rows):
     """
-    Masking some random tokens for Language Model task with probabilities as in the original BERT paper.
-    :param tokens: list of float features; our sequence data (Average, Volume, ...).
-    :return: (list of [float]); masked tokens for LM prediction
+    Masking some random tokens for Language Model task with probabilities 
+    as in the original BERT paper.
+    :param tokens: list of row indices for sequence data.
+    :return: list of masked row indices, list of unmasked row indices
     """
+
+    output_label = []
 
     for i, token in enumerate(tokens):
         prob = random.random()
@@ -151,35 +154,42 @@ def random_word(tokens):
                 tokens[i] = MASK_ID
 
             # 10% randomly change token to random token
-            # TODO: what are our 'vocab' items--should be a list of floats
-            # like (Average, Volume, ...) 
             elif prob < 0.9:
-                tokens[i] = random.choice(list(tokenizer.vocab.items()))[0]
+                tokens[i] = random.randrange(num_rows)
 
             # -> rest 10% randomly keep current token
+
+            # append the unmasked token to output_lables
+            output_label.append(token)
         else:
             # no masking token (will be ignored by loss function later)
             output_label.append(-1)
 
-    return tokens
+    return tokens, output_label
 
 
-def convert_example_to_features(example, max_seq_length):
+def convert_example_to_features(example, max_seq_length, num_rows):
     """
     Convert a raw sample into a proper training sample with
     IDs, LM labels, input_mask, CLS and SEP tokens etc.
-    :param example: InputExample, containing seequence input
+    :param example: InputExample, containing row indices of sequence input
     :param max_seq_length: int, maximum length of sequence.
-    :return: InputFeatures, containing all inputs and labels of one sample as IDs (as used for model training)
+    :param num_rows: int, number of rows in the dataset.
+    :return: InputFeatures, containing all inputs and labels of one sample as 
+    IDs (as used for model training)
+        (input_ids, input_mask, lm_label_ids)
+        input_ids: list of masked row indices
+        input_mask: masks out padding
+        lm_label_ids: list of unmasked row indices
     """
 
     # Mask random tokens (words) in the sequences and return the corresponding
     # label (indices) list 
-    sample = random_word(example.sample)
+    sample = random_word(example.sample, num_rows)
     # account for CLS, SEP 
     # a label is an index for a vocab word
-    lm_label_ids = ([-1] + sample + [-1])
     input_ids = ([CLS_ID] + sample + [SEP_ID])
+    lm_label_ids = ([-1] + sample + [-1])
 
     # The mask has 1 for real tokens and 0 for padding tokens. Only real
     # tokens are attended to.
