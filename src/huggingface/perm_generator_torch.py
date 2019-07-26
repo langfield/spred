@@ -15,24 +15,23 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
         seq_len: int, sequence length.
     """
     
-    # Generate permutation indices
-    print(np.random.shuffle(np.array(range(perm_size))))
-
-    return 
-
-    index = torch.Tensor([i for i in range(seq_len)])
-    print("index:", index)
-    index = torch.transpose(index.view(-1, perm_size), 0, 1)
-    print("index:", index)
-    for i, row in enumerate(index):
-        index[i] = row[np.random.shuffle(np.array(range(perm_size)))]
-        print(index[i])
-    print("index:", index)
-    index = torch.transpose(index, 0, 1).reshape(-1)
-    print("index:", index)
-
-    return 
+    SEP_ID = 3
+    CLS_ID = 4
     
+    # Generate permutation indices
+    assert seq_len % perm_size == 0
+    perm = torch.randperm(perm_size)
+    repeats = int(seq_len / perm_size)
+    perm_portions = [perm + i * perm_size for i in range(repeats)]
+    index = torch.cat(perm_portions, 0)
+    print("permutation index:", index)    
+    
+    # `perm_mask` and `target_mask`
+    # non-functional tokens
+    non_func_tokens = ~(inputs.eq(SEP_ID) | inputs.eq(CLS_ID))
+    
+    return 
+ 
     # `perm_mask` and `target_mask`
     # non-functional tokens
     non_func_tokens = tf.logical_not(tf.logical_or(
@@ -93,15 +92,18 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
 
 
 if __name__ == "__main__":
-    inputs = torch.Tensor([3,4,5,6,7,8])
+    perm_size = 5
+    seq_len = 30
+    
+    inputs = torch.IntTensor([i for i in range(seq_len)])
+    is_masked = torch.Tensor([0 for i in range(seq_len)]).byte()
     targets = inputs
-    is_masked = torch.Tensor([0,0,0,0,0,1]).byte()
-    perm_size = 6
-    seq_len = 6
-
+   
     print("inputs:", inputs)
+    """
     print("targets:", targets)
     print("is_masked:", is_masked)
+    """
 
     _local_perm(inputs, targets, is_masked, perm_size, seq_len)
 
