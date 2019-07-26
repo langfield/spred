@@ -24,13 +24,20 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
     repeats = int(seq_len / perm_size)
     perm_portions = [perm + i * perm_size for i in range(repeats)]
     index = torch.cat(perm_portions, 0)
-    print("permutation index:", index)    
+    print("permutation index:", np.array(index))
     
     # `perm_mask` and `target_mask`
     # non-functional tokens
     non_func_tokens = ~(inputs.eq(SEP_ID) | inputs.eq(CLS_ID))
+    print("Non functional tokens:", np.array(non_func_tokens))
+   
+    """
+    Non-masked AND non-functional tokens. 
+    """ 
     non_mask_tokens = ~is_masked & non_func_tokens
+    print("Non masked tokens:", np.array(non_mask_tokens))
     masked_or_func_tokens = ~non_mask_tokens
+    print("masked or func tokens:", np.array(masked_or_func_tokens))
       
     # Set the permutation indices of non-masked (& non-funcional) tokens to the
     # smallest index (-1):
@@ -43,14 +50,14 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
         [-1, -1, -1, -1, -1].
     """
     smallest_index = torch.IntTensor([-1 for i in range(seq_len)])
-    print("smallest_index:", smallest_index)
+    print("smallest_index:\n", np.array(smallest_index))
 
     """
     Gets the indices of the sequence via `index`, and sets all the
     non-masked and non-functional tokens to `-1`.     
     """
     rev_index = torch.where(non_mask_tokens, smallest_index, index)
-    print("rev_index:", rev_index)
+    print("rev_index:\n", np.array(rev_index))
     
     # Create `target_mask`: non-funcional and maksed tokens
     # 1: use mask as input and have loss
@@ -63,9 +70,9 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
     So they are exactly all the masked and non-functional tokens. 
     """
     target_tokens = masked_or_func_tokens & non_func_tokens
-    print("target_tokens:", target_tokens)
+    print("target_tokens:\n", np.array(target_tokens))
     target_mask = target_tokens.float()
-    print("target_mask:", target_mask)
+    print("target_mask:\n", np.array(target_mask))
     
     # Create `perm_mask`
     # `target_tokens` cannot see themselves
@@ -78,7 +85,7 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
     Thus there will be no `-1`s in the final tensor. 
     """
     self_rev_index = torch.where(target_tokens, rev_index, rev_index + 1)
-    print("self_rev_index:", self_rev_index)
+    print("self_rev_index:\n", np.array(self_rev_index))
     
     # 1: cannot attend if i <= j and j is not non-masked (masked_or_func_tokens)
     # 0: can attend if i > j or j is non-masked
@@ -88,13 +95,13 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
     at `j`. If `i <= j` in the permutation order, then we cannot see it, and if j is masked, we cannot see it. 
     Otherwise, we can see it.  
     """
-    print("self_rev_index[:, None]:", self_rev_index[:, None])
-    print("rev_index[None, :]:", rev_index[None, :])
-    print("<=", (self_rev_index[:, None] <= rev_index[None, :]))
+    print("self_rev_index[:, None]:\n", np.array(self_rev_index[:, None]))
+    print("rev_index[None, :]:\n", np.array(rev_index[None, :]))
+    print("<=\n", np.array(self_rev_index[:, None] <= rev_index[None, :]))
     perm_mask = (self_rev_index[:, None] <= rev_index[None, :]) & masked_or_func_tokens
-    print("perm_mask:", perm_mask)
+    print("perm_mask:\n", np.array(perm_mask))
     perm_mask = perm_mask.float()
-    print("perm_mask:", perm_mask)
+    # print("perm_mask:\n", np.array(perm_mask))
     
     # new target: [next token] for LM and [curr token] (self) for PLM
     new_targets = torch.cat([inputs[0: 1], targets[: -1]], 0)
