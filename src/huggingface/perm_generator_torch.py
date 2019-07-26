@@ -2,7 +2,7 @@ import os
 import torch
 import numpy as np
 import tensorflow as tf
-np.random.seed(45)
+np.random.seed(89)
 
 DEBUG = False
 
@@ -26,6 +26,7 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
     # Generate permutation indices
     assert seq_len % perm_size == 0
     perm = torch.randperm(perm_size).int()
+    np.random.seed(59)
     perm = torch.IntTensor(np.random.permutation(perm_size)) # Numpy version.
     repeats = int(seq_len / perm_size)
     perm_portions = [perm + i * perm_size for i in range(repeats)]
@@ -93,8 +94,7 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
     Otherwise, we can see it.  
     """
     perm_mask = (self_rev_index[:, None] <= rev_index[None, :]) & masked_or_func_tokens
-    # perm_mask = perm_mask.float()
-    perm_mask = perm_mask.int()
+    perm_mask = perm_mask.float()
     # print("perm_mask:\n", np.array(perm_mask))
     
     # new target: [next token] for LM and [curr token] (self) for PLM
@@ -169,10 +169,13 @@ def _local_perm_tf(inputs, targets, is_masked, perm_size, seq_len):
     index = tf.reshape(tf.transpose(index), [-1])
 
     # Numpy version. 
+    np.random.seed(59)
     perm = np.random.permutation(perm_size)
     repeats = int(seq_len / perm_size)
     perm_portions = [tf.constant(perm + i * perm_size) for i in range(repeats)] 
     index = tf.concat(perm_portions, axis=0)
+
+    # print("Permutation indices:", copy_index.eval())
 
     # `perm_mask` and `target_mask`
     # non-functional tokens
@@ -243,28 +246,11 @@ def _local_perm_tf(inputs, targets, is_masked, perm_size, seq_len):
     perm_mask = tf.logical_and(
     self_rev_index[:, None] <= rev_index[None, :],
     masked_or_func_tokens)
-    # perm_mask = tf.cast(perm_mask, tf.float32)
-    perm_mask = tf.cast(perm_mask, tf.int32)
+    perm_mask = tf.cast(perm_mask, tf.float32)
     
     # new target: [next token] for LM and [curr token] (self) for PLM
     new_targets = tf.concat([inputs[0: 1], targets[: -1]],
     axis=0)
-    
-    if DEBUG:
-        print("permutation index:", np.array(index))
-        print("Non functional tokens:", np.array(non_func_tokens))
-        print("Non masked tokens:", np.array(non_mask_tokens))
-        print("masked or func tokens:", np.array(masked_or_func_tokens))
-        print("smallest_index:\n", np.array(smallest_index))
-        print("rev_index:\n", np.array(rev_index))
-        print("target_tokens:\n", np.array(target_tokens))
-        print("target_mask:\n", np.array(target_mask))
-        print("self_rev_index:\n", np.array(self_rev_index))
-        print("self_rev_index[:, None]:\n", np.array(self_rev_index[:, None]))
-        print("rev_index[None, :]:\n", np.array(rev_index[None, :]))
-        print("<=\n", np.array(self_rev_index[:, None] <= rev_index[None, :]))
-        print("perm_mask:\n", np.array(perm_mask))
-        print("new_targets:", new_targets)
     
     # construct inputs_k
     inputs_k = inputs
@@ -275,8 +261,8 @@ def _local_perm_tf(inputs, targets, is_masked, perm_size, seq_len):
     return perm_mask, new_targets, target_mask, inputs_k, inputs_q
 
 if __name__ == "__main__":
-    perm_size = 4
-    seq_len = 8
+    perm_size = 40
+    seq_len = 800
     input_array = np.random.permutation(seq_len) # Numpy version.
     target_array = np.random.permutation(seq_len) # Numpy version.
     bool_array = np.random.permutation(seq_len) # Numpy version.
@@ -297,14 +283,18 @@ if __name__ == "__main__":
         inputs = tf.constant(input_array)
         targets = tf.constant(target_array)
         is_masked = tf.constant([False if i % 2 == 0 else True for i in bool_array], bool)
-        print(inputs.eval())
-        print(targets.eval())
-        print(is_masked.eval())
+        # print("inputs_tf:", inputs.eval())
+        # print("targets_tf:", targets.eval())
+        print("is_masked_tf:", is_masked.eval())
     
         perm_mask_tf, new_targets_tf, target_mask_tf, inputs_k_tf, inputs_q_tf = _local_perm_tf(inputs, targets, is_masked, perm_size, seq_len)
 
         print(perm_mask.shape)
         print(perm_mask_tf.shape)
-        print(np.array(perm_mask))
-        print(np.array(perm_mask_tf.eval()))
+        print("final perm_mask_torch:\n", np.array(perm_mask))
+        print("final perm_mask_tf:\n", np.array(perm_mask_tf.eval()))
         np.testing.assert_almost_equal(np.array(perm_mask), np.array(perm_mask_tf.eval()))
+        np.testing.assert_almost_equal(np.array(new_targets), np.array(new_targets_tf.eval()))
+        np.testing.assert_almost_equal(np.array(target_mask), np.array(target_mask_tf.eval()))
+        np.testing.assert_almost_equal(np.array(inputs_k), np.array(inputs_k_tf.eval()))
+        np.testing.assert_almost_equal(np.array(inputs_q), np.array(inputs_q_tf.eval()))
