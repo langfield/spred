@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 import os
 
 def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
@@ -44,7 +45,16 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
     index = tf.transpose(tf.reshape(index, [-1, perm_size]))
     index = tf.random_shuffle(index)
     index = tf.reshape(tf.transpose(index), [-1])
+
+    # Numpy version. 
+    perm = np.random.permutation(perm_size)
+    repeats = int(seq_len / perm_size)
+    perm_portions = [tf.constant(perm + i * perm_size) for i in range(repeats)] 
+    index = tf.concat(perm_portions, axis=0)
+
+
     print("Permutation indices:", index.eval())
+    # print("Permutation indices:", copy_index.eval())
 
     # `perm_mask` and `target_mask`
     # non-functional tokens
