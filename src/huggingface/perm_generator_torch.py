@@ -16,6 +16,10 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
     """
     
     # Generate permutation indices
+    print(np.random.shuffle(np.array(range(perm_size))))
+
+    return 
+
     index = torch.Tensor([i for i in range(seq_len)])
     print("index:", index)
     index = torch.transpose(index.view(-1, perm_size), 0, 1)
