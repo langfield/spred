@@ -148,10 +148,10 @@ if __name__ == "__main__":
     os.environ["CUDA_VISIBLE_DEVICES"]="-1"  
     sess = tf.Session()
     with sess.as_default():
-        inputs = tf.constant([3,4,5,6,7,8])
-        targets = tf.constant([3,4,5,6,7,8])
-        is_masked = tf.constant([False, False, False, False, False, True], bool)
-        perm_size = 1
-        seq_len = 6
+        perm_size = 6
+        seq_len = 30
+        inputs = tf.constant([i for i in range(seq_len)])
+        targets = tf.constant([i for i in range(seq_len)])
+        is_masked = tf.constant([False for i in range(seq_len)], bool)
         _local_perm(inputs, targets, is_masked, perm_size, seq_len)
         
