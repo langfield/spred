@@ -86,6 +86,9 @@ class XLSpredDataset(Dataset):
         # shape(seq_len, feature_count)
         sample = self.tensor_data[self.seq_len*item:self.seq_len*item+self.seq_len]
 
+        # combine to one sample
+        cur_example = InputExample(guid=cur_id, sample=sample)
+
         # transform sample to features
         cur_features = convert_example_to_features(cur_example, self.seq_len, self.tokenizer)
 
@@ -97,6 +100,22 @@ class XLSpredDataset(Dataset):
 
         return cur_tensors
 
+
+class InputExample(object):
+    """A single training/test example for the language model."""
+
+    def __init__(self, guid, sample, lm_labels=None):
+        """Constructs a InputExample.
+
+        Args:
+            guid: Unique id for the example.
+            sample: tensor. The sample sequence.
+            label: (Optional) string. The label of the example. This should be
+            specified for train and dev examples, but not for test examples.
+        """
+        self.guid = guid
+        self.sample = sample
+        self.lm_labels = lm_labels  # masked words for language model
 
 class InputFeatures(object):
     """A single set of features of data."""
