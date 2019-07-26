@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import os
+np.random.seed(45)
 
 def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
     """
@@ -154,14 +155,19 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
     return perm_mask, new_targets, target_mask, inputs_k, inputs_q
 
 if __name__ == "__main__":
+    perm_size = 4
+    seq_len = 8
+    input_array = np.random.permutation(seq_len) # Numpy version.
+    target_array = np.random.permutation(seq_len) # Numpy version.
+    bool_array = np.random.permutation(seq_len) # Numpy version.
 
     os.environ["CUDA_VISIBLE_DEVICES"]="-1"  
     sess = tf.Session()
     with sess.as_default():
-        perm_size = 6
-        seq_len = 30
-        inputs = tf.constant([i for i in range(seq_len)])
-        targets = tf.constant([i for i in range(seq_len)])
-        is_masked = tf.constant([False for i in range(seq_len)], bool)
-        _local_perm(inputs, targets, is_masked, perm_size, seq_len)
-        
+        inputs = tf.constant(input_array)
+        targets = tf.constant(target_array)
+        is_masked = tf.constant([False if i % 2 == 0 else True for i in bool_array], bool)
+        perm_mask_tf, new_targets_tf, target_mask_tf, inputs_k_tf, inputs_q_tf = _local_perm(inputs, targets, is_masked, perm_size, seq_len)
+        print("inputs:", inputs.eval())
+        print("is_masked:", is_masked.eval())
+        print("final perm_mask:\n", np.array(perm_mask_tf.eval()))
