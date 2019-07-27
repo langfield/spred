@@ -91,6 +91,12 @@ class XLSpredDataset(Dataset):
         # shape(seq_len, feature_count)
         # -2 to account for separators
         sample = np.arange(self.seq_len*item,self.seq_len*item+self.seq_len - 2)
+        #===DEBUG===
+        print("")
+        print("96: seq_len:", self.seq_len)
+        print("97: item:", item)
+        print("98: sample:\n", sample)
+        #===DEBUG===
 
         # combine to one sample
         cur_example = InputExample(guid=cur_id, sample=sample.tolist())
@@ -101,9 +107,7 @@ class XLSpredDataset(Dataset):
         # TODO: convert row indices to data tensors
         cur_tensors = (torch.tensor(cur_features.input_ids),
                        torch.tensor(cur_features.input_mask),
-                       torch.tensor(cur_features.segment_ids),
-                       torch.tensor(cur_features.lm_label_ids),
-                       torch.tensor(cur_features.is_next))
+                       torch.tensor(cur_features.lm_label_ids))
 
         return cur_tensors
 
@@ -138,6 +142,7 @@ def random_word(tokens, num_rows):
     Masking some random tokens for Language Model task with probabilities 
     as in the original BERT paper.
     :param tokens: list of row indices for sequence data.
+    :param num_rows: number of rows in the entire dataset. 
     :return: list of masked row indices, list of unmasked row indices
     """
 
@@ -159,7 +164,7 @@ def random_word(tokens, num_rows):
 
             # -> rest 10% randomly keep current token
 
-            # append the unmasked token to output_lables
+            # append the unmasked token to output_labels
             output_label.append(token)
         else:
             # no masking token (will be ignored by loss function later)
@@ -185,11 +190,11 @@ def convert_example_to_features(example, max_seq_length, num_rows):
 
     # Mask random tokens (words) in the sequences and return the corresponding
     # label (indices) list 
-    sample = random_word(example.sample, num_rows)
+    input_ids, lm_label_ids = random_word(example.sample, num_rows)
     # account for CLS, SEP 
     # a label is an index for a vocab word
-    input_ids = ([CLS_ID] + sample + [SEP_ID])
-    lm_label_ids = ([-1] + sample + [-1])
+    input_ids = ([CLS_ID] + input_ids + [SEP_ID])
+    lm_label_ids = ([-1] + lm_label_ids + [-1])
 
     # The mask has 1 for real tokens and 0 for padding tokens. Only real
     # tokens are attended to.
