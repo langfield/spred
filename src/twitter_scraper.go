@@ -43,14 +43,25 @@ func main() {
         temp.datetime = e.ChildAttr("span[data-long-form=\"true\"]", "data-time")
 
         tweets = append(tweets, temp)
-		fmt.Println(temp.text)
-        fmt.Println(tweetData)
+		// fmt.Println(temp.text)
+        // fmt.Println(tweetData)
         fmt.Println(temp.datetime)
+        minTweetID = ""
 	})
+
+    c.OnResponse(func(e *colly.Response) {
+        fmt.Println("Got response.")
+    })
 
 	c.OnHTML(".stream-container", func(e *colly.HTMLElement) {
 		minTweetID = e.Attr("data-min-position")
 		minTweetID = minTweetID[:len(minTweetID)-1]
+        fmt.Println("minTweetID: " + minTweetID)
+	})
+
+    c.OnHTML("", func(e *colly.HTMLElement) {
+		body := e.ChildText("body")
+        fmt.Println("minTweetID: " + body)
 	})
 
 	// Set max Parallelism and introduce a Random Delay
@@ -67,12 +78,16 @@ func main() {
 	c.Wait()
 
 	for i := 0; i < *tweetPagePtr - 1; i++ {
+        /*
 		btc := "https://twitter.com/search?f=tweets&vertical=news&q=" +
                 *hashtagPtr + "&src=typd&include_available_features=1&" +
                 "include_entities=1&max_position=" + minTweetID +
                 "&reset_error_state=false"
+        */
+        fmt.Println("btc " + btc)
 		c.Visit(btc)
 		c.Wait()
+        fmt.Println("Iteration" + strconv.Itoa(i))
 	}
 
 	// print results
