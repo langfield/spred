@@ -1,3 +1,6 @@
+import numpy as np
+import random
+
 """
     REFER TO `create_tfrecords.py`. 
     `data`: a np.array of token ids with shape `(data_len,)` (one row in batch).  
@@ -8,6 +11,8 @@
         to `reuse_len`. Incremented by `reuse_len` on each call to this function.
     `tot_len`: integer set to `seq_len` - `reuse_len` - 3. Constant across all calls.   
 """
+
+
 def _split_a_and_b(data, sent_ids, begin_idx, tot_len, extend_target=False):
   """Split two segments from `data` starting from the index `begin_idx`."""
 
@@ -27,8 +32,7 @@ def _split_a_and_b(data, sent_ids, begin_idx, tot_len, extend_target=False):
       cut_points.append(end_idx) # `cut_points` is all the first positions of sents. 
     end_idx += 1
 
-  # `end_idx` is now equal to `begin_idx` + `tot_len`. 
-
+  # `end_idx` is now equal to `begin_idx` + `tot_len`.
   a_begin = begin_idx
   if len(cut_points) == 0 or random.random() < 0.5:
     label = 0
@@ -36,6 +40,7 @@ def _split_a_and_b(data, sent_ids, begin_idx, tot_len, extend_target=False):
       a_end = end_idx
     else:
       a_end = random.choice(cut_points)
+
 
     b_len = max(1, tot_len - (a_end - a_begin))
     # (zihang): `data_len - 1` to account for extend_target
@@ -48,6 +53,16 @@ def _split_a_and_b(data, sent_ids, begin_idx, tot_len, extend_target=False):
       b_end += 1
 
     new_begin = a_end
+    print("begin_idx:", begin_idx) 
+    print("end_idx:", end_idx) 
+    print("tot_len:", tot_len)
+    print("a_end - a_begin:", a_end - a_begin) 
+    print("b_len:", b_len) 
+    print("b_begin:", b_begin) 
+    print("b_end:", b_end) 
+    #===MOD===
+    return
+    #===MOD===
   else:
     label = 1
     a_end = random.choice(cut_points)
@@ -76,3 +91,12 @@ def _split_a_and_b(data, sent_ids, begin_idx, tot_len, extend_target=False):
     ret.extend([a_target, b_target])
 
   return ret
+
+if __name__ == "__main__":
+    data = [i for i in range(60)]
+    sent_ids = [True for i in range(60)]
+    data = np.array(data)
+    sent_ids = np.array(sent_ids)
+    begin_idx = 3
+    tot_len = 3
+    _split_a_and_b(data, sent_ids, begin_idx, tot_len, True)
