@@ -26,7 +26,7 @@ from io import open
 
 import numpy as np
 import torch
-from perm_generator_torch import _local_perm
+from perm_generator import _local_perm
 from torch.utils.data import DataLoader, Dataset, RandomSampler
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange
@@ -438,7 +438,8 @@ def main():
                                            lm_label_row, 
                                            input_mask_row.byte(), 
                                            args.max_seq_length, 
-                                           args.max_seq_length) 
+                                           args.max_seq_length,
+                                           device) 
                     perm_mask_row, new_target_row, target_mask_row, _, _ = perm_row
                     perm_mask.append(perm_mask_row)
                     new_targets.append(new_target_row)
@@ -448,12 +449,14 @@ def main():
                 new_targets = torch.stack(new_targets)
                 target_mask = torch.stack(target_mask)
                 #=======PERM GENERATOR========
-                print('input_ids', input_ids.shape)
-                print('lm_label_ids', lm_label_ids.shape)
-                print('input_mask', input_mask.shape)
-                print('perm_mask', perm_mask.shape)
-                print('new_targets', new_targets.shape, new_targets)
-                print('target_mask', target_mask.shape, target_mask)
+                print('input_ids shape:', input_ids.shape)
+                print('lm_label_ids shape:', lm_label_ids.shape)
+                print('input_mask shape:', input_mask.shape)
+                print('perm_mask shape:', perm_mask.shape)
+                print('new_targets shape:', new_targets.shape)
+                print('target_mask shape:', target_mask.shape)
+                print('new_targets:\n', new_targets)
+                print('target_mask:\n', target_mask)
 
                 outputs = model(input_ids, None, None, input_mask, None, perm_mask, target_mask)
                 loss = outputs[0]
