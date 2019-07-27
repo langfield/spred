@@ -18,15 +18,15 @@ def batchify(data, bsz_per_host, sent_ids=None):
 
 def create_tfrecords(save_dir, basename, data, bsz_per_host, seq_len,
                      bi_data, sp):
-  data, sent_ids = data[0], data[1] # Both 1-dimensional, with shape `(len(data),)`. 
-  # len(data) == len(sent_ids)
+  data, sent_ids = data[0], data[1] # Both 1-dimensional, with shape `(orig_data_len,)`. 
+  # len(data) == len(sent_ids) == orig_data_len
   # `sent_ids` is an np.array of booleans for one input_path. It alternates between `True` and `False`
   #       on line/sentence breaks, and when a document ends if we are using EOD.  
 
   num_core = FLAGS.num_core_per_host
   bsz_per_core = bsz_per_host // num_core
 
-  # The `batchify` function makes `data` 2-dimensional. 
+  # The `batchify` function makes `data` 2-dimensional.  
   if bi_data:
     assert bsz_per_host % (2 * FLAGS.num_core_per_host) == 0
     fwd_data, fwd_sent_ids = batchify(data, bsz_per_host // 2, sent_ids)
@@ -44,9 +44,10 @@ def create_tfrecords(save_dir, basename, data, bsz_per_host, seq_len,
   else:
     data, sent_ids = batchify(data, bsz_per_host, sent_ids)
 
-  # `data` has shape `(batch_size, batched_data_len)`
-  # `sent_ids` has shape `(batch_size, batched_data_len)`
-  # `batched_data_len` = `orig_data_len` // `batch_size`. 
+  # `data` has shape `(batch_size, data_len)`
+  # `sent_ids` has shape `(batch_size, data_len)`
+  # `batched_data_len` = `orig_data_len` // `batch_size`.
+  # SHAPE MAPPING: (orig_data_len,) --> (batch_size, orig_data_len)   
 
   tf.logging.info("Raw data shape %s.", data.shape)
 
@@ -90,7 +91,7 @@ def create_tfrecords(save_dir, basename, data, bsz_per_host, seq_len,
       results = _split_a_and_b(
           data[idx],
           sent_ids[idx],
-          begin_idx=i + reuse_len,
+          begin_idx=i + reuse_len, 
           tot_len=seq_len - reuse_len - 3,
           extend_target=True)
       if results is None:
