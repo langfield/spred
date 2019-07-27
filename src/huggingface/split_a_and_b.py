@@ -12,7 +12,6 @@ import random
     `tot_len`: integer set to `seq_len` - `reuse_len` - 3. Constant across all calls.   
 """
 
-
 def _split_a_and_b(data, sent_ids, begin_idx, tot_len, extend_target=False):
   """Split two segments from `data` starting from the index `begin_idx`."""
 
@@ -53,16 +52,6 @@ def _split_a_and_b(data, sent_ids, begin_idx, tot_len, extend_target=False):
       b_end += 1
 
     new_begin = a_end
-    print("begin_idx:", begin_idx) 
-    print("end_idx:", end_idx) 
-    print("tot_len:", tot_len)
-    print("a_end - a_begin:", a_end - a_begin) 
-    print("b_len:", b_len) 
-    print("b_begin:", b_begin) 
-    print("b_end:", b_end) 
-    #===MOD===
-    return
-    #===MOD===
   else:
     label = 1
     a_end = random.choice(cut_points)
@@ -77,6 +66,18 @@ def _split_a_and_b(data, sent_ids, begin_idx, tot_len, extend_target=False):
       a_end -= 1
     else:
       b_end -= 1
+  print("begin_idx:", begin_idx) 
+  print("end_idx:", end_idx) 
+  print("tot_len:", tot_len)
+  print("a_end - a_begin:", a_end - a_begin) 
+  print("b_len:", b_len) 
+  print("a_begin:", a_begin)
+  print("a_end:", a_end)
+  print("b_begin:", b_begin) 
+  print("b_end:", b_end) 
+  #===MOD===
+  return
+  #===MOD===
 
   ret = [data[a_begin: a_end], data[b_begin: b_end], label, new_begin]
 
