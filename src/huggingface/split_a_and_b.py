@@ -109,23 +109,9 @@ def _split_a_and_b(data, sent_ids, begin_idx, tot_len, extend_target=False):
     a_target = data[a_begin + 1: a_end + 1]
     b_target = data[b_begin: b_end + 1]
     ret.extend([a_target, b_target])
-    """
-    print("begin_idx:", begin_idx) 
-    print("end_idx:", end_idx) 
-    print("tot_len:", tot_len)
-    print("a_end - a_begin:", a_end - a_begin) 
-    print("b_len:", b_len) 
-    print("a_begin:", a_begin)
-    print("a_end:", a_end)
-    print("b_begin:", b_begin) 
-    print("b_end:", b_end)
-    """
     print("a_target:", a_target)
     print("b_target:", b_target)
     print("data_len - 1 - b_len:", data_len - 1 - b_len)
-    #===MOD===
-    return
-    #===MOD===
 
   return ret
 
