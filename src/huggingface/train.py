@@ -26,6 +26,7 @@ from io import open
 
 import numpy as np
 import torch
+from perm_generator_torch import _local_perm
 from torch.utils.data import DataLoader, Dataset, RandomSampler
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange
@@ -408,7 +409,7 @@ def main():
             # (it doesn't return item back by index)
             train_sampler = DistributedSampler(train_dataset)
         train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
-
+        print('batch', args.train_batch_size)
         model.train()
         for _ in trange(int(args.num_train_epochs), desc="Epoch"):
             tr_loss = 0
@@ -427,14 +428,20 @@ def main():
                 #=======PERM GENERATOR========
                 perm_out = _local_perm(input_ids, 
                                        lm_label_ids, 
-                                       input_mask, 
+                                       input_mask.byte(), 
                                        args.max_seq_length, 
                                        args.max_seq_length) 
                 #=======PERM GENERATOR========
-                perm_mask, new_targets, target_mask, inputs_k, inputs_q = perm_out
+                perm_mask, new_targets, target_mask, _, _ = perm_out
+                print('input_ids', input_ids.shape)
+                print(input_ids)
+                print('lm_label_ids', lm_label_ids.shape)
+                print('input_mask', input_mask.shape)
+                print('perm_mask', perm_mask.shape)
+                print('new_targets', new_targets.shape)
+                print('target_mask', target_mask.shape)
 
-
-                outputs = model(input_ids, None, input_mask, lm_label_ids)
+                outputs = model(input_ids, None, None, input_mask, None, perm_mask, target_mask)
                 loss = outputs[0]
                 if n_gpu > 1:
                     loss = loss.mean() # mean() to average on multi-gpu.
