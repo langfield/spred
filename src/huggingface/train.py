@@ -93,10 +93,10 @@ class XLSpredDataset(Dataset):
         # -2 to account for separators
         sample = np.arange(self.seq_len*item,self.seq_len*item+self.seq_len - 2)
         #===DEBUG===
-        print("")
-        print("96: seq_len:", self.seq_len)
-        print("97: item:", item)
-        print("98: sample:\n", sample)
+        # print("")
+        # print("96: seq_len:", self.seq_len)
+        # print("97: item:", item)
+        # print("98: sample:\n", sample)
         #===DEBUG===
 
         # combine to one sample
@@ -439,22 +439,21 @@ def main():
                                            input_mask_row.byte(), 
                                            args.max_seq_length, 
                                            args.max_seq_length) 
-                    perm_mask_row, new_target_row, target_mask_row, _, _ = perm_out
+                    perm_mask_row, new_target_row, target_mask_row, _, _ = perm_row
                     perm_mask.append(perm_mask_row)
                     new_targets.append(new_target_row)
                     target_mask.append(target_mask_row)
 
-                perm_mask = torch.Tensor(perm_mask)
-                new_targets = torch.Tensor(new_targets)
-                target_mask = torch.Tensor(target_mask)
+                perm_mask = torch.stack(perm_mask)
+                new_targets = torch.stack(new_targets)
+                target_mask = torch.stack(target_mask)
                 #=======PERM GENERATOR========
                 print('input_ids', input_ids.shape)
-                print(input_ids)
                 print('lm_label_ids', lm_label_ids.shape)
                 print('input_mask', input_mask.shape)
                 print('perm_mask', perm_mask.shape)
-                print('new_targets', new_targets.shape)
-                print('target_mask', target_mask.shape)
+                print('new_targets', new_targets.shape, new_targets)
+                print('target_mask', target_mask.shape, target_mask)
 
                 outputs = model(input_ids, None, None, input_mask, None, perm_mask, target_mask)
                 loss = outputs[0]
