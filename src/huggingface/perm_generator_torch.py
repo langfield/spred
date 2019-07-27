@@ -30,7 +30,7 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
     perm = torch.IntTensor(np.random.permutation(perm_size)) # Numpy version.
     repeats = int(seq_len / perm_size)
     perm_portions = [perm + i * perm_size for i in range(repeats)]
-    index = torch.cat(perm_portions, 0)
+    index = torch.cat(perm_portions, 0).cuda()
     
     # `perm_mask` and `target_mask`
     # non-functional tokens
@@ -39,7 +39,7 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
     """
     Non-masked AND non-functional tokens. 
     """ 
-    non_mask_tokens = ~is_masked & non_func_tokens
+    non_mask_tokens = (~is_masked & non_func_tokens).cuda()
     masked_or_func_tokens = ~non_mask_tokens
       
     # Set the permutation indices of non-masked (& non-funcional) tokens to the
@@ -52,7 +52,7 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len):
     EXAMPLE:
         [-1, -1, -1, -1, -1].
     """
-    smallest_index = torch.IntTensor([-1 for i in range(seq_len)])
+    smallest_index = torch.IntTensor([-1 for i in range(seq_len)]).cuda()
 
     """
     Gets the indices of the sequence via `index`, and sets all the
