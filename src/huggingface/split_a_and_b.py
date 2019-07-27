@@ -16,6 +16,9 @@ def _split_a_and_b(data, sent_ids, begin_idx, tot_len, extend_target=False):
 
   data_len = data.shape[0]
   if begin_idx + tot_len >= data_len:
+    print("[_split_a_and_b] returns None: "
+                    "begin_idx %d + tot_len %d >= data_len %d",
+                    begin_idx, tot_len, data_len)
     tf.logging.info("[_split_a_and_b] returns None: "
                     "begin_idx %d + tot_len %d >= data_len %d",
                     begin_idx, tot_len, data_len)
@@ -96,6 +99,9 @@ def _split_a_and_b(data, sent_ids, begin_idx, tot_len, extend_target=False):
 
   if extend_target:
     if a_end >= data_len or b_end >= data_len:
+      print("[_split_a_and_b] returns None: "
+                      "a_end %d or b_end %d >= data_len %d",
+                      a_end, b_end, data_len)
       tf.logging.info("[_split_a_and_b] returns None: "
                       "a_end %d or b_end %d >= data_len %d",
                       a_end, b_end, data_len)
@@ -124,13 +130,14 @@ def _split_a_and_b(data, sent_ids, begin_idx, tot_len, extend_target=False):
   return ret
 
 if __name__ == "__main__":
-    data_len = 60
-    seq_len = 30
-    reuse_len = 15
+    data_len = 120
+    seq_len = 60
+    reuse_len = 30
     tot_len = seq_len - reuse_len - 3
     print("seq_len:", seq_len)
     print("reuse_len:", reuse_len)
     print("tot_len:", tot_len)
+    print("len(a) + len(b) == tot_len ==", tot_len)
 
     data = [i for i in range(data_len)]
     sent_ids = [True for i in range(data_len)]
