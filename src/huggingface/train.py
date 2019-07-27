@@ -426,13 +426,28 @@ def main():
                 #   `lm_label_ids` --> `targets`
                 #   `input_mask` --> `is_masked`
                 #=======PERM GENERATOR========
-                perm_out = _local_perm(input_ids, 
-                                       lm_label_ids, 
-                                       input_mask.byte(), 
-                                       args.max_seq_length, 
-                                       args.max_seq_length) 
+                perm_mask = []
+                new_targets = []
+                target_mask = []
+                for i in range(len(input_ids)):
+                    input_row = input_ids[i]
+                    lm_label_row = lm_label_ids[i]
+                    input_mask_row = input_mask[i]
+                    
+                    perm_row = _local_perm(input_row, 
+                                           lm_label_row, 
+                                           input_mask_row.byte(), 
+                                           args.max_seq_length, 
+                                           args.max_seq_length) 
+                    perm_mask_row, new_target_row, target_mask_row, _, _ = perm_out
+                    perm_mask.append(perm_mask_row)
+                    new_targets.append(new_target_row)
+                    target_mask.append(target_mask_row)
+
+                perm_mask = torch.Tensor(perm_mask)
+                new_targets = torch.Tensor(new_targets)
+                target_mask = torch.Tensor(target_mask)
                 #=======PERM GENERATOR========
-                perm_mask, new_targets, target_mask, _, _ = perm_out
                 print('input_ids', input_ids.shape)
                 print(input_ids)
                 print('lm_label_ids', lm_label_ids.shape)
