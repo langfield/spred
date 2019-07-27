@@ -416,6 +416,24 @@ def main():
             for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration")):
                 batch = tuple(t.to(device) for t in batch)
                 input_ids, input_mask, lm_label_ids = batch
+                
+                # We use `input_ids`, `input_mask`, and `lm_label_ids` as arguments for
+                # `perm_generator_torch` function, which yields `perm_mask` and `target_mapping`.  
+                # 
+                # ARGUMENT MAPPING FOR `perm_generator_torch`. 
+                #   `input_ids` --> `inputs`
+                #   `lm_label_ids` --> `targets`
+                #   `input_mask` --> `is_masked`
+                #=======PERM GENERATOR========
+                perm_out = _local_perm(input_ids, 
+                                       lm_label_ids, 
+                                       input_mask, 
+                                       args.max_seq_length, 
+                                       args.max_seq_length) 
+                #=======PERM GENERATOR========
+                perm_mask, new_targets, target_mask, inputs_k, inputs_q = perm_out
+
+
                 outputs = model(input_ids, None, input_mask, lm_label_ids)
                 loss = outputs[0]
                 if n_gpu > 1:
