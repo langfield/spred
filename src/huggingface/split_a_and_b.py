@@ -21,10 +21,13 @@ def _split_a_and_b(data, sent_ids, begin_idx, tot_len, extend_target=False):
   end_idx = begin_idx + 1
   cut_points = []
   while end_idx < data_len:
+    # Checking if `end_idx` is the first pos in a new sentence.
     if sent_ids[end_idx] != sent_ids[end_idx - 1]:
       if end_idx - begin_idx >= tot_len: break
-      cut_points.append(end_idx)
+      cut_points.append(end_idx) # `cut_points` is all the first positions of sents. 
     end_idx += 1
+
+  # `end_idx` is now equal to `begin_idx` + `tot_len`. 
 
   a_begin = begin_idx
   if len(cut_points) == 0 or random.random() < 0.5:

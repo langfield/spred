@@ -47,7 +47,7 @@ def create_tfrecords(save_dir, basename, data, bsz_per_host, seq_len,
   # `data` has shape `(batch_size, data_len)`
   # `sent_ids` has shape `(batch_size, data_len)`
   # `batched_data_len` = `orig_data_len` // `batch_size`.
-  # SHAPE MAPPING: (orig_data_len,) --> (batch_size, orig_data_len)   
+  # SHAPE MAPPING: (orig_data_len,) --> (batch_size, data_len)   
 
   tf.logging.info("Raw data shape %s.", data.shape)
 
