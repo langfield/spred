@@ -1,6 +1,12 @@
 """
-    `data`: a single row from the dataset. 
-    `sent_ids`: 
+    REFER TO `create_tfrecords.py`. 
+    `data`: a np.array of token ids with shape `(data_len,)` (one row in batch).  
+    `sent_ids`: a np.array of booleans for one input_path. It alternates between `True` and `False`
+        on line/sentence breaks, and when a document ends if we are using EOD. 
+        Has shape `(data_len,)`.
+    `begin_idx`: an integer representing where we are along `data`. Initialized
+        to `reuse_len`. Incremented by `reuse_len` on each call to this function.
+    `tot_len`: integer set to `seq_len` - `reuse_len` - 3. Constant across all calls.   
 """
 def _split_a_and_b(data, sent_ids, begin_idx, tot_len, extend_target=False):
   """Split two segments from `data` starting from the index `begin_idx`."""
