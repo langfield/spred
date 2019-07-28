@@ -449,9 +449,16 @@ def main():
                 new_targets = torch.stack(new_targets)
                 target_mask = torch.stack(target_mask)
 
-                # indices = torch.arange(0, max_seq_length)
-                # bool_target_mask = target_mask.byte()
-                # indices = indices[bool_target_mask]
+                indices = torch.arange(0, max_seq_length)
+                bool_target_mask = target_mask.byte()
+                indices = indices[bool_target_mask]
+
+                # extra padding due to CLS/SEP introduced after prepro
+                actual_num_predict = indices.shape[0]
+                pad_len = max_seq_length - actual_num_predict
+
+                # target mapping
+                
 
                 #=======PERM GENERATOR========
                 print('input_ids shape:', input_ids.shape)
