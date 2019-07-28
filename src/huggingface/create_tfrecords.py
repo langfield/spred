@@ -1,11 +1,12 @@
 import tensorflow as tf
 
 #========1=========2=========3=========4=========5=========6=========7=========8=========9=========0
+# A ``bsz_per_host`` of ``5`` should yield ``5`` sequence rows.
 
 def batchify(data, bsz_per_host, sent_ids=None):
-  num_step = len(data) // bsz_per_host  # Number of timesteps per batch. 
+  num_step = len(data) // bsz_per_host  # Number of batches.
   data = data[:bsz_per_host * num_step] # Truncate the data so that it's evenly divisble by bsz. 
-  data = data.reshape(bsz_per_host, num_step)
+  data = data.reshape(bsz_per_host, num_step) # ``bsz_per_host`` is measured in rows. 
   if sent_ids is not None:
     sent_ids = sent_ids[:bsz_per_host * num_step]
     sent_ids = sent_ids.reshape(bsz_per_host, num_step)
