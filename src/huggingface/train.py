@@ -45,6 +45,7 @@ UNK_ID = -9996
 SEP_ID = -9997
 CLS_ID = -9998
 MASK_ID = -9999
+NUM_PREDICT = 12345
 
 class XLSpredDataset(Dataset):
     def __init__(self, corpus_path, seq_len, encoding="utf-8", corpus_lines=None, on_memory=True):
@@ -427,21 +428,70 @@ def main():
                 #   `lm_label_ids` --> `targets`
                 #   `input_mask` --> `is_masked`
                 #=======PERM GENERATOR========
+                
+
                 perm_mask = []
                 new_targets = []
                 target_mask = []
                 target_mappings = []
                 for i in range(len(input_ids)):
+                    #TODO figure out batch indices in further uses of batch
+                    inp = batch[i, step: step + reuse_len]
+                    tgt = batch[i, step + 1: step + reuse_len + 1]
+
+                    results = _split_a_and_b(
+                        batch[i],
+                        sent_ids[i],
+                        begin_idx=step + reuse_len,
+                        tot_len=seq_len - reuse_len - 3,
+                        extend_target=True)
+                    if results is None:
+                        tf.logging.info("Break out with seq idx %d", step)
+                        all_ok = False
+                        break
+
+                    # unpack the results
+                    (a_data, b_data, label, _, a_target, b_target) = tuple(results)
+                    
+                    # sample ngram spans to predict
+                    reverse = bi_data and (i // (bsz_per_core // 2)) % 2 == 1
+
+                    num_predict_1 = NUM_PREDICT // 2
+                    num_predict_0 = NUM_PREDICT - num_predict_1
+                    
+                    mask_0 = _sample_mask(inp, reverse=reverse,
+                                goal_num_predict=num_predict_0)
+                    mask_1 = _sample_mask(torch.cat([a_data, sep_array, b_data,
+                                                                sep_array, cls_array]),
+                                            reverse=reverse, goal_num_predict=num_predict_1)
+
+                    # concatenate data
+                    cat_data = torch.cat([inp, a_data, sep_array, b_data,
+                                                sep_array, cls_array])
+                    seg_id = torch.tensor([0] * (reuse_len + a_data.shape[0]) + [0] +
+                                [1] * b_data.shape[0] + [1] + [2])
+                    assert cat_data.shape[0] == seq_len
+                    assert mask_0.shape[0] == seq_len // 2
+                    assert mask_1.shape[0] == seq_len // 2
+
+                    # the last two CLS's are not used, just for padding purposes
+                    tgt = torch.cat([tgt, a_target, b_target, cls_array, cls_array])
+                    assert tgt.shape[0] == seq_len
+
+                    is_masked = torch.cat([mask_0, mask_1], 0)
                     input_row = input_ids[i]
                     lm_label_row = lm_label_ids[i]
-                    input_mask_row = input_mask[i]
+                    # input_mask pads up to seq_len, but as we are using a fixed
+                    # seq_len, the mask is trivial
+                    #input_mask_row = input_mask[i]
+                    is_masked_row = is_masked[i]
                     
                     perm_row = _local_perm(input_row, 
                                            lm_label_row, 
                                            input_mask_row.byte(), 
                                            seq_len, 
                                            seq_len,
-                                           device) 
+                                           device)
                     perm_mask_row, new_target_row, target_mask_row, _, _ = perm_row
                     perm_mask.append(perm_mask_row)
                     new_targets.append(new_target_row)
@@ -504,7 +554,7 @@ def main():
                     If ``target_mapping[k, i, j] = 1``, the i-th predict in batch k is on the j-th token.
                     Only used during pretraining for partial prediction or for sequential decoding (generation).
                 """
-                outputs = model(input_ids, None, None, input_mask, None, perm_mask, target_mask)
+                outputs = model(input_ids, None, None, input_mask, None, perm_mask, target_mappings)
                 loss = outputs[0]
                 if n_gpu > 1:
                     loss = loss.mean() # mean() to average on multi-gpu.
