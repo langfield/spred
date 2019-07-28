@@ -9,7 +9,7 @@ Inputs:
     **goal_num_predict**: ``int``:
         Number of chars for partial prediction.  
 """
-def _sample_mask(sp, seg, reverse=False, max_gram=5, goal_num_predict=None):
+def _sample_mask(seg, reverse=False, max_gram=5, goal_num_predict=None):
   """Sample `goal_num_predict` chars for partial prediction.
   About `mask_beta` chars are chosen in a context of `mask_alpha` chars."""
 
@@ -53,8 +53,6 @@ def _sample_mask(sp, seg, reverse=False, max_gram=5, goal_num_predict=None):
 
     # Find the start position of a complete token (working with char_ids). 
     beg = cur_len + l_ctx
-    while beg < seg_len and not _is_start_piece(sp.IdToPiece(seg[beg].item())):
-      beg += 1
     if beg >= seg_len:
       break
 
@@ -64,10 +62,9 @@ def _sample_mask(sp, seg, reverse=False, max_gram=5, goal_num_predict=None):
     while end < seg_len:
       # Ultimately break outer loop if seg[beg] is not beginning of an n-gram, 
       # since we must be near end of sequence. 
-      if _is_start_piece(sp.IdToPiece(seg[beg].item())):
-        cnt_ngram += 1
-        if cnt_ngram > n:
-          break
+      cnt_ngram += 1
+      if cnt_ngram > n:
+        break
       end += 1
     if end >= seg_len:
       break
