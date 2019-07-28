@@ -434,14 +434,13 @@ def main():
                 new_targets = []
                 target_mask = []
                 target_mappings = []
-                for i in range(len(input_ids)):
-                    #TODO figure out batch indices in further uses of batch
-                    inp = batch[i, step: step + reuse_len]
-                    tgt = batch[i, step + 1: step + reuse_len + 1]
+                for idx in range(len(input_ids)):
+                    inp = batch[idx, step: step + reuse_len]
+                    tgt = batch[idx, step + 1: step + reuse_len + 1]
 
                     results = _split_a_and_b(
-                        batch[i],
-                        sent_ids[i],
+                        batch[idx],
+                        sent_ids[idx],
                         begin_idx=step + reuse_len,
                         tot_len=seq_len - reuse_len - 3,
                         extend_target=True)
@@ -454,16 +453,21 @@ def main():
                     (a_data, b_data, label, _, a_target, b_target) = tuple(results)
                     
                     # sample ngram spans to predict
-                    reverse = bi_data and (i // (bsz_per_core // 2)) % 2 == 1
+                    reverse = bi_data and (idx // (bsz_per_core // 2)) % 2 == 1
 
                     num_predict_1 = NUM_PREDICT // 2
                     num_predict_0 = NUM_PREDICT - num_predict_1
                     
-                    mask_0 = _sample_mask(inp, reverse=reverse,
-                                goal_num_predict=num_predict_0)
-                    mask_1 = _sample_mask(torch.cat([a_data, sep_array, b_data,
-                                                                sep_array, cls_array]),
-                                            reverse=reverse, goal_num_predict=num_predict_1)
+                    mask_0 = _sample_mask(inp,
+                                          reverse=reverse,
+                                          goal_num_predict=num_predict_0)
+                    mask_1 = _sample_mask(torch.cat([a_data,
+                                                     sep_array,
+                                                     b_data,
+                                                     sep_array,
+                                                     cls_array]),
+                                          reverse=reverse, 
+                                          goal_num_predict=num_predict_1)
 
                     # concatenate data
                     cat_data = torch.cat([inp, a_data, sep_array, b_data,
@@ -479,17 +483,16 @@ def main():
                     assert tgt.shape[0] == seq_len
 
                     is_masked = torch.cat([mask_0, mask_1], 0)
-                    input_row = input_ids[i]
-                    lm_label_row = lm_label_ids[i]
+                    input_row = input_ids[idx]
+                    lm_label_row = lm_label_ids[idx]
                     # input_mask pads up to seq_len, but as we are using a fixed
                     # seq_len, the mask is trivial
                     #input_mask_row = input_mask[i]
-                    is_masked_row = is_masked[i]
                     
                     perm_row = _local_perm(input_row, 
                                            lm_label_row, 
-                                           input_mask_row.byte(), 
-                                           seq_len, 
+                                           is_masked.byte(),
+                                           seq_len,
                                            seq_len,
                                            device)
                     perm_mask_row, new_target_row, target_mask_row, _, _ = perm_row
