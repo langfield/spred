@@ -457,7 +457,30 @@ def main():
                 print('target_mask shape:', target_mask.shape)
                 print('new_targets:\n', new_targets)
                 print('target_mask:\n', target_mask)
+                """
+                **input_ids**: ``torch.LongTensor`` of shape ``(batch_size, sequence_length)``:
+                    Indices of input sequence tokens in the vocabulary.
+                    Indices can be obtained using :class:`pytorch_transformers.XLNetTokenizer`.
+                    See :func:`pytorch_transformers.PreTrainedTokenizer.encode` and
+                    :func:`pytorch_transformers.PreTrainedTokenizer.convert_tokens_to_ids` for details.
 
+                **attention_mask**: (`optional`) ``torch.FloatTensor`` of shape ``(batch_size, sequence_length)``:
+                    Mask to avoid performing attention on padding token indices.
+                    Mask values selected in ``[0, 1]``:
+                    ``1`` for tokens that are NOT MASKED, ``0`` for MASKED tokens.
+
+                **perm_mask**: (`optional`) ``torch.FloatTensor`` of shape ``(batch_size, sequence_length, sequence_length)``:
+                    Mask to indicate the attention pattern for each input token with values selected in ``[0, 1]``:
+                    If ``perm_mask[k, i, j] = 0``, i attend to j in batch k;
+                    if ``perm_mask[k, i, j] = 1``, i does not attend to j in batch k.
+                    If None, each token attends to all the others (full bidirectional attention).
+                    Only used during pretraining (to define factorization order) or for sequential decoding (generation).
+                
+                **target_mapping**: (`optional`) ``torch.FloatTensor`` of shape ``(batch_size, num_predict, sequence_length)``:
+                    Mask to indicate the output tokens to use.
+                    If ``target_mapping[k, i, j] = 1``, the i-th predict in batch k is on the j-th token.
+                    Only used during pretraining for partial prediction or for sequential decoding (generation).
+                """
                 outputs = model(input_ids, None, None, input_mask, None, perm_mask, target_mask)
                 loss = outputs[0]
                 if n_gpu > 1:
