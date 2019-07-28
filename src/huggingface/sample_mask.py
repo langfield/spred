@@ -1,3 +1,8 @@
+"""
+Inputs:
+    **seg**: ``torch.Tensor`` of shape ``(reuse_len,)`` or ``(seq_len - reuse_len,)``:
+        The segment of a single row of one batch of input_ids.  
+"""
 def _sample_mask(sp, seg, reverse=False, max_gram=5, goal_num_predict=None):
   """Sample `goal_num_predict` tokens for partial prediction.
   About `mask_beta` tokens are chosen in a context of `mask_alpha` tokens."""
