@@ -27,6 +27,7 @@ from io import open
 import numpy as np
 import torch
 from perm_generator import _local_perm
+from split_a_and_b_torch import _split_a_and_b
 from torch.utils.data import DataLoader, Dataset, RandomSampler
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange
@@ -437,10 +438,8 @@ def main():
                 for idx in range(len(input_ids)):
                     inp = batch[idx, step: step + reuse_len]
                     tgt = batch[idx, step + 1: step + reuse_len + 1]
-
                     results = _split_a_and_b(
                         batch[idx],
-                        sent_ids[idx],
                         begin_idx=step + reuse_len,
                         tot_len=seq_len - reuse_len - 3,
                         extend_target=True)
