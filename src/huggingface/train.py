@@ -448,7 +448,7 @@ def main():
                     # target_mask.append(target_mask_row)
                     
                     indices = torch.arange(0, seq_len)
-                    bool_target_mask = target_mask.byte()
+                    bool_target_mask = target_mask_row.byte()
                     # Has length equal to num `True` vals in `bool_target_mask` : <= seq_len
                     indices = indices[bool_target_mask] 
 
