@@ -1,0 +1,3 @@
+Move the permutation logic (how we take in a sequence, split it, get a sample mask, permute it, and generate ``target_mapping`) into the ``XLSpredDataset`` class. 
+Convert the token/row_id tensors into raw data (price features) tensors. 
+We need to make sure our looping logic over batches makes sense, and aligns with ``data_utils.py`` looping from original XLNet repo. Note that the original repo has us looping over ``data_len`` first, and then the batch ``idx``. 
