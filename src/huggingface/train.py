@@ -448,6 +448,11 @@ def main():
                 perm_mask = torch.stack(perm_mask)
                 new_targets = torch.stack(new_targets)
                 target_mask = torch.stack(target_mask)
+
+                # indices = torch.arange(0, max_seq_length)
+                # bool_target_mask = target_mask.byte()
+                # indices = indices[bool_target_mask]
+
                 #=======PERM GENERATOR========
                 print('input_ids shape:', input_ids.shape)
                 print('lm_label_ids shape:', lm_label_ids.shape)
