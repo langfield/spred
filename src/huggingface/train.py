@@ -410,7 +410,8 @@ def main():
             train_sampler = DistributedSampler(train_dataset)
         train_dataloader = DataLoader(train_dataset, sampler=train_sampler, batch_size=args.train_batch_size)
         print('batch', args.train_batch_size)
-        model.train()
+        model.train()        
+        seq_len = args.max_seq_length
         for _ in trange(int(args.num_train_epochs), desc="Epoch"):
             tr_loss = 0
             nb_tr_examples, nb_tr_steps = 0, 0
@@ -429,6 +430,7 @@ def main():
                 perm_mask = []
                 new_targets = []
                 target_mask = []
+                target_mappings = []
                 for i in range(len(input_ids)):
                     input_row = input_ids[i]
                     lm_label_row = lm_label_ids[i]
@@ -437,32 +439,36 @@ def main():
                     perm_row = _local_perm(input_row, 
                                            lm_label_row, 
                                            input_mask_row.byte(), 
-                                           args.max_seq_length, 
-                                           args.max_seq_length,
+                                           seq_len, 
+                                           seq_len,
                                            device) 
                     perm_mask_row, new_target_row, target_mask_row, _, _ = perm_row
                     perm_mask.append(perm_mask_row)
                     new_targets.append(new_target_row)
-                    target_mask.append(target_mask_row)
+                    # target_mask.append(target_mask_row)
+                    
+                    indices = torch.arange(0, seq_len)
+                    bool_target_mask = target_mask.byte()
+                    # Has length equal to num `True` vals in `bool_target_mask` : <= seq_len
+                    indices = indices[bool_target_mask] 
+
+                    # extra padding due to CLS/SEP introduced after prepro
+                    actual_num_predict = indices.shape[0]
+                    pad_len = seq_len - actual_num_predict
+
+                    # target mapping
+                    inp = indices % max_seq_len
+                    inp_ = torch.unsqueeze(inp, 1)
+                    target_mapping = torch.FloatTensor(index_len, seq_len).zero_()
+                    target_mapping.scatter_(1, inp_, 1) # Shape: (actual_num_predict, seq_len)
+                    target_mappings.append(target_mapping)
 
                 perm_mask = torch.stack(perm_mask)
                 new_targets = torch.stack(new_targets)
                 target_mask = torch.stack(target_mask)
+                # Shape: (bsz, actual_num_predict, seq_len)
+                target_mappings = torch.stack(target_mappings) 
 
-                indices = torch.arange(0, max_seq_length)
-                bool_target_mask = target_mask.byte()
-                # Has length equal to num `True` vals in `bool_target_mask` : <= max_seq_length 
-                indices = indices[bool_target_mask] 
-
-                # extra padding due to CLS/SEP introduced after prepro
-                actual_num_predict = indices.shape[0]
-                pad_len = max_seq_length - actual_num_predict
-
-                # target mapping
-                inp = indices % max_seq_len
-                inp_ = torch.unsqueeze(inp, 1)
-                target_mapping = torch.FloatTensor(index_len, seq_len).zero_()
-                target_mapping.scatter_(1, inp_, 1) # Shape: (actual_num_predict, max_seq_length)
                 
 
                 #=======PERM GENERATOR========
