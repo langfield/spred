@@ -36,6 +36,8 @@ from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME
 from pytorch_transformers.modeling_xlnet import XLNetModel, XLNetConfig
 from pytorch_transformers.optimization import AdamW, WarmupLinearSchedule
 
+from sample_mask_spred import _sample_mask
+
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt='%m/%d/%Y %H:%M:%S',
                     level=logging.INFO)
