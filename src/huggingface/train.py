@@ -451,13 +451,18 @@ def main():
 
                 indices = torch.arange(0, max_seq_length)
                 bool_target_mask = target_mask.byte()
-                indices = indices[bool_target_mask]
+                # Has length equal to num `True` vals in `bool_target_mask` : <= max_seq_length 
+                indices = indices[bool_target_mask] 
 
                 # extra padding due to CLS/SEP introduced after prepro
                 actual_num_predict = indices.shape[0]
                 pad_len = max_seq_length - actual_num_predict
 
                 # target mapping
+                inp = indices % max_seq_len
+                inp_ = torch.unsqueeze(inp, 1)
+                target_mapping = torch.FloatTensor(index_len, seq_len).zero_()
+                target_mapping.scatter_(1, inp_, 1)
                 
 
                 #=======PERM GENERATOR========
