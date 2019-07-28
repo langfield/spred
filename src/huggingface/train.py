@@ -462,7 +462,7 @@ def main():
                 inp = indices % max_seq_len
                 inp_ = torch.unsqueeze(inp, 1)
                 target_mapping = torch.FloatTensor(index_len, seq_len).zero_()
-                target_mapping.scatter_(1, inp_, 1)
+                target_mapping.scatter_(1, inp_, 1) # Shape: (actual_num_predict, max_seq_length)
                 
 
                 #=======PERM GENERATOR========
