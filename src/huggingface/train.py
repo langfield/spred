@@ -669,7 +669,9 @@ def main():
                 print("target_mappings type:", target_mappings.type()) 
             
                 outputs = model(inputs, inputs_raw, None, None, None, None, perm_mask, target_mappings)
-                # print("outputs:", outputs)
+                print("outputs[0][0]", outputs[0][0])
+                print("outputs[1]", outputs[1])
+                print("outputs len", len(outputs))
                 print("outputs[0] shape:", outputs[0].shape)
                 loss = outputs[0]
                 if n_gpu > 1:
