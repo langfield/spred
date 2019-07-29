@@ -88,7 +88,7 @@ class XLSpredDataset(Dataset):
 
         # convert data to tensor of shape(rows, features)
         self.tensor_data = torch.tensor(self.raw_data.iloc[:,[7,8]].values)
-        self.features = self.create_features(self.tensor_data.shape[0])
+        self.features = self.create_features(self.tensor_data)
         print('len of features', len(self.features))
 
     def __len__(self):
@@ -97,10 +97,12 @@ class XLSpredDataset(Dataset):
     def __getitem__(self, item):
         return self.features[item]
 
-    def create_features(self, original_data_len):
+    def create_features(self, tensor_data):
         """
-        Returns a list of features of the form (input, is_masked, target, seg_id, label).
+        Returns a list of features of the form 
+        (input, input_raw, is_masked, target, seg_id, label).
         """
+        original_data_len = self.tensor_data.shape[0]
         seq_len = self.seq_len
         num_predict = self.num_predict
         batch_size = self.data_batch_size
@@ -175,7 +177,12 @@ class XLSpredDataset(Dataset):
                 mask_0 = torch.Tensor(mask_0)
                 mask_1 = torch.Tensor(mask_1)
                 is_masked = torch.cat([mask_0, mask_1], 0)
-                features.append((cat_data, is_masked, tgt, seg_id, label))
+                print('cat_data', cat_data)
+                print('is_masked', is_masked)
+                
+                input_raw = torch.where(cat_data>=0, tensor_data, cat_data)#tensor_data[cat_data]
+                
+                features.append((cat_data, input_raw, is_masked, tgt, seg_id, label))
                 
             if not all_ok:
                 break
