@@ -80,44 +80,15 @@ class XLSpredDataset(Dataset):
     def __len__(self):
         # number of sequences = number of data points / sequence length
         # note: remainder data points will not be used
-        return self.tensor_data.shape[0]//self.seq_len
+        return len(self.features)
 
     def __getitem__(self, item):
-        # item is an index 0-__len__() where __len__ is the number of sequences
-        # of length number of data points//seq_len
-        cur_id = self.sample_counter
-        self.sample_counter += 1
-        if not self.on_memory:
-            # after one epoch we start again from beginning of file
-            if cur_id != 0 and (cur_id % len(self) == 0):
-                self.file.close()
-                self.file = open(self.corpus_path, "r", encoding=self.encoding)
-
-        assert item < self.__len__()
-        # shape(seq_len, feature_count)
-        # -2 to account for separators
-        sample = np.arange(self.seq_len*item,self.seq_len*item+self.seq_len - 2)
-        #===DEBUG===
-        # print("")
-        # print("96: seq_len:", self.seq_len)
-        # print("97: item:", item)
-        # print("98: sample:\n", sample)
-        #===DEBUG===
-
-        # combine to one sample
-        cur_example = InputExample(guid=cur_id, sample=sample.tolist())
-
-        # transform sample to features
-        cur_features = convert_example_to_features(cur_example, self.seq_len, self.__len__())
-
-        # TODO: convert row indices to data tensors
-        cur_tensors = (torch.tensor(cur_features.input_ids),
-                       torch.tensor(cur_features.input_mask),
-                       torch.tensor(cur_features.lm_label_ids))
-
-        return cur_tensors
+        return self.features[item]
 
     def create_features(original_data_len, batch_size, seq_len, reuse_len):
+        """
+        Return a list of features of the form (input, is_masked, target, seg_id, label)
+        """
         # batchify the tensor as done in original xlnet implementation
         # This splits our data into shape(batch_size, data_len)
         # NOTE: data holds indices--not raw data
@@ -128,8 +99,8 @@ class XLSpredDataset(Dataset):
 
         all_ok = True
         i = 0
+        features = []
         while i + seq_len <= data_len:
-            features = []
             for idx in range(len(input_ids)):
                 inp = data[idx, i: i + reuse_len]
                 tgt = data[idx, i + 1: i + reuse_len + 1]
@@ -178,16 +149,10 @@ class XLSpredDataset(Dataset):
                 is_masked = torch.cat([mask_0, mask_1], 0)
                 features.append((cat_data, is_masked, tgt, seg_id, label))
                 
-            if all_ok:
-                assert len(features) == bsz_per_host
-                for feature in features:
-                    example = tf.train.Example(features=tf.train.Features(feature=feature))
-                    record_writer.write(example.SerializeToString())
-                num_batch += 1
-            else:
+            if not all_ok:
                 break
 
-                i += reuse_len
+            i += reuse_len
         
         return features
 
