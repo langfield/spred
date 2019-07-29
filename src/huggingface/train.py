@@ -60,10 +60,10 @@ class XLSpredDataset(Dataset):
         self.current_doc = 0  # to avoid random sentence from same doc
         self.sample_counter = 0
 
-        # load samples into memory
+        # Load samples into memory from file.
         self.raw_data = pd.read_csv(corpus_path)
 
-        # add and adjust columns
+        # Add and adjust columns.
         self.raw_data["Average"] = (self.raw_data["High"] + self.raw_data["Low"])/2
         self.raw_data['Volume'] = self.raw_data['Volume'] + 0.000001 # Avoid NaNs
         self.raw_data["Average_ld"] = (np.log(self.raw_data['Average']) - 
@@ -76,9 +76,8 @@ class XLSpredDataset(Dataset):
         self.tensor_data = torch.tensor(self.raw_data.iloc[:,[7,8]].values)
         self.features = create_features(self.tensor_data.shape[0], 5, 10, 5)
 
-
     def __len__(self):
-        # number of sequences = number of data points / sequence length
+        # ``__len__`` = ``orig_data_len // seq_len``.
         # note: remainder data points will not be used
         return len(self.features)
 
@@ -568,8 +567,6 @@ def main():
                 target_mask = torch.stack(target_mask)
                 # Shape: (bsz, actual_num_predict, seq_len)
                 target_mappings = torch.stack(target_mappings) 
-
-                
 
                 #=======PERM GENERATOR========
                 print('input_ids shape:', input_ids.shape)
