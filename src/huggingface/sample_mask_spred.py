@@ -1,3 +1,7 @@
+import numpy as np
+
+MASK_ALPHA = 6
+MASK_BETA = 1
 """
 Inputs:
     **seg**: ``torch.Tensor`` of shape ``(reuse_len,)`` or ``(seq_len - reuse_len,)``:
@@ -38,7 +42,7 @@ def _sample_mask(seg, reverse=False, max_gram=5, goal_num_predict=None):
     # ``FLAGS.mask_beta`` chars from this window. The context is the set of all
     # chars we don't mask, thus the ``ctx_size`` is 
     #       ``(n * FLAGS.mask_alpha) // FLAGS.mask_beta``. 
-    ctx_size = (n * FLAGS.mask_alpha) // FLAGS.mask_beta # Set to 6, 1, respectively. 
+    ctx_size = (n * MASK_ALPHA) // MASK_BETA # Set to 6, 1, respectively. 
     l_ctx = np.random.choice(ctx_size)  # Rand num in [0,ctx_size)
     r_ctx = ctx_size - l_ctx             
     # We are partitioning ``ctx_size``. 
