@@ -404,6 +404,10 @@ class XLNetRelativeAttention(nn.Module):
         ac = torch.einsum('ibnd,jbnd->ijbn', q_head + self.r_w_bias, k_head_h)
 
         # position based attention score
+        print("q_head + ... shape:", (q_head + self.r_r_bias).shape)
+        print("q_head shape:", (q_head).shape)
+        print("self.r_r_bias shape:", (self.r_r_bias).shape)
+        print("k_head_r shape:", k_head_r.shape)
         bd = torch.einsum('ibnd,jbnd->ijbn', q_head + self.r_r_bias, k_head_r)
         bd = self.rel_shift(bd, klen=ac.shape[1])
 
@@ -467,10 +471,18 @@ class XLNetRelativeAttention(nn.Module):
             v_head_h = torch.einsum('ibh,hnd->ibnd', cat, self.v)
 
             # position-based key head
+            #===DEBUG===
+            print("r:", r.shape)
+            print("self.r:", self.r.shape)
+            #===DEBUG=== 
             k_head_r = torch.einsum('ibh,hnd->ibnd', r, self.r)
 
             ##### h-stream
             # content-stream query head
+            #===DEBUG===
+            print("h:", h.shape)
+            print("self.q:", self.q.shape)
+            #===DEBUG=== 
             q_head_h = torch.einsum('ibh,hnd->ibnd', h, self.q)
 
             # core attention ops
@@ -824,7 +836,9 @@ class XLNetModel(XLNetPreTrainedModel):
             beg, end = klen, -1
         else:
             raise ValueError('Unknown `attn_type` {}.'.format(self.attn_type))
-
+        #===DEBUG===
+        print("bi_data:", self.bi_data)
+        #===DEBUG===
         if self.bi_data:
             fwd_pos_seq = torch.arange(beg, end, -1.0, dtype=torch.float)
             bwd_pos_seq = torch.arange(-beg, -end, 1.0, dtype=torch.float)
@@ -871,6 +885,7 @@ class XLNetModel(XLNetPreTrainedModel):
         #===MOD===
         # COMMENT OUT SINCE PASSING EMBEDDINGS DIRECTLY: input_ids = input_ids.transpose(0, 1).contiguous()
         input_ids = input_ids.transpose(0, 1).contiguous()
+        inputs_raw = inputs_raw.permute(1, 0, 2).contiguous() if inputs_raw is not None else None
         #===MOD===
         token_type_ids = token_type_ids.transpose(0, 1).contiguous() if token_type_ids is not None else None
         input_mask = input_mask.transpose(0, 1).contiguous() if input_mask is not None else None
@@ -918,8 +933,8 @@ class XLNetModel(XLNetPreTrainedModel):
             #===DEBUG===
             # ``data_mask`` is ``perm_mask``, and so should have shape 
             # ``(seq_len, seq_len, batch_size)`` because of the permute operation above.
-            print("data_mask shape:", data_mask.shape)
-            print("mems_mask shape:", mems_mask.shape)
+            # print("data_mask shape:", data_mask.shape)
+            # print("mems_mask shape:", mems_mask.shape)
             #===DEBUG===
             data_mask = torch.cat([mems_mask, data_mask], dim=1)
             if attn_mask is None:
@@ -974,6 +989,12 @@ class XLNetModel(XLNetPreTrainedModel):
         ##### Positional encoding
         pos_emb = self.relative_positional_encoding(qlen, klen, bsz=bsz)
         pos_emb = self.dropout(pos_emb)
+        #===DEBUG===
+        print("pos emb shape:", pos_emb.shape)
+        print("bsz:", bsz)
+        print("qlen:", qlen)
+        print("klen:", klen)
+        #===DEBUG===
 
         # Prepare head mask if needed
         # 1.0 in head_mask indicate we keep the head
@@ -1002,6 +1023,9 @@ class XLNetModel(XLNetPreTrainedModel):
             if self.output_hidden_states:
                 hidden_states.append((output_h, output_g) if output_g is not None else output_h)
 
+            #==DEBUG===
+            print("output_h:", output_h.shape)
+            #==DEBUG===
             outputs = layer_module(output_h, output_g, attn_mask_h=non_tgt_mask, attn_mask_g=attn_mask,
                                    r=pos_emb, seg_mat=seg_mat, mems=mems[i], target_mapping=target_mapping,
                                    head_mask=head_mask[i])
@@ -1014,6 +1038,9 @@ class XLNetModel(XLNetPreTrainedModel):
             hidden_states.append((output_h, output_g) if output_g is not None else output_h)
 
         output = self.dropout(output_g if output_g is not None else output_h)
+        #==DEBUG===
+        print("output shape after dropout:", output.shape)
+        #==DEBUG===
 
         # Prepare outputs, we transpose back here to shape [bsz, len, hidden_dim] (cf. beginning of forward() method)
         outputs = (output.permute(1, 0, 2).contiguous(), new_mems)
