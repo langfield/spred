@@ -61,20 +61,21 @@ class XLSpredDataset(Dataset):
         self.sample_counter = 0
 
         # load samples into memory
-        self.data = pd.read_csv(corpus_path)
+        self.raw_data = pd.read_csv(corpus_path)
 
         # add and adjust columns
-        self.data["Average"] = (self.data["High"] + self.data["Low"])/2
-        self.data['Volume'] = self.data['Volume'] + 0.000001 # Avoid NaNs
-        self.data["Average_ld"] = (np.log(self.data['Average']) - 
-                                    np.log(self.data['Average']).shift(1))
-        self.data["Volume_ld"] = (np.log(self.data['Volume']) - 
-                                   np.log(self.data['Volume']).shift(1))
-        self.data = self.data[1:]
-        # print(self.data.head(2))
+        self.raw_data["Average"] = (self.raw_data["High"] + self.raw_data["Low"])/2
+        self.raw_data['Volume'] = self.raw_data['Volume'] + 0.000001 # Avoid NaNs
+        self.raw_data["Average_ld"] = (np.log(self.raw_data['Average']) - 
+                                    np.log(self.raw_data['Average']).shift(1))
+        self.raw_data["Volume_ld"] = (np.log(self.raw_data['Volume']) - 
+                                   np.log(self.raw_data['Volume']).shift(1))
+        self.raw_data = self.raw_data[1:]
 
-        self.tensor_data = torch.tensor(self.data.iloc[:,[7,8]].values)
-        print('tensor data', self.tensor_data)
+        # convert data to tensor of shape(rows, features)
+        self.tensor_data = torch.tensor(self.raw_data.iloc[:,[7,8]].values)
+        self.features = create_features(self.tensor_data.shape[0], 5, 10, 5)
+
 
     def __len__(self):
         # number of sequences = number of data points / sequence length
@@ -116,6 +117,80 @@ class XLSpredDataset(Dataset):
 
         return cur_tensors
 
+    def create_features(original_data_len, batch_size, seq_len, reuse_len):
+        # batchify the tensor as done in original xlnet implementation
+        # This splits our data into shape(batch_size, data_len)
+        # NOTE: data holds indices--not raw data
+        data = torch.tensor(batchify(np.arange(0, original_data_len), batch_size))
+        data_len = data.shape[1]
+        sep_array = torch.tensor(np.array([SEP_ID], dtype=np.int64))
+        cls_array = torch.tensor(np.array([CLS_ID], dtype=np.int64))
+
+        all_ok = True
+        i = 0
+        while i + seq_len <= data_len:
+            features = []
+            for idx in range(len(input_ids)):
+                inp = data[idx, i: i + reuse_len]
+                tgt = data[idx, i + 1: i + reuse_len + 1]
+                results = _split_a_and_b(
+                    batch[idx],
+                    begin_idx=i + reuse_len,
+                    tot_len=seq_len - reuse_len - 3,
+                    extend_target=True)
+                if results is None:
+                    all_ok = False
+                    break
+
+                # unpack the results
+                (a_data, b_data, label, _, a_target, b_target) = tuple(results)
+                
+                # sample ngram spans to predict
+                reverse = bi_data and (idx // (bsz_per_core // 2)) % 2 == 1
+
+                num_predict_1 = NUM_PREDICT // 2
+                num_predict_0 = NUM_PREDICT - num_predict_1
+                
+                mask_0 = _sample_mask(inp,
+                                      reverse=reverse,
+                                      goal_num_predict=num_predict_0)
+                mask_1 = _sample_mask(torch.cat([a_data,
+                                                 sep_array,
+                                                 b_data,
+                                                 sep_array,
+                                                 cls_array]),
+                                      reverse=reverse, 
+                                      goal_num_predict=num_predict_1)
+
+                # concatenate data
+                cat_data = torch.cat([inp, a_data, sep_array, b_data,
+                                            sep_array, cls_array])
+                seg_id = torch.tensor([0] * (reuse_len + a_data.shape[0]) + [0] +
+                                      [1] * b_data.shape[0] + [1] + [2])
+                assert cat_data.shape[0] == seq_len
+                assert mask_0.shape[0] == seq_len // 2
+                assert mask_1.shape[0] == seq_len // 2
+
+                # the last two CLS's are not used, just for padding purposes
+                tgt = torch.cat([tgt, a_target, b_target, cls_array, cls_array])
+                assert tgt.shape[0] == seq_len
+
+                is_masked = torch.cat([mask_0, mask_1], 0)
+                features.append((cat_data, is_masked, tgt, seg_id, label))
+                
+            if all_ok:
+                assert len(features) == bsz_per_host
+                for feature in features:
+                    example = tf.train.Example(features=tf.train.Features(feature=feature))
+                    record_writer.write(example.SerializeToString())
+                num_batch += 1
+            else:
+                break
+
+                i += reuse_len
+        
+        return features
+
 
 class InputExample(object):
     """A single training/test example for the language model."""
@@ -141,6 +216,12 @@ class InputFeatures(object):
         self.input_mask = input_mask
         self.lm_label_ids = lm_label_ids
 
+def batchify(data, batch_size):
+    num_step = len(data) // batch_size
+    data = data[:batch_size * num_step]
+    data = data.reshape(batch_size, num_step)
+
+    return data
 
 def random_word(tokens, num_rows):
     """
@@ -437,6 +518,7 @@ def main():
                 new_targets = []
                 target_mask = []
                 target_mappings = []
+                # loop over batches
                 for idx in range(len(input_ids)):
                     inp = batch[idx, step: step + reuse_len]
                     tgt = batch[idx, step + 1: step + reuse_len + 1]
@@ -446,7 +528,6 @@ def main():
                         tot_len=seq_len - reuse_len - 3,
                         extend_target=True)
                     if results is None:
-                        tf.logging.info("Break out with seq idx %d", step)
                         all_ok = False
                         break
 
