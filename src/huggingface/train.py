@@ -553,7 +553,7 @@ def main():
                 print("\n\n =========================")
                 print("Batch length:", len(batch))
                 # print("Batch contents:", batch)
-                print("batch[0]:", batch[0])
+                # print("batch[0]:", batch[0])
                 print("len(batch[0]):", len(batch[0]))
                 print("input.shape:", batch[0].shape)
                 print("is_masked.shape:", batch[1].shape)
