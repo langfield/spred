@@ -20,6 +20,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 import argparse
 import logging
 import os
+import sys
 import random
 import pandas as pd
 from io import open
@@ -51,8 +52,21 @@ MASK_ID = -9999
 NUM_PREDICT = 12345
 
 class XLSpredDataset(Dataset):
-    def __init__(self, corpus_path, seq_len, encoding="utf-8", corpus_lines=None, on_memory=True):
+    def __init__(self, 
+                 corpus_path, 
+                 seq_len, 
+                 num_predict,
+                 batch_size,
+                 reuse_len,
+                 encoding="utf-8", 
+                 corpus_lines=None, 
+                 on_memory=True):
+
         self.seq_len = seq_len
+        self_num_predict = num_predict
+        self.batch_size = batch_size
+        self.reuse_len = reuse_len
+
         self.on_memory = on_memory
         self.corpus_lines = corpus_lines  # number of non-empty lines in input corpus
         self.corpus_path = corpus_path
@@ -74,10 +88,7 @@ class XLSpredDataset(Dataset):
 
         # convert data to tensor of shape(rows, features)
         self.tensor_data = torch.tensor(self.raw_data.iloc[:,[7,8]].values)
-        BATCH_SIZE = 5
-        SEQ_LEN = 10
-        REUSE_LEN = 5
-        self.features = create_features(self.tensor_data.shape[0], BATCH_SIZE, SEQ_LEN, REUSE_LEN)
+        self.features = create_features(self.tensor_data.shape[0])
 
     def __len__(self):
         return len(self.features)
@@ -85,14 +96,19 @@ class XLSpredDataset(Dataset):
     def __getitem__(self, item):
         return self.features[item]
 
-    def create_features(original_data_len, batch_size, seq_len, reuse_len):
+    def create_features(original_data_len):
         """
         Returns a list of features of the form (input, is_masked, target, seg_id, label).
         """
+        seq_len = self.seq_len
+        num_predict = self.num_predict
+        batch_size = self.batch_size
+        reuse_len = self.reuse_len
+
         # batchify the tensor as done in original xlnet implementation
         # This splits our data into shape(batch_size, data_len)
         # NOTE: data holds indices--not raw data
-        # TODO: Add ``bi_data`` block from ``data_utils.py``.  
+        # TODO: Add ``bi_data`` block from ``data_utils.py``. 
         data = torch.tensor(batchify(np.arange(0, original_data_len), batch_size))
         data_len = data.shape[1]
         sep_array = torch.tensor(np.array([SEP_ID], dtype=np.int64))
@@ -122,9 +138,9 @@ class XLSpredDataset(Dataset):
                 # TODO: Add ``bi_data`` stuff above. 
                 reverse = bi_data and (idx // (bsz_per_core // 2)) % 2 == 1
 
-                # TODO: Pass in ``NUM_PREDICT`` as an argument or class var?
-                num_predict_1 = NUM_PREDICT // 2
-                num_predict_0 = NUM_PREDICT - num_predict_1
+                # TODO: Pass in ``num_predict`` as an argument or class var?
+                num_predict_1 = num_predict // 2
+                num_predict_0 = num_predict - num_predict_1
                 
                 mask_0 = _sample_mask(inp,
                                       reverse=reverse,
@@ -346,6 +362,14 @@ def main():
                         type=int,
                         default=42,
                         help="random seed for initialization")
+    parser.add_argument('--num_predict',
+                        type=int,
+                        default=32,
+                        help="number of tokens to predict in a sequence")
+    parser.add_argument('--reuse_len',
+                        type=int,
+                        default=64,
+                        help="amount of context to reuse for recurrent memory")
     parser.add_argument('--gradient_accumulation_steps',
                         type=int,
                         default=1,
@@ -397,8 +421,13 @@ def main():
     num_train_optimization_steps = None
     if args.do_train:
         print("Loading Train Dataset", args.train_corpus)
-        train_dataset = XLSpredDataset(args.train_corpus, seq_len=args.max_seq_length,
-                                    corpus_lines=None, on_memory=args.on_memory)
+        train_dataset = XLSpredDataset(args.train_corpus, 
+                                       seq_len=args.max_seq_length,
+                                       num_predict=args.num_predict,
+                                       batch_size=args.train_batch_size,
+                                       reuse_len=args.reuse_len,
+                                       corpus_lines=None, 
+                                       on_memory=args.on_memory) 
         num_train_optimization_steps = int(
             len(train_dataset) / args.train_batch_size / args.gradient_accumulation_steps) * args.num_train_epochs
         if args.local_rank != -1:
@@ -470,6 +499,8 @@ def main():
             nb_tr_examples, nb_tr_steps = 0, 0
             for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration")):
                 batch = tuple(t.to(device) for t in batch)
+
+                print("Batch length:", len(batch))
                 input_ids, input_mask, lm_label_ids = batch
                 
                 # We use `input_ids`, `input_mask`, and `lm_label_ids` as arguments for
