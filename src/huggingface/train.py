@@ -668,6 +668,7 @@ def main():
                 print("perm_mask type:", perm_mask.type())
                 print("target_mappings type:", target_mappings.type()) 
             
+                # TODO: add the target argument to the forward call
                 outputs = model(inputs, inputs_raw, None, None, None, None, perm_mask, target_mappings)
                 print("outputs[0][0]", outputs[0][0])
                 print("outputs[1]", outputs[1])
