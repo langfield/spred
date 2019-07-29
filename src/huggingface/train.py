@@ -594,10 +594,10 @@ def main():
                                            device)
                     perm_mask_1, target_1, target_mask_1, _, _ = perm_1
 
-                    perm_mask_0 = torch.cat([perm_mask_0, torch.ones([reuse_len, non_reuse_len])], 
+                    perm_mask_0 = torch.cat([perm_mask_0, torch.ones([reuse_len, non_reuse_len]).to(device)], 
                                             dim=1)
                     
-                    perm_mask_1 = torch.cat([torch.zeros([non_reuse_len, reuse_len]), perm_mask_1],
+                    perm_mask_1 = torch.cat([torch.zeros([non_reuse_len, reuse_len]).to(device), perm_mask_1],
                                             dim=1)
                     
                     perm_mask.append(torch.cat([perm_mask_0, perm_mask_1], dim=0))
@@ -677,7 +677,7 @@ def main():
                 print("target_mappings type:", target_mappings.type()) 
             
                 # TODO: add the target argument to the forward call
-                outputs = model(inputs, inputs_raw, targets_raw, None, None, None, None, perm_mask, target_mappings)
+                outputs = model(inputs, inputs_raw, targets_raw, None, None, None, None, perm_mask, target_mappings.to(device))
                 # print("outputs[0][0]", outputs[0][0])
                 # print("outputs[1]", outputs[1])
                 print("outputs len", len(outputs))
