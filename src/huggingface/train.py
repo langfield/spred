@@ -51,6 +51,8 @@ CLS_ID = -9998
 MASK_ID = -9999
 NUM_PREDICT = 12345
 
+DEBUG = False
+
 class XLSpredDataset(Dataset):
     def __init__(self, 
                  corpus_path, 
@@ -549,17 +551,17 @@ def main():
             nb_tr_examples, nb_tr_steps = 0, 0
             for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration")):
                 batch = tuple(t.to(device) for t in batch)
-
-                print("\n\n =========================")
-                print("Batch length:", len(batch))
-                # print("Batch contents:", batch)
-                # print("batch[0]:", batch[0])
-                print("len(batch[0]):", len(batch[0]))
-                print("input.shape:", batch[0].shape)
-                print("is_masked.shape:", batch[1].shape)
-                print("target.shape:", batch[2].shape)
-                print("seg_id.shape:", batch[3].shape)
-                print("label.shape:", batch[4].shape)
+                if DEBUG:
+                    print("\n\n =========================")
+                    print("Batch length:", len(batch))
+                    # print("Batch contents:", batch)
+                    # print("batch[0]:", batch[0])
+                    print("len(batch[0]):", len(batch[0]))
+                    print("input.shape:", batch[0].shape)
+                    print("is_masked.shape:", batch[1].shape)
+                    print("target.shape:", batch[2].shape)
+                    print("seg_id.shape:", batch[3].shape)
+                    print("label.shape:", batch[4].shape)
                 inputs, inputs_raw, targets_raw, is_maskeds, targets, seg_ids, labels = batch
                 # We use `input_ids`, `input_mask`, and `lm_label_ids` as arguments for
                 # `perm_generator_torch` function, which yields `perm_mask` and `target_mapping`.  
@@ -569,6 +571,7 @@ def main():
                 #   `lm_label_ids` --> `targets`
                 #   `input_mask` --> `is_masked`
                 #=======PERM GENERATOR========
+                #===========vvvvvv============
                 
                 perm_mask = []
                 new_targets = []
@@ -632,16 +635,19 @@ def main():
                 # Shape: (bsz, actual_num_predict, seq_len)
                 target_mappings = torch.stack(target_mappings) 
 
+                #===========^^^^^=============
                 #=======PERM GENERATOR========
-                print('input_ids shape:', inputs.shape)
-                print('inputs_raw shape:', inputs_raw.shape)
-                print('targets_raw shape:', targets_raw.shape)
-                print('perm_mask shape:', perm_mask.shape)
-                print('new_targets shape:', new_targets.shape)
-                print('target_mask shape:', target_mask.shape)
-                print('target_mappings shape:', target_mappings.shape)
-                # print('new_targets:\n', new_targets)
-                # print('target_mask:\n', target_mask)
+                
+                if DEBUG:
+                    print('input_ids shape:', inputs.shape)
+                    print('inputs_raw shape:', inputs_raw.shape)
+                    print('targets_raw shape:', targets_raw.shape)
+                    print('perm_mask shape:', perm_mask.shape)
+                    print('new_targets shape:', new_targets.shape)
+                    print('target_mask shape:', target_mask.shape)
+                    print('target_mappings shape:', target_mappings.shape)
+                    # print('new_targets:\n', new_targets)
+                    # print('target_mask:\n', target_mask)
                 """
                 **input_ids**: ``torch.LongTensor`` of shape ``(batch_size, sequence_length)``:
                     Indices of input sequence tokens in the vocabulary.
@@ -666,22 +672,26 @@ def main():
                     If ``target_mapping[k, i, j] = 1``, the i-th predict in batch k is on the j-th token.
                     Only used during pretraining for partial prediction or for sequential decoding (generation).
                 """
-                # print("inputs_raw:", inputs_raw)
-                # inputs_raw.double()
+                # Cast to float so PyTorch is less angry. 
                 inputs_raw = inputs_raw.float()
                 targets_raw = targets_raw.float()
-                # print("inputs_raw:", inputs_raw)
-                print("inputs_raw type:", inputs_raw.type())
-                print("inputs type:", inputs.type())
-                print("perm_mask type:", perm_mask.type())
-                print("target_mappings type:", target_mappings.type()) 
+    
+                if DEBUG: 
+                    # print("inputs_raw:", inputs_raw)
+                    # inputs_raw.double()
+                    # print("inputs_raw:", inputs_raw)
+                    print("inputs_raw type:", inputs_raw.type())
+                    print("inputs type:", inputs.type())
+                    print("perm_mask type:", perm_mask.type())
+                    print("target_mappings type:", target_mappings.type()) 
             
-                # TODO: add the target argument to the forward call
                 outputs = model(inputs, inputs_raw, targets_raw, None, None, None, None, perm_mask, target_mappings.to(device))
-                # print("outputs[0][0]", outputs[0][0])
-                # print("outputs[1]", outputs[1])
-                print("outputs len", len(outputs))
-                print("outputs[0] shape:", outputs[0].shape)
+                
+                if DEBUG: 
+                    # print("outputs[0][0]", outputs[0][0])
+                    # print("outputs[1]", outputs[1])
+                    print("outputs len", len(outputs))
+                    print("outputs[0] shape:", outputs[0].shape)
                 loss = outputs[0]
                 if n_gpu > 1:
                     loss = loss.mean() # mean() to average on multi-gpu.
