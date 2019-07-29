@@ -12,7 +12,7 @@ tokenizer = XLNetTokenizer.from_pretrained('xlnet-base-cased')
 print('Getting model...')
 model = XLNetModel(config)
 print('Tokenizing input...')
-input_ids = torch.tensor(tokenizer.encode("Hello, my dog is cute")).unsqueeze(0)  # Batch size 1
+input_ids = torch.tensor(tokenizer.encode("Hello, my dog is cute \n Hello, my dog is cute")).unsqueeze(0)  # Batch size 1
 print("input_ids:", input_ids)
 print('Getting output...')
 outputs = model(input_ids)
