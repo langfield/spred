@@ -63,7 +63,7 @@ class XLSpredDataset(Dataset):
                  on_memory=True):
 
         self.seq_len = seq_len
-        self_num_predict = num_predict
+        self.num_predict = num_predict
         self.batch_size = batch_size
         self.reuse_len = reuse_len
 
@@ -88,7 +88,7 @@ class XLSpredDataset(Dataset):
 
         # convert data to tensor of shape(rows, features)
         self.tensor_data = torch.tensor(self.raw_data.iloc[:,[7,8]].values)
-        self.features = create_features(self.tensor_data.shape[0])
+        self.features = self.create_features(self.tensor_data.shape[0])
 
     def __len__(self):
         return len(self.features)
@@ -96,7 +96,7 @@ class XLSpredDataset(Dataset):
     def __getitem__(self, item):
         return self.features[item]
 
-    def create_features(original_data_len):
+    def create_features(self, original_data_len):
         """
         Returns a list of features of the form (input, is_masked, target, seg_id, label).
         """
@@ -119,11 +119,11 @@ class XLSpredDataset(Dataset):
         while i + seq_len <= data_len:
             # TODO: Is ``all_ok`` supposed to be inside or outside outer loop?
             all_ok = True
-            for idx in range(len(input_ids)):
+            for idx in range(batch_size):
                 inp = data[idx, i: i + reuse_len]
                 tgt = data[idx, i + 1: i + reuse_len + 1]
                 results = _split_a_and_b(
-                    batch[idx],
+                    data[idx],
                     begin_idx=i + reuse_len,
                     tot_len=seq_len - reuse_len - 3,
                     extend_target=True)
@@ -136,6 +136,7 @@ class XLSpredDataset(Dataset):
                 
                 # sample ngram spans to predict
                 # TODO: Add ``bi_data`` stuff above. 
+                bi_data = False
                 reverse = bi_data and (idx // (bsz_per_core // 2)) % 2 == 1
 
                 # TODO: Pass in ``num_predict`` as an argument or class var?
@@ -166,6 +167,8 @@ class XLSpredDataset(Dataset):
                 tgt = torch.cat([tgt, a_target, b_target, cls_array, cls_array])
                 assert tgt.shape[0] == seq_len
 
+                mask_0 = torch.Tensor(mask_0)
+                mask_1 = torch.Tensor(mask_1)
                 is_masked = torch.cat([mask_0, mask_1], 0)
                 features.append((cat_data, is_masked, tgt, seg_id, label))
                 
@@ -500,8 +503,12 @@ def main():
             for step, batch in enumerate(tqdm(train_dataloader, desc="Iteration")):
                 batch = tuple(t.to(device) for t in batch)
 
+                print("\n\n =========================")
                 print("Batch length:", len(batch))
-                input_ids, input_mask, lm_label_ids = batch
+                # print("Batch contents:", batch)
+                print("batch[0]:", batch[0])
+                print("len(batch[0]):", len(batch[0]))
+                inputs, is_maskeds, targets, seg_ids, labels = batch
                 
                 # We use `input_ids`, `input_mask`, and `lm_label_ids` as arguments for
                 # `perm_generator_torch` function, which yields `perm_mask` and `target_mapping`.  

@@ -2,6 +2,8 @@ import numpy as np
 import random
 import torch
 
+DEBUG = False
+
 """
     REFER TO `create_tfrecords.py`. 
     `data`: a np.array of token ids with shape `(data_len,)` (one row in batch).  
@@ -34,29 +36,34 @@ def _split_a_and_b(data, begin_idx, tot_len, extend_target=False):
     # (zihang): `data_len - 1` to account for extend_target
     b_begin = random.randint(0, data_len - 1 - b_len)
     b_end = b_begin + b_len
-    """
-    print("Initial b_begin:", b_begin)
-    print("Initial b_end:", b_end)
-    print("Initial b:", data[b_begin:b_end])
-    """
-    print("Initial b range:", "[", b_begin, ",", b_end, "]")
+
+    if DEBUG:
+        """
+        print("Initial b_begin:", b_begin)
+        print("Initial b_end:", b_end)
+        print("Initial b:", data[b_begin:b_end])
+        """
+        print("Initial b range:", "[", b_begin, ",", b_end, "]")
     b_begin = 0
     # (zihang): `data_len - 1` to account for extend_target
     b_end = data_len
-    """
-    print("b after cut search:", data[b_begin:b_end])
-    print("b_begin after cut search:", b_begin)
-    print("b_end after cut search:", b_end)
-    """
-    print("Post cut_search b range:", "[", b_begin, ",", b_end, "]")
-    print("============================")
+
+    if DEBUG:
+        """
+        print("b after cut search:", data[b_begin:b_end])
+        print("b_begin after cut search:", b_begin)
+        print("b_end after cut search:", b_end)
+        """
+        print("Post cut_search b range:", "[", b_begin, ",", b_end, "]")
+        print("============================")
 
     new_begin = a_end
 
-    # print("Initial a:", data[a_begin:a_end])
-    # print("Initial b:", data[b_begin:b_end])
-    print("Initial a range:", "[", a_begin, ",", a_end, "]")
-    print("Initial b range:", "[", b_begin, ",", b_end, "]")
+    if DEBUG:
+        # print("Initial a:", data[a_begin:a_end])
+        # print("Initial b:", data[b_begin:b_end])
+        print("Initial a range:", "[", a_begin, ",", a_end, "]")
+        print("Initial b range:", "[", b_begin, ",", b_end, "]")
     # Keeps a and b the same size +/- 1. 
     # Shrinks their total size (len(a) + len(b)) to at most tot_len.
     while a_end - a_begin + b_end - b_begin > tot_len:
@@ -65,13 +72,15 @@ def _split_a_and_b(data, begin_idx, tot_len, extend_target=False):
             a_end -= 1
         else:
             b_end -= 1
-    print("Post resize a range:", "[", a_begin, ",", a_end, "]")
-    print("Post resize b range:", "[", b_begin, ",", b_end, "]")
-    # print("a_end after resize:", a_end)
-    # print("b_end after resize:", b_end)
-    print("a after resize:", data[a_begin:a_end])
-    print("b after resize:", data[b_begin:b_end])
-    print("============================")
+    
+    if DEBUG:
+        print("Post resize a range:", "[", a_begin, ",", a_end, "]")
+        print("Post resize b range:", "[", b_begin, ",", b_end, "]")
+        # print("a_end after resize:", a_end)
+        # print("b_end after resize:", b_end)
+        print("a after resize:", data[a_begin:a_end])
+        print("b after resize:", data[b_begin:b_end])
+        print("============================")
 
     ret = [data[a_begin: a_end], data[b_begin: b_end], label, new_begin]
 
@@ -84,11 +93,14 @@ def _split_a_and_b(data, begin_idx, tot_len, extend_target=False):
         a_target = data[a_begin + 1: a_end + 1]
         b_target = data[b_begin: b_end + 1]
         ret.extend([a_target, b_target])
-        print("a_target:", a_target)
-        print("b_target:", b_target)
-        print("data_len - 1 - b_len:", data_len - 1 - b_len)
+        
+        if DEBUG:
+            print("a_target:", a_target)
+            print("b_target:", b_target)
+            print("data_len - 1 - b_len:", data_len - 1 - b_len)
 
-    print('ret', ret)
+    if DEBUG:
+        print('ret', ret)
     return ret
 
 if __name__ == "__main__":
@@ -96,16 +108,20 @@ if __name__ == "__main__":
     seq_len = 30
     reuse_len = 15
     tot_len = seq_len - reuse_len - 3
-    print("seq_len:", seq_len)
-    print("reuse_len:", reuse_len)
-    print("tot_len:", tot_len)
-    print("len(a) + len(b) == tot_len ==", tot_len)
+    
+    if DEBUG:
+        print("seq_len:", seq_len)
+        print("reuse_len:", reuse_len)
+        print("tot_len:", tot_len)
+        print("len(a) + len(b) == tot_len ==", tot_len)
 
     data = torch.tensor([i for i in range(data_len)])
     i = 0
     while i + seq_len <= data_len: # Keep going as long as we have one more full sequence to process. 
-        print("================START=================")
-        print("============================")
+        if DEBUG:
+            print("================START=================")
+            print("============================")
         _split_a_and_b(data, i + reuse_len, tot_len, True)
-        print("================END===================")
+        if DEBUG:
+            print("================END===================")
         i += reuse_len
