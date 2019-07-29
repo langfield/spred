@@ -604,8 +604,9 @@ def main():
                 print('perm_mask shape:', perm_mask.shape)
                 print('new_targets shape:', new_targets.shape)
                 print('target_mask shape:', target_mask.shape)
-                print('new_targets:\n', new_targets)
-                print('target_mask:\n', target_mask)
+                print('target_mappings shape:', target_mappings.shape)
+                # print('new_targets:\n', new_targets)
+                # print('target_mask:\n', target_mask)
                 """
                 **input_ids**: ``torch.LongTensor`` of shape ``(batch_size, sequence_length)``:
                     Indices of input sequence tokens in the vocabulary.
@@ -630,7 +631,7 @@ def main():
                     If ``target_mapping[k, i, j] = 1``, the i-th predict in batch k is on the j-th token.
                     Only used during pretraining for partial prediction or for sequential decoding (generation).
                 """
-                outputs = model(inputs, None, None, target_mask, None, perm_mask, target_mappings)
+                outputs = model(inputs, None, None, None, None, perm_mask, target_mappings)
                 loss = outputs[0]
                 if n_gpu > 1:
                     loss = loss.mean() # mean() to average on multi-gpu.
