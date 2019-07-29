@@ -271,9 +271,9 @@ if __name__ == "__main__":
     targets = torch.IntTensor(target_array)
     is_masked = torch.Tensor([0 if i % 2 == 0 else 1 for i in bool_array]).byte()
    
-    print("inputs:", inputs)
-    print("targets:", targets)
-    print("is_masked:", is_masked)
+    # print("inputs:", inputs)
+    # print("targets:", targets)
+    # print("is_masked:", is_masked)
 
     perm_mask, new_targets, target_mask, inputs_k, inputs_q = _local_perm(inputs, targets, is_masked, perm_size, seq_len)
 
@@ -285,14 +285,14 @@ if __name__ == "__main__":
         is_masked = tf.constant([False if i % 2 == 0 else True for i in bool_array], bool)
         # print("inputs_tf:", inputs.eval())
         # print("targets_tf:", targets.eval())
-        print("is_masked_tf:", is_masked.eval())
+        # print("is_masked_tf:", is_masked.eval())
     
         perm_mask_tf, new_targets_tf, target_mask_tf, inputs_k_tf, inputs_q_tf = _local_perm_tf(inputs, targets, is_masked, perm_size, seq_len)
 
         print(perm_mask.shape)
         print(perm_mask_tf.shape)
-        print("final perm_mask_torch:\n", np.array(perm_mask))
-        print("final perm_mask_tf:\n", np.array(perm_mask_tf.eval()))
+        # print("final perm_mask_torch:\n", np.array(perm_mask))
+        # print("final perm_mask_tf:\n", np.array(perm_mask_tf.eval()))
         np.testing.assert_almost_equal(np.array(perm_mask), np.array(perm_mask_tf.eval()))
         np.testing.assert_almost_equal(np.array(new_targets), np.array(new_targets_tf.eval()))
         np.testing.assert_almost_equal(np.array(target_mask), np.array(target_mask_tf.eval()))
