@@ -643,10 +643,10 @@ class XLSpredPredictionHeadTransform(nn.Module):
     def __init__(self, config):
         super(XLSpredPredictionHeadTransform, self).__init__()
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
-        if isinstance(config.hidden_act, str) or (sys.version_info[0] == 2 and isinstance(config.hidden_act, unicode)):
-            self.transform_act_fn = ACT2FN[config.hidden_act]
+        if isinstance(config.ff_activation, str) or (sys.version_info[0] == 2 and isinstance(config.ff_activation, unicode)):
+            self.transform_act_fn = ACT2FN[config.ff_activation]
         else:
-            self.transform_act_fn = config.hidden_act
+            self.transform_act_fn = config.ff_activation
         self.LayerNorm = XLNetLayerNorm(config.hidden_size, eps=config.layer_norm_eps)
 
     def forward(self, hidden_states):
@@ -740,16 +740,27 @@ class XLSpredForPreTraining(XLNetPreTrainedModel):
         outputs = (prediction_scores,) + outputs[1:]  # add hidden states and attention if they are here
 
         if target is not None:
-            total_loss = regression_loss(sequence_output, target)
+            total_loss = self.regression_loss(sequence_output, target)
             outputs = (total_loss,) + outputs
 
         return outputs  # (loss), prediction_scores, (hidden_states), (attentions)
 
-    def regression_loss(hidden, labels):
-        logits = nn.Linear(hidden, 1)
+    def regression_loss(self, hidden, labels):
+        """
+        logit_shape = list(hidden.shape)
+        logit_shape[-1] = 1
+        logit_layer = nn.Linear(hidden.shape[-1], tuple(logit_shape))
+        logits = logit_layer(hidden)
         logits = torch.squeeze(logits, dim=-1)
+        """
+        print("hidden shape:", hidden.shape)
+        print("labels shape:", labels.shape)
+        logits = hidden
         diff = logits - labels
         loss = torch.mul(diff, diff)
+
+        # Make a scalar. 
+        loss = torch.mean(loss)
         
         return loss
 

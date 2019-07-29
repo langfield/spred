@@ -678,8 +678,8 @@ def main():
             
                 # TODO: add the target argument to the forward call
                 outputs = model(inputs, inputs_raw, targets_raw, None, None, None, None, perm_mask, target_mappings)
-                print("outputs[0][0]", outputs[0][0])
-                print("outputs[1]", outputs[1])
+                # print("outputs[0][0]", outputs[0][0])
+                # print("outputs[1]", outputs[1])
                 print("outputs len", len(outputs))
                 print("outputs[0] shape:", outputs[0].shape)
                 loss = outputs[0]
@@ -692,7 +692,7 @@ def main():
                 else:
                     loss.backward()
                 tr_loss += loss.item()
-                nb_tr_examples += input_ids.size(0)
+                nb_tr_examples += inputs.size(0)
                 nb_tr_steps += 1
                 if (step + 1) % args.gradient_accumulation_steps == 0:
                     scheduler.step()  # Update learning rate schedule

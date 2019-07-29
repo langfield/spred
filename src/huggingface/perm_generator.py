@@ -1,7 +1,7 @@
 import os
 import torch
 import numpy as np
-DEBUG = True
+DEBUG = False
 
 def _local_perm(inputs, targets, is_masked, perm_size, seq_len, device):
     """
