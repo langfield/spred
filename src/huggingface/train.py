@@ -74,11 +74,12 @@ class XLSpredDataset(Dataset):
 
         # convert data to tensor of shape(rows, features)
         self.tensor_data = torch.tensor(self.raw_data.iloc[:,[7,8]].values)
-        self.features = create_features(self.tensor_data.shape[0], 5, 10, 5)
+        BATCH_SIZE = 5
+        SEQ_LEN = 10
+        REUSE_LEN = 5
+        self.features = create_features(self.tensor_data.shape[0], BATCH_SIZE, SEQ_LEN, REUSE_LEN)
 
     def __len__(self):
-        # ``__len__`` = ``orig_data_len // seq_len``.
-        # note: remainder data points will not be used
         return len(self.features)
 
     def __getitem__(self, item):
@@ -86,20 +87,22 @@ class XLSpredDataset(Dataset):
 
     def create_features(original_data_len, batch_size, seq_len, reuse_len):
         """
-        Return a list of features of the form (input, is_masked, target, seg_id, label)
+        Returns a list of features of the form (input, is_masked, target, seg_id, label).
         """
         # batchify the tensor as done in original xlnet implementation
         # This splits our data into shape(batch_size, data_len)
         # NOTE: data holds indices--not raw data
+        # TODO: Add ``bi_data`` block from ``data_utils.py``.  
         data = torch.tensor(batchify(np.arange(0, original_data_len), batch_size))
         data_len = data.shape[1]
         sep_array = torch.tensor(np.array([SEP_ID], dtype=np.int64))
         cls_array = torch.tensor(np.array([CLS_ID], dtype=np.int64))
 
-        all_ok = True
         i = 0
         features = []
         while i + seq_len <= data_len:
+            # TODO: Is ``all_ok`` supposed to be inside or outside outer loop?
+            all_ok = True
             for idx in range(len(input_ids)):
                 inp = data[idx, i: i + reuse_len]
                 tgt = data[idx, i + 1: i + reuse_len + 1]
@@ -116,8 +119,10 @@ class XLSpredDataset(Dataset):
                 (a_data, b_data, label, _, a_target, b_target) = tuple(results)
                 
                 # sample ngram spans to predict
+                # TODO: Add ``bi_data`` stuff above. 
                 reverse = bi_data and (idx // (bsz_per_core // 2)) % 2 == 1
 
+                # TODO: Pass in ``NUM_PREDICT`` as an argument or class var?
                 num_predict_1 = NUM_PREDICT // 2
                 num_predict_0 = NUM_PREDICT - num_predict_1
                 
@@ -221,7 +226,6 @@ def random_word(tokens, num_rows):
             output_label.append(-1)
 
     return tokens, output_label
-
 
 def convert_example_to_features(example, max_seq_length, num_rows):
     """
@@ -477,7 +481,6 @@ def main():
                 #   `input_mask` --> `is_masked`
                 #=======PERM GENERATOR========
                 
-
                 perm_mask = []
                 new_targets = []
                 target_mask = []
