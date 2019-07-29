@@ -188,7 +188,9 @@ class XLSpredDataset(Dataset):
                 So ``mod_tensor_data`` is just ``tensor_data`` with this NaN vector added to the end. 
                 ``zeroed_cat_data`` only modifies indices less than zero, and changes them to point to
                 the NaN vector in ``mod_tensor_data``. Thus ``input_raw`` is the raw data with functional
-                token indices yielding the NaN vector. 
+                token indices yielding the NaN vector.
+
+                Changed to zeroes temporarily.  
                 """
                 dim = tensor_data.shape[-1]
                 nan_tensor = torch.Tensor([[0] * dim]).double()
@@ -199,8 +201,12 @@ class XLSpredDataset(Dataset):
                 print("type of ``zeroed_cat_data[0]``:", type(zeroed_cat_data[0]))
                 print("``zeroed_cat_data[0]``:", zeroed_cat_data[0])
                 input_raw = mod_tensor_data[zeroed_cat_data]
+
+                # Do the same as above for ``tgt``. 
+                zeroed_tgt = torch.Tensor([nan_index if index < 0 else index for index in tgt]).long() 
+                tgt_raw = mod_tensor_data[zeroed_tgt]
                 
-                features.append((cat_data, input_raw, is_masked, tgt, seg_id, label))
+                features.append((cat_data, input_raw, tgt_raw, is_masked, tgt, seg_id, label))
                 
             if not all_ok:
                 break
@@ -554,7 +560,7 @@ def main():
                 print("target.shape:", batch[2].shape)
                 print("seg_id.shape:", batch[3].shape)
                 print("label.shape:", batch[4].shape)
-                inputs, inputs_raw, is_maskeds, targets, seg_ids, labels = batch
+                inputs, inputs_raw, targets_raw, is_maskeds, targets, seg_ids, labels = batch
                 # We use `input_ids`, `input_mask`, and `lm_label_ids` as arguments for
                 # `perm_generator_torch` function, which yields `perm_mask` and `target_mapping`.  
                 # 
@@ -629,6 +635,7 @@ def main():
                 #=======PERM GENERATOR========
                 print('input_ids shape:', inputs.shape)
                 print('inputs_raw shape:', inputs_raw.shape)
+                print('targets_raw shape:', targets_raw.shape)
                 print('perm_mask shape:', perm_mask.shape)
                 print('new_targets shape:', new_targets.shape)
                 print('target_mask shape:', target_mask.shape)
@@ -662,6 +669,7 @@ def main():
                 # print("inputs_raw:", inputs_raw)
                 # inputs_raw.double()
                 inputs_raw = inputs_raw.float()
+                targets_raw = targets_raw.float()
                 # print("inputs_raw:", inputs_raw)
                 print("inputs_raw type:", inputs_raw.type())
                 print("inputs type:", inputs.type())
@@ -669,7 +677,7 @@ def main():
                 print("target_mappings type:", target_mappings.type()) 
             
                 # TODO: add the target argument to the forward call
-                outputs = model(inputs, inputs_raw, None, None, None, None, perm_mask, target_mappings)
+                outputs = model(inputs, inputs_raw, targets_raw, None, None, None, None, perm_mask, target_mappings)
                 print("outputs[0][0]", outputs[0][0])
                 print("outputs[1]", outputs[1])
                 print("outputs len", len(outputs))
