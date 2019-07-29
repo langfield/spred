@@ -56,7 +56,7 @@ class XLSpredDataset(Dataset):
                  corpus_path, 
                  seq_len, 
                  num_predict,
-                 batch_size,
+                 data_batch_size,
                  reuse_len,
                  encoding="utf-8", 
                  corpus_lines=None, 
@@ -64,7 +64,7 @@ class XLSpredDataset(Dataset):
 
         self.seq_len = seq_len
         self.num_predict = num_predict
-        self.batch_size = batch_size
+        self.data_batch_size = data_batch_size
         self.reuse_len = reuse_len
 
         self.on_memory = on_memory
@@ -89,6 +89,7 @@ class XLSpredDataset(Dataset):
         # convert data to tensor of shape(rows, features)
         self.tensor_data = torch.tensor(self.raw_data.iloc[:,[7,8]].values)
         self.features = self.create_features(self.tensor_data.shape[0])
+        print('len of features', len(self.features))
 
     def __len__(self):
         return len(self.features)
@@ -102,8 +103,12 @@ class XLSpredDataset(Dataset):
         """
         seq_len = self.seq_len
         num_predict = self.num_predict
-        batch_size = self.batch_size
+        batch_size = self.data_batch_size
         reuse_len = self.reuse_len
+
+        print('original_data_len', original_data_len)
+        print('seq_len', seq_len)
+        print('reuse_len', reuse_len)
 
         # batchify the tensor as done in original xlnet implementation
         # This splits our data into shape(batch_size, data_len)
@@ -336,6 +341,10 @@ def main():
                         default=3e-5,
                         type=float,
                         help="The initial learning rate for Adam.")
+    parser.add_argument("--data_batch_size",
+                        default=1,
+                        type=int,
+                        help="Batch size for data loading.")
     parser.add_argument("--adam_epsilon", 
                         default=1e-8, 
                         type=float,
@@ -427,7 +436,7 @@ def main():
         train_dataset = XLSpredDataset(args.train_corpus, 
                                        seq_len=args.max_seq_length,
                                        num_predict=args.num_predict,
-                                       batch_size=args.train_batch_size,
+                                       data_batch_size=args.data_batch_size,
                                        reuse_len=args.reuse_len,
                                        corpus_lines=None, 
                                        on_memory=args.on_memory) 
@@ -497,6 +506,13 @@ def main():
         print('batch', args.train_batch_size)
         model.train()        
         seq_len = args.max_seq_length
+        reuse_len = args.reuse_len
+        non_reuse_len = seq_len - reuse_len
+        
+        # TODO: how should this be set?
+        perm_size = seq_len // 2
+        assert perm_size <= reuse_len and perm_size <= non_reuse_len
+
         for _ in trange(int(args.num_train_epochs), desc="Epoch"):
             tr_loss = 0
             nb_tr_examples, nb_tr_steps = 0, 0
@@ -508,8 +524,12 @@ def main():
                 # print("Batch contents:", batch)
                 print("batch[0]:", batch[0])
                 print("len(batch[0]):", len(batch[0]))
+                print("input.shape:", batch[0].shape)
+                print("is_masked.shape:", batch[1].shape)
+                print("target.shape:", batch[2].shape)
+                print("seg_id.shape:", batch[3].shape)
+                print("label.shape:", batch[4].shape)
                 inputs, is_maskeds, targets, seg_ids, labels = batch
-                
                 # We use `input_ids`, `input_mask`, and `lm_label_ids` as arguments for
                 # `perm_generator_torch` function, which yields `perm_mask` and `target_mapping`.  
                 # 
@@ -524,80 +544,50 @@ def main():
                 target_mask = []
                 target_mappings = []
                 # loop over batches
-                for idx in range(len(input_ids)):
-                    inp = batch[idx, step: step + reuse_len]
-                    tgt = batch[idx, step + 1: step + reuse_len + 1]
-                    results = _split_a_and_b(
-                        batch[idx],
-                        begin_idx=step + reuse_len,
-                        tot_len=seq_len - reuse_len - 3,
-                        extend_target=True)
-                    if results is None:
-                        all_ok = False
-                        break
-
-                    # unpack the results
-                    (a_data, b_data, label, _, a_target, b_target) = tuple(results)
+                for idx in range(len(batch[0])):
+                    input_row = inputs[idx]
                     
-                    # sample ngram spans to predict
-                    reverse = bi_data and (idx // (bsz_per_core // 2)) % 2 == 1
-
-                    num_predict_1 = NUM_PREDICT // 2
-                    num_predict_0 = NUM_PREDICT - num_predict_1
-                    
-                    mask_0 = _sample_mask(inp,
-                                          reverse=reverse,
-                                          goal_num_predict=num_predict_0)
-                    mask_1 = _sample_mask(torch.cat([a_data,
-                                                     sep_array,
-                                                     b_data,
-                                                     sep_array,
-                                                     cls_array]),
-                                          reverse=reverse, 
-                                          goal_num_predict=num_predict_1)
-
-                    # concatenate data
-                    cat_data = torch.cat([inp, a_data, sep_array, b_data,
-                                                sep_array, cls_array])
-                    seg_id = torch.tensor([0] * (reuse_len + a_data.shape[0]) + [0] +
-                                [1] * b_data.shape[0] + [1] + [2])
-                    assert cat_data.shape[0] == seq_len
-                    assert mask_0.shape[0] == seq_len // 2
-                    assert mask_1.shape[0] == seq_len // 2
-
-                    # the last two CLS's are not used, just for padding purposes
-                    tgt = torch.cat([tgt, a_target, b_target, cls_array, cls_array])
-                    assert tgt.shape[0] == seq_len
-
-                    is_masked = torch.cat([mask_0, mask_1], 0)
-                    input_row = input_ids[idx]
-                    lm_label_row = lm_label_ids[idx]
-                    # input_mask pads up to seq_len, but as we are using a fixed
-                    # seq_len, the mask is trivial
-                    #input_mask_row = input_mask[i]
-                    
-                    perm_row = _local_perm(input_row, 
-                                           lm_label_row, 
-                                           is_masked.byte(),
-                                           seq_len,
-                                           seq_len,
+                    perm_0 = _local_perm(input_row[:reuse_len], 
+                                           targets[idx][:reuse_len], 
+                                           is_maskeds[idx][:reuse_len].byte(),
+                                           perm_size,
+                                           reuse_len,
                                            device)
-                    perm_mask_row, new_target_row, target_mask_row, _, _ = perm_row
-                    perm_mask.append(perm_mask_row)
-                    new_targets.append(new_target_row)
-                    # target_mask.append(target_mask_row)
+                    perm_mask_0, target_0, target_mask_0, _, _ = perm_0
                     
+                    perm_1 = _local_perm(input_row[reuse_len:], 
+                                           targets[idx][reuse_len:], 
+                                           is_maskeds[idx][reuse_len:].byte(),
+                                           perm_size,
+                                           non_reuse_len,
+                                           device)
+                    perm_mask_1, target_1, target_mask_1, _, _ = perm_1
+
+                    perm_mask_0 = torch.cat([perm_mask_0, torch.ones([reuse_len, non_reuse_len])], 
+                                            dim=1)
+                    
+                    perm_mask_1 = torch.cat([torch.zeros([non_reuse_len, reuse_len]), perm_mask_1],
+                                            dim=1)
+                    
+                    perm_mask.append(torch.cat([perm_mask_0, perm_mask_1], dim=0))
+                    new_targets.append(torch.cat([target_0, target_1], dim=0))
+                    target_mask_row = torch.cat([target_mask_0, target_mask_1], dim=0)
+                    target_mask.append(target_mask_row)
+                    # TODO: we are currently excluding input_k and input_q
+
                     indices = torch.arange(0, seq_len)
                     bool_target_mask = target_mask_row.byte()
                     # Has length equal to num `True` vals in `bool_target_mask` : <= seq_len
                     indices = indices[bool_target_mask] 
+                    # length of indices after removing the masked out tokens
+                    index_len = indices.shape[0]
 
                     # extra padding due to CLS/SEP introduced after prepro
                     actual_num_predict = indices.shape[0]
                     pad_len = seq_len - actual_num_predict
 
                     # target mapping
-                    inp = indices % max_seq_len
+                    inp = indices % seq_len
                     inp_ = torch.unsqueeze(inp, 1)
                     target_mapping = torch.FloatTensor(index_len, seq_len).zero_()
                     target_mapping.scatter_(1, inp_, 1) # Shape: (actual_num_predict, seq_len)
@@ -610,9 +600,7 @@ def main():
                 target_mappings = torch.stack(target_mappings) 
 
                 #=======PERM GENERATOR========
-                print('input_ids shape:', input_ids.shape)
-                print('lm_label_ids shape:', lm_label_ids.shape)
-                print('input_mask shape:', input_mask.shape)
+                print('input_ids shape:', inputs.shape)
                 print('perm_mask shape:', perm_mask.shape)
                 print('new_targets shape:', new_targets.shape)
                 print('target_mask shape:', target_mask.shape)
@@ -642,7 +630,7 @@ def main():
                     If ``target_mapping[k, i, j] = 1``, the i-th predict in batch k is on the j-th token.
                     Only used during pretraining for partial prediction or for sequential decoding (generation).
                 """
-                outputs = model(input_ids, None, None, input_mask, None, perm_mask, target_mappings)
+                outputs = model(inputs, None, None, target_mask, None, perm_mask, target_mappings)
                 loss = outputs[0]
                 if n_gpu > 1:
                     loss = loss.mean() # mean() to average on multi-gpu.
