@@ -179,8 +179,22 @@ class XLSpredDataset(Dataset):
                 is_masked = torch.cat([mask_0, mask_1], 0)
                 print('cat_data', cat_data)
                 print('is_masked', is_masked)
-                
-                input_raw = torch.where(cat_data>=0, tensor_data, cat_data)#tensor_data[cat_data]
+                """
+                We append a vector of NaNs to tensor_data to serve as our ``[SEP]``, ``[CLS]`` vector.
+                So ``mod_tensor_data`` is just ``tensor_data`` with this NaN vector added to the end. 
+                ``zeroed_cat_data`` only modifies indices less than zero, and changes them to point to
+                the NaN vector in ``mod_tensor_data``. Thus ``input_raw`` is the raw data with functional
+                token indices yielding the NaN vector. 
+                """
+                dim = tensor_data.shape[-1]
+                nan_tensor = torch.Tensor([[float('nan')] * dim]).double()
+                mod_tensor_data = torch.cat([tensor_data, nan_tensor])
+                nan_index = len(mod_tensor_data) - 1 
+                zeroed_cat_data = torch.Tensor([nan_index if index < 0 else index for index in cat_data]).long() 
+                print("type of ``zeroed_cat_data``:", type(zeroed_cat_data))
+                print("type of ``zeroed_cat_data[0]``:", type(zeroed_cat_data[0]))
+                print("``zeroed_cat_data[0]``:", zeroed_cat_data[0])
+                input_raw = mod_tensor_data[zeroed_cat_data]
                 
                 features.append((cat_data, input_raw, is_masked, tgt, seg_id, label))
                 
@@ -536,7 +550,7 @@ def main():
                 print("target.shape:", batch[2].shape)
                 print("seg_id.shape:", batch[3].shape)
                 print("label.shape:", batch[4].shape)
-                inputs, is_maskeds, targets, seg_ids, labels = batch
+                inputs, inputs_raw, is_maskeds, targets, seg_ids, labels = batch
                 # We use `input_ids`, `input_mask`, and `lm_label_ids` as arguments for
                 # `perm_generator_torch` function, which yields `perm_mask` and `target_mapping`.  
                 # 
@@ -638,7 +652,7 @@ def main():
                     If ``target_mapping[k, i, j] = 1``, the i-th predict in batch k is on the j-th token.
                     Only used during pretraining for partial prediction or for sequential decoding (generation).
                 """
-                outputs = model(inputs, None, None, None, None, perm_mask, target_mappings)
+                outputs = model(inputs, inputs_raw, None, None, None, None, perm_mask, target_mappings)
                 loss = outputs[0]
                 if n_gpu > 1:
                     loss = loss.mean() # mean() to average on multi-gpu.
