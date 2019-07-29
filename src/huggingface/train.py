@@ -616,6 +616,8 @@ def main():
                     inp_ = torch.unsqueeze(inp, 1)
                     target_mapping = torch.FloatTensor(index_len, seq_len).zero_()
                     target_mapping.scatter_(1, inp_, 1) # Shape: (actual_num_predict, seq_len)
+                    paddings = torch.zeros([pad_len, seq_len], dtype=target_mapping.dtype)
+                    target_mapping = torch.cat([target_mapping, paddings])
                     target_mappings.append(target_mapping)
 
                 perm_mask = torch.stack(perm_mask)
@@ -667,7 +669,7 @@ def main():
                 print("target_mappings type:", target_mappings.type()) 
             
                 outputs = model(inputs, inputs_raw, None, None, None, None, perm_mask, target_mappings)
-                print("outputs:", outputs)
+                # print("outputs:", outputs)
                 print("outputs[0] shape:", outputs[0].shape)
                 loss = outputs[0]
                 if n_gpu > 1:
