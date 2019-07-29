@@ -149,7 +149,9 @@ class XLSpredDataset(Dataset):
                 # TODO: Pass in ``num_predict`` as an argument or class var?
                 num_predict_1 = num_predict // 2
                 num_predict_0 = num_predict - num_predict_1
-                
+               
+                print("inp shape:", inp.shape)
+                print("num_predict_0:", num_predict_0) 
                 mask_0 = _sample_mask(inp,
                                       reverse=reverse,
                                       goal_num_predict=num_predict_0)
@@ -166,6 +168,8 @@ class XLSpredDataset(Dataset):
                                             sep_array, cls_array])
                 seg_id = torch.tensor([0] * (reuse_len + a_data.shape[0]) + [0] +
                                       [1] * b_data.shape[0] + [1] + [2])
+                print("mask_0 shape:", mask_0.shape)
+                # TODO: Should these even be here?
                 assert cat_data.shape[0] == seq_len
                 assert mask_0.shape[0] == seq_len // 2
                 assert mask_1.shape[0] == seq_len // 2
@@ -187,7 +191,7 @@ class XLSpredDataset(Dataset):
                 token indices yielding the NaN vector. 
                 """
                 dim = tensor_data.shape[-1]
-                nan_tensor = torch.Tensor([[float('nan')] * dim]).double()
+                nan_tensor = torch.Tensor([[0] * dim]).double()
                 mod_tensor_data = torch.cat([tensor_data, nan_tensor])
                 nan_index = len(mod_tensor_data) - 1 
                 zeroed_cat_data = torch.Tensor([nan_index if index < 0 else index for index in cat_data]).long() 
@@ -622,6 +626,7 @@ def main():
 
                 #=======PERM GENERATOR========
                 print('input_ids shape:', inputs.shape)
+                print('inputs_raw shape:', inputs_raw.shape)
                 print('perm_mask shape:', perm_mask.shape)
                 print('new_targets shape:', new_targets.shape)
                 print('target_mask shape:', target_mask.shape)
@@ -652,7 +657,18 @@ def main():
                     If ``target_mapping[k, i, j] = 1``, the i-th predict in batch k is on the j-th token.
                     Only used during pretraining for partial prediction or for sequential decoding (generation).
                 """
+                # print("inputs_raw:", inputs_raw)
+                # inputs_raw.double()
+                inputs_raw = inputs_raw.float()
+                # print("inputs_raw:", inputs_raw)
+                print("inputs_raw type:", inputs_raw.type())
+                print("inputs type:", inputs.type())
+                print("perm_mask type:", perm_mask.type())
+                print("target_mappings type:", target_mappings.type()) 
+            
                 outputs = model(inputs, inputs_raw, None, None, None, None, perm_mask, target_mappings)
+                print("outputs:", outputs)
+                print("outputs[0] shape:", outputs[0].shape)
                 loss = outputs[0]
                 if n_gpu > 1:
                     loss = loss.mean() # mean() to average on multi-gpu.

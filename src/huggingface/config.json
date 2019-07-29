@@ -1,6 +1,6 @@
 {
   "attn_type": "bi",
-  "bi_data": true,
+  "bi_data": false,
   "clamp_len": -1,
   "d_head": 2,
   "d_inner": 64,
