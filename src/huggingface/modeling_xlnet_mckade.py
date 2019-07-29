@@ -422,7 +422,7 @@ class XLSpredForPreTraining(XLNetPreTrainedModel):
 
     # def forward(self, input_ids, token_type_ids=None, attention_mask=None, masked_lm_labels=None,
     #             next_sentence_label=None, position_ids=None, head_mask=None):
-    def forward(self, input_ids, inputs_raw, target, n_token, d_model, 
+    def forward(self, input_ids, inputs_raw, target=None, 
                 token_type_ids=None, input_mask=None, attention_mask=None,
                 mems=None, perm_mask=None, target_mapping=None, head_mask=None):
         outputs = self.xlspred(input_ids, inputs_raw, token_type_ids, input_mask, attention_mask,
@@ -433,14 +433,19 @@ class XLSpredForPreTraining(XLNetPreTrainedModel):
 
         outputs = (prediction_scores,) + outputs[1:]  # add hidden states and attention if they are here
 
-        if masked_lm_labels is not None:
-            loss_fct = CrossEntropyLoss(ignore_index=-1)
-            masked_lm_loss = loss_fct(prediction_scores.view(-1, self.config.vocab_size), masked_lm_labels.view(-1))
-            next_sentence_loss = loss_fct(seq_relationship_score.view(-1, 2), next_sentence_label.view(-1))
-            total_loss = masked_lm_loss + next_sentence_loss
+        if target is not None:
+            total_loss = regression_loss(sequence_output, target)
             outputs = (total_loss,) + outputs
 
         return outputs  # (loss), prediction_scores, (hidden_states), (attentions)
+
+    def regression_loss(hidden, labels):
+        logits = nn.Linear(hidden, 1)
+        logits = torch.squeeze(logits, dim=-1)
+        diff = logits - labels
+        loss = torch.mul(diff, diff)
+        
+        return loss
 
 
 try:
