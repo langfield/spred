@@ -333,121 +333,6 @@ class XLNetConfig(PretrainedConfig):
         return self.n_layer
 
 
-class XLSpredPredictionHeadTransform(nn.Module):
-    def __init__(self, config):
-        super(XLSpredPredictionHeadTransform, self).__init__()
-        self.dense = nn.Linear(config.hidden_size, config.hidden_size)
-        if isinstance(config.hidden_act, str) or (sys.version_info[0] == 2 and isinstance(config.hidden_act, unicode)):
-            self.transform_act_fn = ACT2FN[config.hidden_act]
-        else:
-            self.transform_act_fn = config.hidden_act
-        self.LayerNorm = XLNetLayerNorm(config.hidden_size, eps=config.layer_norm_eps)
-
-    def forward(self, hidden_states):
-        hidden_states = self.dense(hidden_states)
-        hidden_states = self.transform_act_fn(hidden_states)
-        hidden_states = self.LayerNorm(hidden_states)
-        return hidden_states
-
-
-class XLSpredLMPredictionHead(nn.Module):
-    def __init__(self, config):
-        super(XLSpredLMPredictionHead, self).__init__()
-        self.transform = XLSpredPredictionHeadTransform(config)
-
-        # NOTE: removed decoder
-
-    def forward(self, hidden_states):
-        hidden_states = self.transform(hidden_states)
-        return hidden_states
-
-
-class XLSpredPreTrainingHeads(nn.Module):
-    def __init__(self, config):
-        super(XLSpredPreTrainingHeads, self).__init__()
-        self.predictions = XLSpredLMPredictionHead(config)
-
-    def forward(self, sequence_output):
-        prediction_scores = self.predictions(sequence_output)
-        return prediction_scores
-
-
-@add_start_docstrings("""Bert Model with two heads on top as done during the pre-training:
-    a `masked language modeling` head and a `next sentence prediction (classification)` head. """,
-    BERT_START_DOCSTRING, BERT_INPUTS_DOCSTRING)
-class XLSpredForPreTraining(XLNetPreTrainedModel):
-    r"""
-        **masked_lm_labels**: (`optional`) ``torch.LongTensor`` of shape ``(batch_size, sequence_length)``:
-            Labels for computing the masked language modeling loss.
-            Indices should be in ``[-1, 0, ..., config.vocab_size]`` (see ``input_ids`` docstring)
-            Tokens with indices set to ``-1`` are ignored (masked), the loss is only computed for the tokens with labels
-            in ``[0, ..., config.vocab_size]``
-        **next_sentence_label**: (`optional`) ``torch.LongTensor`` of shape ``(batch_size,)``:
-            Labels for computing the next sequence prediction (classification) loss. Input should be a sequence pair (see ``input_ids`` docstring)
-            Indices should be in ``[0, 1]``.
-            ``0`` indicates sequence B is a continuation of sequence A,
-            ``1`` indicates sequence B is a random sequence.
-
-    Outputs: `Tuple` comprising various elements depending on the configuration (config) and inputs:
-        **loss**: (`optional`, returned when both ``masked_lm_labels`` and ``next_sentence_label`` are provided) ``torch.FloatTensor`` of shape ``(1,)``:
-            Total loss as the sum of the masked language modeling loss and the next sequence prediction (classification) loss.
-        **prediction_scores**: ``torch.FloatTensor`` of shape ``(batch_size, sequence_length, config.vocab_size)``
-            Prediction scores of the language modeling head (scores for each vocabulary token before SoftMax).
-        **seq_relationship_scores**: ``torch.FloatTensor`` of shape ``(batch_size, sequence_length, 2)``
-            Prediction scores of the next sequence prediction (classification) head (scores of True/False continuation before SoftMax).
-        **hidden_states**: (`optional`, returned when ``config.output_hidden_states=True``)
-            list of ``torch.FloatTensor`` (one for the output of each layer + the output of the embeddings)
-            of shape ``(batch_size, sequence_length, hidden_size)``:
-            Hidden-states of the model at the output of each layer plus the initial embedding outputs.
-        **attentions**: (`optional`, returned when ``config.output_attentions=True``)
-            list of ``torch.FloatTensor`` (one for each layer) of shape ``(batch_size, num_heads, sequence_length, sequence_length)``:
-            Attentions weights after the attention softmax, used to compute the weighted average in the self-attention heads.
-
-    Examples::
-
-        >>> config = BertConfig.from_pretrained('bert-base-uncased')
-        >>> tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-        >>> 
-        >>> model = XLSpredForPreTraining(config)
-        >>> input_ids = torch.tensor(tokenizer.encode("Hello, my dog is cute")).unsqueeze(0)  # Batch size 1
-        >>> outputs = model(input_ids)
-        >>> prediction_scores, seq_relationship_scores = outputs[:2]
-
-    """
-    def __init__(self, config):
-        super(XLSpredForPreTraining, self).__init__(config)
-
-        self.xlspred = XLNetModel(config)
-        self.cls = XLSpredPreTrainingHeads(config)
-
-    # def forward(self, input_ids, token_type_ids=None, attention_mask=None, masked_lm_labels=None,
-    #             next_sentence_label=None, position_ids=None, head_mask=None):
-    def forward(self, input_ids, inputs_raw, target=None, 
-                token_type_ids=None, input_mask=None, attention_mask=None,
-                mems=None, perm_mask=None, target_mapping=None, head_mask=None):
-        outputs = self.xlspred(input_ids, inputs_raw, token_type_ids, input_mask, attention_mask,
-                mems, perm_mask, target_mapping, head_mask)
-
-        sequence_output = outputs[0]
-        prediction_scores = self.cls(sequence_output)
-
-        outputs = (prediction_scores,) + outputs[1:]  # add hidden states and attention if they are here
-
-        if target is not None:
-            total_loss = regression_loss(sequence_output, target)
-            outputs = (total_loss,) + outputs
-
-        return outputs  # (loss), prediction_scores, (hidden_states), (attentions)
-
-    def regression_loss(hidden, labels):
-        logits = nn.Linear(hidden, 1)
-        logits = torch.squeeze(logits, dim=-1)
-        diff = logits - labels
-        loss = torch.mul(diff, diff)
-        
-        return loss
-
-
 try:
     from apex.normalization.fused_layer_norm import FusedLayerNorm as XLNetLayerNorm
 except ImportError:
@@ -752,6 +637,121 @@ class XLNetPreTrainedModel(PreTrainedModel):
                 print("pytorch-transformers: init_weights called for model.")
                 #===DEBUG===
                 module.mask_emb.data.normal_(mean=0.0, std=self.config.initializer_range)
+
+
+class XLSpredPredictionHeadTransform(nn.Module):
+    def __init__(self, config):
+        super(XLSpredPredictionHeadTransform, self).__init__()
+        self.dense = nn.Linear(config.hidden_size, config.hidden_size)
+        if isinstance(config.hidden_act, str) or (sys.version_info[0] == 2 and isinstance(config.hidden_act, unicode)):
+            self.transform_act_fn = ACT2FN[config.hidden_act]
+        else:
+            self.transform_act_fn = config.hidden_act
+        self.LayerNorm = XLNetLayerNorm(config.hidden_size, eps=config.layer_norm_eps)
+
+    def forward(self, hidden_states):
+        hidden_states = self.dense(hidden_states)
+        hidden_states = self.transform_act_fn(hidden_states)
+        hidden_states = self.LayerNorm(hidden_states)
+        return hidden_states
+
+
+class XLSpredLMPredictionHead(nn.Module):
+    def __init__(self, config):
+        super(XLSpredLMPredictionHead, self).__init__()
+        self.transform = XLSpredPredictionHeadTransform(config)
+
+        # NOTE: removed decoder
+
+    def forward(self, hidden_states):
+        hidden_states = self.transform(hidden_states)
+        return hidden_states
+
+
+class XLSpredPreTrainingHeads(nn.Module):
+    def __init__(self, config):
+        super(XLSpredPreTrainingHeads, self).__init__()
+        self.predictions = XLSpredLMPredictionHead(config)
+
+    def forward(self, sequence_output):
+        prediction_scores = self.predictions(sequence_output)
+        return prediction_scores
+
+
+# @add_start_docstrings("""Bert Model with two heads on top as done during the pre-training:
+#     a `masked language modeling` head and a `next sentence prediction (classification)` head. """,
+#     XLNET_START_DOCSTRING, XLNET_INPUTS_DOCSTRING)
+class XLSpredForPreTraining(XLNetPreTrainedModel):
+    r"""
+        **masked_lm_labels**: (`optional`) ``torch.LongTensor`` of shape ``(batch_size, sequence_length)``:
+            Labels for computing the masked language modeling loss.
+            Indices should be in ``[-1, 0, ..., config.vocab_size]`` (see ``input_ids`` docstring)
+            Tokens with indices set to ``-1`` are ignored (masked), the loss is only computed for the tokens with labels
+            in ``[0, ..., config.vocab_size]``
+        **next_sentence_label**: (`optional`) ``torch.LongTensor`` of shape ``(batch_size,)``:
+            Labels for computing the next sequence prediction (classification) loss. Input should be a sequence pair (see ``input_ids`` docstring)
+            Indices should be in ``[0, 1]``.
+            ``0`` indicates sequence B is a continuation of sequence A,
+            ``1`` indicates sequence B is a random sequence.
+
+    Outputs: `Tuple` comprising various elements depending on the configuration (config) and inputs:
+        **loss**: (`optional`, returned when both ``masked_lm_labels`` and ``next_sentence_label`` are provided) ``torch.FloatTensor`` of shape ``(1,)``:
+            Total loss as the sum of the masked language modeling loss and the next sequence prediction (classification) loss.
+        **prediction_scores**: ``torch.FloatTensor`` of shape ``(batch_size, sequence_length, config.vocab_size)``
+            Prediction scores of the language modeling head (scores for each vocabulary token before SoftMax).
+        **seq_relationship_scores**: ``torch.FloatTensor`` of shape ``(batch_size, sequence_length, 2)``
+            Prediction scores of the next sequence prediction (classification) head (scores of True/False continuation before SoftMax).
+        **hidden_states**: (`optional`, returned when ``config.output_hidden_states=True``)
+            list of ``torch.FloatTensor`` (one for the output of each layer + the output of the embeddings)
+            of shape ``(batch_size, sequence_length, hidden_size)``:
+            Hidden-states of the model at the output of each layer plus the initial embedding outputs.
+        **attentions**: (`optional`, returned when ``config.output_attentions=True``)
+            list of ``torch.FloatTensor`` (one for each layer) of shape ``(batch_size, num_heads, sequence_length, sequence_length)``:
+            Attentions weights after the attention softmax, used to compute the weighted average in the self-attention heads.
+
+    Examples::
+
+        >>> config = BertConfig.from_pretrained('bert-base-uncased')
+        >>> tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+        >>> 
+        >>> model = XLSpredForPreTraining(config)
+        >>> input_ids = torch.tensor(tokenizer.encode("Hello, my dog is cute")).unsqueeze(0)  # Batch size 1
+        >>> outputs = model(input_ids)
+        >>> prediction_scores, seq_relationship_scores = outputs[:2]
+
+    """
+    def __init__(self, config):
+        super(XLSpredForPreTraining, self).__init__(config)
+
+        self.xlspred = XLNetModel(config)
+        self.cls = XLSpredPreTrainingHeads(config)
+
+    # def forward(self, input_ids, token_type_ids=None, attention_mask=None, masked_lm_labels=None,
+    #             next_sentence_label=None, position_ids=None, head_mask=None):
+    def forward(self, input_ids, inputs_raw, target=None, 
+                token_type_ids=None, input_mask=None, attention_mask=None,
+                mems=None, perm_mask=None, target_mapping=None, head_mask=None):
+        outputs = self.xlspred(input_ids, inputs_raw, token_type_ids, input_mask, attention_mask,
+                mems, perm_mask, target_mapping, head_mask)
+
+        sequence_output = outputs[0]
+        prediction_scores = self.cls(sequence_output)
+
+        outputs = (prediction_scores,) + outputs[1:]  # add hidden states and attention if they are here
+
+        if target is not None:
+            total_loss = regression_loss(sequence_output, target)
+            outputs = (total_loss,) + outputs
+
+        return outputs  # (loss), prediction_scores, (hidden_states), (attentions)
+
+    def regression_loss(hidden, labels):
+        logits = nn.Linear(hidden, 1)
+        logits = torch.squeeze(logits, dim=-1)
+        diff = logits - labels
+        loss = torch.mul(diff, diff)
+        
+        return loss
 
 
 XLNET_START_DOCSTRING = r"""    The XLNet model was proposed in
