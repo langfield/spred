@@ -860,8 +860,10 @@ class XLNetModel(XLNetPreTrainedModel):
 
         pos_emb = pos_emb.to(next(self.parameters()))
         return pos_emb
-
-    def forward(self, input_ids, token_type_ids=None, input_mask=None, attention_mask=None,
+    #===MOD===
+    # Added second positional argument ``inputs_raw`` containing raw data/embeddings. 
+    #===MOD===
+    def forward(self, input_ids, inputs_raw, token_type_ids=None, input_mask=None, attention_mask=None,
                 mems=None, perm_mask=None, target_mapping=None, head_mask=None):
         # the original code for XLNet uses shapes [len, bsz] with the batch dimension at the end
         # but we want a unified interface in the library with the batch size on the first dimension
@@ -945,7 +947,8 @@ class XLNetModel(XLNetPreTrainedModel):
         #===DEBUG===
         #===MOD===
         # Replaced `word_emb_k` with `input_ids`. 
-        output_h = self.dropout(input_ids)
+        # Replaced `input_ids` with `inputs_raw`. 
+        output_h = self.dropout(inputs_raw)
         #===MOD===
         if target_mapping is not None:
             word_emb_q = self.mask_emb.expand(target_mapping.shape[0], bsz, -1)
