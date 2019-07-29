@@ -60,10 +60,10 @@ class XLSpredDataset(Dataset):
         self.current_doc = 0  # to avoid random sentence from same doc
         self.sample_counter = 0
 
-        # load samples into memory
+        # Load samples into memory from file.
         self.data = pd.read_csv(corpus_path)
 
-        # add and adjust columns
+        # Add and adjust columns.
         self.data["Average"] = (self.data["High"] + self.data["Low"])/2
         self.data['Volume'] = self.data['Volume'] + 0.000001 # Avoid NaNs
         self.data["Average_ld"] = (np.log(self.data['Average']) - 
@@ -71,23 +71,22 @@ class XLSpredDataset(Dataset):
         self.data["Volume_ld"] = (np.log(self.data['Volume']) - 
                                    np.log(self.data['Volume']).shift(1))
         self.data = self.data[1:]
-        # print(self.data.head(2))
 
         self.tensor_data = torch.tensor(self.data.iloc[:,[7,8]].values)
         print('tensor data', self.tensor_data)
 
     def __len__(self):
-        # number of sequences = number of data points / sequence length
+        # ``__len__`` = ``orig_data_len // seq_len``.
         # note: remainder data points will not be used
-        return self.tensor_data.shape[0]//self.seq_len
+        return self.tensor_data.shape[0] // self.seq_len
 
     def __getitem__(self, item):
-        # item is an index 0-__len__() where __len__ is the number of sequences
-        # of length number of data points//seq_len
+        # ``item`` is an integer index from ``0`` to ``__len__`` where ``__len__`` 
+        # is the number of sequences of length ``orig_data_len // seq_len``. 
         cur_id = self.sample_counter
         self.sample_counter += 1
         if not self.on_memory:
-            # after one epoch we start again from beginning of file
+            # After one epoch we start again from beginning of file. 
             if cur_id != 0 and (cur_id % len(self) == 0):
                 self.file.close()
                 self.file = open(self.corpus_path, "r", encoding=self.encoding)
@@ -522,8 +521,6 @@ def main():
                 target_mask = torch.stack(target_mask)
                 # Shape: (bsz, actual_num_predict, seq_len)
                 target_mappings = torch.stack(target_mappings) 
-
-                
 
                 #=======PERM GENERATOR========
                 print('input_ids shape:', input_ids.shape)
