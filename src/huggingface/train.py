@@ -49,9 +49,9 @@ UNK_ID = -9996
 SEP_ID = -9997
 CLS_ID = -9998
 MASK_ID = -9999
-NUM_PREDICT = 12345
 
 DEBUG = False
+SIN = False
 
 class XLSpredDataset(Dataset):
     def __init__(self, 
@@ -76,22 +76,27 @@ class XLSpredDataset(Dataset):
         self.current_doc = 0  # to avoid random sentence from same doc
         self.sample_counter = 0
 
-        # Load samples into memory from file.
-        self.raw_data = pd.read_csv(corpus_path)
+        if SIN:
+            self.raw_data = pd.read_csv('sin.csv')
+            self.tensor_data = torch.tensor(self.raw_data.iloc[:,[0,1]].values)
+        else:
+            # Load samples into memory from file.
+            self.raw_data = pd.read_csv(corpus_path)
 
-        # Add and adjust columns.
-        self.raw_data["Average"] = (self.raw_data["High"] + self.raw_data["Low"])/2
-        self.raw_data['Volume'] = self.raw_data['Volume'] + 0.000001 # Avoid NaNs
-        self.raw_data["Average_ld"] = (np.log(self.raw_data['Average']) - 
-                                    np.log(self.raw_data['Average']).shift(1))
-        self.raw_data["Volume_ld"] = (np.log(self.raw_data['Volume']) - 
-                                   np.log(self.raw_data['Volume']).shift(1))
-        self.raw_data = self.raw_data[1:]
+            # Add and adjust columns.
+            self.raw_data["Average"] = (self.raw_data["High"] + self.raw_data["Low"])/2
+            self.raw_data['Volume'] = self.raw_data['Volume'] + 0.000001 # Avoid NaNs
+            self.raw_data["Average_ld"] = (np.log(self.raw_data['Average']) - 
+                                        np.log(self.raw_data['Average']).shift(1))
+            self.raw_data["Volume_ld"] = (np.log(self.raw_data['Volume']) - 
+                                    np.log(self.raw_data['Volume']).shift(1))
+            self.raw_data = self.raw_data[1:]
 
-        # convert data to tensor of shape(rows, features)
-        self.tensor_data = torch.tensor(self.raw_data.iloc[:,[7,8]].values)
+            # convert data to tensor of shape(rows, features)
+            self.tensor_data = torch.tensor(self.raw_data.iloc[:,[7,8]].values)
+        
         self.features = self.create_features(self.tensor_data)
-        print('len of features', len(self.features))
+        print('len of features:', len(self.features))
 
     def __len__(self):
         return len(self.features)
@@ -110,9 +115,10 @@ class XLSpredDataset(Dataset):
         batch_size = self.data_batch_size
         reuse_len = self.reuse_len
 
-        print('original_data_len', original_data_len)
-        print('seq_len', seq_len)
-        print('reuse_len', reuse_len)
+        if DEBUG:
+            print('original_data_len', original_data_len)
+            print('seq_len', seq_len)
+            print('reuse_len', reuse_len)
 
         # batchify the tensor as done in original xlnet implementation
         # This splits our data into shape(batch_size, data_len)
@@ -152,8 +158,9 @@ class XLSpredDataset(Dataset):
                 num_predict_1 = num_predict // 2
                 num_predict_0 = num_predict - num_predict_1
                
-                print("inp shape:", inp.shape)
-                print("num_predict_0:", num_predict_0) 
+                if DEBUG:
+                    print("inp shape:", inp.shape)
+                    print("num_predict_0:", num_predict_0) 
                 mask_0 = _sample_mask(inp,
                                       reverse=reverse,
                                       goal_num_predict=num_predict_0)
@@ -170,7 +177,9 @@ class XLSpredDataset(Dataset):
                                             sep_array, cls_array])
                 seg_id = torch.tensor([0] * (reuse_len + a_data.shape[0]) + [0] +
                                       [1] * b_data.shape[0] + [1] + [2])
-                print("mask_0 shape:", mask_0.shape)
+                if DEBUG:
+                    print("mask_0 shape:", mask_0.shape)
+                
                 # TODO: Should these even be here?
                 assert cat_data.shape[0] == seq_len
                 assert mask_0.shape[0] == seq_len // 2
@@ -183,8 +192,9 @@ class XLSpredDataset(Dataset):
                 mask_0 = torch.Tensor(mask_0)
                 mask_1 = torch.Tensor(mask_1)
                 is_masked = torch.cat([mask_0, mask_1], 0)
-                print('cat_data', cat_data)
-                print('is_masked', is_masked)
+                if DEBUG:
+                    print('cat_data', cat_data)
+                    print('is_masked', is_masked)
                 """
                 We append a vector of NaNs to tensor_data to serve as our ``[SEP]``, ``[CLS]`` vector.
                 So ``mod_tensor_data`` is just ``tensor_data`` with this NaN vector added to the end. 
@@ -197,11 +207,13 @@ class XLSpredDataset(Dataset):
                 dim = tensor_data.shape[-1]
                 nan_tensor = torch.Tensor([[0] * dim]).double()
                 mod_tensor_data = torch.cat([tensor_data, nan_tensor])
+                    
                 nan_index = len(mod_tensor_data) - 1 
                 zeroed_cat_data = torch.Tensor([nan_index if index < 0 else index for index in cat_data]).long() 
-                print("type of ``zeroed_cat_data``:", type(zeroed_cat_data))
-                print("type of ``zeroed_cat_data[0]``:", type(zeroed_cat_data[0]))
-                print("``zeroed_cat_data[0]``:", zeroed_cat_data[0])
+                if DEBUG:
+                    print("type of ``zeroed_cat_data``:", type(zeroed_cat_data))
+                    print("type of ``zeroed_cat_data[0]``:", type(zeroed_cat_data[0]))
+                    print("``zeroed_cat_data[0]``:", zeroed_cat_data[0])
                 input_raw = mod_tensor_data[zeroed_cat_data]
 
                 # Do the same as above for ``tgt``. 
@@ -686,7 +698,7 @@ def main():
                     print("target_mappings type:", target_mappings.type()) 
             
                 outputs = model(inputs, inputs_raw, targets_raw, None, None, None, None, perm_mask, target_mappings.to(device))
-                
+
                 if DEBUG: 
                     # print("outputs[0][0]", outputs[0][0])
                     # print("outputs[1]", outputs[1])
@@ -709,6 +721,7 @@ def main():
                     optimizer.step()
                     optimizer.zero_grad()
                     global_step += 1
+
 
         # Save a trained model
         if args.do_train and ( n_gpu > 1 and torch.distributed.get_rank() == 0  or n_gpu <=1):
