@@ -1,3 +1,10 @@
+from torch.utils.data import Dataset
+import torch
+import pandas as pd
+
+DEBUG = False
+SIN = True
+
 class XLSpredDataset(Dataset):
     def __init__(self, 
                  corpus_path, 
