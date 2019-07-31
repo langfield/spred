@@ -34,7 +34,7 @@ from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange
 
 from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME
-from pytorch_transformers.modeling_xlnet import XLNetModel, XLNetConfig, XLSpredForPreTraining
+from modeling_xlnet import XLNetModel, XLNetConfig, XLNetLMHeadModel
 from pytorch_transformers.optimization import AdamW, WarmupLinearSchedule
 
 from sample_mask_spred import _sample_mask
@@ -492,7 +492,7 @@ def main():
 
     # Prepare model
     config = XLNetConfig.from_pretrained(args.xlspred_model)
-    model = XLSpredForPreTraining(config)
+    model = XLNetLMHeadModel(config)
     if args.fp16:
         model.half()
     model.to(device)
@@ -718,7 +718,7 @@ def main():
            
 
  
-                outputs = model(inputs, inputs_raw, targets_raw, None, None, None, None, perm_mask, target_mappings.to(device))
+                outputs = model(inputs, inputs_raw, None, None, None, None, perm_mask, target_mappings.to(device), targets_raw)
                 print("train.py: outputs[0]:", outputs[0]) 
                 sys.stdout.flush()
 
