@@ -116,6 +116,6 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len, device, SEP_ID, 
     
     # construct inputs_q
     inputs_q = target_mask
-    
-    input("Press Enter to continue...")
+    if DEBUG: 
+        input("Press Enter to continue...")
     return perm_mask, new_targets, target_mask, inputs_k, inputs_q
