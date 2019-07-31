@@ -56,6 +56,14 @@ class XLSpredDataset(Dataset):
     def __getitem__(self, item):
         return self.features[item]
 
+
+    def _batchify(self, data, batch_size):
+        num_step = len(data) // batch_size
+        data = data[:batch_size * num_step]
+        data = data.reshape(batch_size, num_step)
+
+        return data
+
     def create_features(self, tensor_data):
         """
         Returns a list of features of the form 
@@ -76,7 +84,7 @@ class XLSpredDataset(Dataset):
         # This splits our data into shape(batch_size, data_len)
         # NOTE: data holds indices--not raw data
         # TODO: Add ``bi_data`` block from ``data_utils.py``. 
-        data = torch.tensor(batchify(np.arange(0, original_data_len), batch_size))
+        data = torch.tensor(self._batchify(np.arange(0, original_data_len), batch_size))
         data_len = data.shape[1]
         sep_array = torch.tensor(np.array([SEP_ID], dtype=np.int64))
         cls_array = torch.tensor(np.array([CLS_ID], dtype=np.int64))
