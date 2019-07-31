@@ -39,7 +39,10 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-DEBUG = False
+SEP_ID = -9997
+CLS_ID = -9998
+
+DEBUG = True
 
 def main():
     
@@ -98,8 +101,10 @@ def main():
                                        num_predict=args.num_predict,
                                        data_batch_size=args.data_batch_size,
                                        reuse_len=args.reuse_len,
+                                       SEP_ID=SEP_ID,
+                                       CLS_ID=CLS_ID,
                                        corpus_lines=None, 
-                                       on_memory=args.on_memory) 
+                                       on_memory=args.on_memory)
         num_train_optimization_steps = int(
             len(train_dataset) / args.train_batch_size / args.gradient_accumulation_steps) * args.num_train_epochs
         if args.local_rank != -1:
@@ -159,7 +164,9 @@ def main():
                                            is_maskeds[idx][:reuse_len].byte(),
                                            perm_size,
                                            reuse_len,
-                                           device)
+                                           device,
+                                           SEP_ID,
+                                           CLS_ID)
                     perm_mask_0, target_0, target_mask_0, _, _ = perm_0
                     
                     perm_1 = _local_perm(input_row[reuse_len:], 
@@ -167,7 +174,9 @@ def main():
                                            is_maskeds[idx][reuse_len:].byte(),
                                            perm_size,
                                            non_reuse_len,
-                                           device)
+                                           device,
+                                           SEP_ID,
+                                           CLS_ID)
                     perm_mask_1, target_1, target_mask_1, _, _ = perm_1
 
                     perm_mask_0 = torch.cat([perm_mask_0, torch.ones([reuse_len, non_reuse_len]).to(device)], 

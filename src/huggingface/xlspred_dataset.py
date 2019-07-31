@@ -7,11 +7,6 @@ from torch.utils.data import Dataset
 from sample_mask_spred import _sample_mask
 from split_a_and_b_spred import _split_a_and_b
 
-UNK_ID = -9996
-SEP_ID = -9997
-CLS_ID = -9998
-MASK_ID = -9999
-
 DEBUG = False
 SIN = True
 
@@ -22,6 +17,8 @@ class XLSpredDataset(Dataset):
                  num_predict,
                  data_batch_size,
                  reuse_len,
+                 SEP_ID,
+                 CLS_ID,
                  encoding="utf-8", 
                  corpus_lines=None, 
                  on_memory=True):
@@ -37,6 +34,8 @@ class XLSpredDataset(Dataset):
         self.encoding = encoding
         self.current_doc = 0  # to avoid random sentence from same doc
         self.sample_counter = 0
+        self.SEP_ID = SEP_ID
+        self.CLS_ID = CLS_ID
 
         if SIN:
             self.raw_data = pd.read_csv('sin.csv')
@@ -96,8 +95,8 @@ class XLSpredDataset(Dataset):
         # TODO: Add ``bi_data`` block from ``data_utils.py``. 
         data = torch.tensor(self._batchify(np.arange(0, original_data_len), batch_size))
         data_len = data.shape[1]
-        sep_array = torch.tensor(np.array([SEP_ID], dtype=np.int64))
-        cls_array = torch.tensor(np.array([CLS_ID], dtype=np.int64))
+        sep_array = torch.tensor(np.array([self.SEP_ID], dtype=np.int64))
+        cls_array = torch.tensor(np.array([self.CLS_ID], dtype=np.int64))
 
         i = 0
         features = []
