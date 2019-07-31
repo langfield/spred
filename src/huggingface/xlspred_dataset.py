@@ -1,6 +1,16 @@
-from torch.utils.data import Dataset
-import torch
+import numpy as np
 import pandas as pd
+
+import torch
+from torch.utils.data import Dataset
+
+from sample_mask_spred import _sample_mask
+from split_a_and_b_spred import _split_a_and_b
+
+UNK_ID = -9996
+SEP_ID = -9997
+CLS_ID = -9998
+MASK_ID = -9999
 
 DEBUG = False
 SIN = True
