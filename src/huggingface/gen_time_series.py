@@ -20,5 +20,6 @@ if plot:
     plt.show()
 
 zeros = np.ones(num_steps)
-df = pd.DataFrame({'Price': price, 'Pad': zeros})
+df = pd.DataFrame({'Price': price})
+df = df[[col for col in df.columns for i in range(60)]]
 df.to_csv('sin.csv', index=False)
