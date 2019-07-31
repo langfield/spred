@@ -240,7 +240,6 @@ def main():
                 targets_raw = targets_raw.float()
      
                 outputs = model(inputs, inputs_raw, None, None, None, None, perm_mask, target_mappings.to(device), targets_raw)
-                print("train.py: outputs[0]:", outputs[0]) 
                 sys.stdout.flush()
 
                 if DEBUG:

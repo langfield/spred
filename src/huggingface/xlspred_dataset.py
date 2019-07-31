@@ -175,7 +175,7 @@ class XLSpredDataset(Dataset):
                 Changed to zeroes temporarily.  
                 """
                 dim = tensor_data.shape[-1]
-                nan_tensor = torch.Tensor([[1] * dim]).double()
+                nan_tensor = torch.Tensor([[float('-inf')] * dim]).double()
                 mod_tensor_data = torch.cat([tensor_data, nan_tensor])
                     
                 nan_index = len(mod_tensor_data) - 1 
