@@ -8,4 +8,15 @@ VERY IMPORTANT: If ``bi_data`` is set to ``True`` in ``config.json``, then you m
 
 The training script is not broken, it is just that the forward function does not currently output loss as the first element. Need to get loss. 
 
-TODO: verify shapes of output from forward function. 
+TODO: verify shapes of output from forward function.
+
+
+Testing plan:
+
+    1. Switch to ``XLNetLMHeadModel``
+    
+    2. Make changes to a fresh copy of ``modeling_xlnet.py``. 
+
+    3. Assume modeling files are correct. Write unit tests for all preprocessing scripts. 
+
+    4. Write unittests for ``modeling_xlnet.py``. 
