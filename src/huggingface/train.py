@@ -17,28 +17,27 @@
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import argparse
 import logging
 import os
 import sys
 import random
-import pandas as pd
 from io import open
 
 import numpy as np
 import torch
-from torch.utils.data import DataLoader, Dataset, RandomSampler
+from torch.utils.data import DataLoader, RandomSampler
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange
 
 from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME
 from pytorch_transformers.optimization import AdamW, WarmupLinearSchedule
 
-from args import arg_parse
+from args import parse_args
 from perm_generator import _local_perm
 from split_a_and_b_spred import _split_a_and_b
 from sample_mask_spred import _sample_mask
-from utils import prepare_optimizer, prepare_model
+from xlspred_dataset import XLSpredDataset
+from xlspred_utils import prepare_optimizer, prepare_model
 from modeling_xlnet import XLNetModel, XLNetConfig, XLNetLMHeadModel
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
@@ -53,12 +52,11 @@ CLS_ID = -9998
 MASK_ID = -9999
 
 DEBUG = False
-SIN = True
 
 def main():
     
     # Get training arguments. 
-    args = arg_parser()
+    args = parse_args()
 
     # Prepare device.
     #===========DEVICE============
