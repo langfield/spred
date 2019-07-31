@@ -30,15 +30,11 @@ from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange
 
 from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME
-from pytorch_transformers.optimization import AdamW, WarmupLinearSchedule
 
 from args import parse_args
 from perm_generator import _local_perm
-from split_a_and_b_spred import _split_a_and_b
-from sample_mask_spred import _sample_mask
 from xlspred_dataset import XLSpredDataset
 from xlspred_utils import prepare_optimizer, prepare_model
-from modeling_xlnet import XLNetModel, XLNetConfig, XLNetLMHeadModel
 
 logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt='%m/%d/%Y %H:%M:%S',
@@ -46,10 +42,6 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message
 logger = logging.getLogger(__name__)
 
 
-UNK_ID = -9996
-SEP_ID = -9997
-CLS_ID = -9998
-MASK_ID = -9999
 
 DEBUG = False
 
@@ -124,7 +116,7 @@ def main():
     model = prepare_model(args, device, n_gpu)
 
     # Prepare optimizer, create scheduler. 
-    scheduler = prepare_optimizer(args, model)
+    optimizer, scheduler = prepare_optimizer(args, model, num_train_optimization_steps)
 
     global_step = 0
     if args.do_train:

@@ -1,4 +1,9 @@
-def prepare_optimizer(args, model):
+from pytorch_transformers.optimization import AdamW, WarmupLinearSchedule
+
+from modeling_xlnet import XLNetConfig
+from modeling_xlnet import XLNetLMHeadModel
+
+def prepare_optimizer(args, model, num_train_optimization_steps):
     """ Prepare optimizer. """
     if args.do_train:
         param_optimizer = list(model.named_parameters())
@@ -28,7 +33,7 @@ def prepare_optimizer(args, model):
             optimizer = AdamW(optimizer_grouped_parameters, lr=args.learning_rate, eps=args.adam_epsilon)
         scheduler = WarmupLinearSchedule(optimizer, warmup_steps=args.warmup_steps, t_total=num_train_optimization_steps)
 
-    return scheduler
+    return optimizer, scheduler
 
 def prepare_model(args, device, n_gpu):
     """ Prepare model. """
