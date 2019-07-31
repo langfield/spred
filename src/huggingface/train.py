@@ -17,19 +17,17 @@
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import logging
 import os
 import sys
-import random
-from io import open
-
-import numpy as np
 import torch
-from torch.utils.data import DataLoader, RandomSampler
-from torch.utils.data.distributed import DistributedSampler
+import random
+import logging
+import numpy as np
+
 from tqdm import tqdm, trange
 
-from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME
+from torch.utils.data import DataLoader, RandomSampler
+from torch.utils.data.distributed import DistributedSampler
 
 from args import parse_args
 from perm_generator import _local_perm
@@ -40,8 +38,6 @@ logging.basicConfig(format='%(asctime)s - %(levelname)s - %(name)s -   %(message
                     datefmt='%m/%d/%Y %H:%M:%S',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
 
 DEBUG = False
 
