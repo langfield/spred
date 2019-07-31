@@ -19,6 +19,6 @@ if plot:
     plt.ylabel('Price')
     plt.show()
 
-zeros = np.zeros(num_steps)
+zeros = np.ones(num_steps)
 df = pd.DataFrame({'Price': price, 'Pad': zeros})
 df.to_csv('sin.csv', index=False)
