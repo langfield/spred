@@ -1,6 +1,9 @@
 import torch
+import numpy as np
+import pandas as pd
 from pytorch_transformers.modeling_xlnet import XLNetModel
 
+plot = False
 
 # Create a sample tensor (this is just part of sin.csv)
 tokens_tensor = torch.tensor([
@@ -20,8 +23,30 @@ tokens_tensor = torch.tensor([
     [10.963558185417194,0.0]
 ])
 
-id_tensor = torch.reshape(torch.arange(tokens_tensor.shape[0]), (1,tokens_tensor.shape[0]))
-tokens_tensor = torch.reshape(tokens_tensor, (1,tokens_tensor.shape[0], tokens_tensor.shape[1]))
+width = 100
+num_steps = 10000
+# x vals
+time = np.arange(0, width, 100 / num_steps)
+print('Number of data points:', time.shape[0])
+# y vals
+price = np.sin(time) + 10
+
+if plot:
+    plt.plot(time, price)
+    plt.title('Sample Time Series')
+    plt.xlabel('Time (min)')
+    plt.ylabel('Price')
+    plt.show()
+
+zeros = np.ones(num_steps)
+df = pd.DataFrame({'Price': price})
+df = df[[col for col in df.columns for i in range(60)]]
+tokens_tensor = torch.Tensor(np.array(df))
+tokens_tensor = tokens_tensor[:1000]
+print("token tensor shape:", tokens_tensor.shape)
+
+id_tensor = torch.reshape(torch.arange(tokens_tensor.shape[0]), (1, tokens_tensor.shape[0]))
+tokens_tensor = torch.reshape(tokens_tensor, (1, tokens_tensor.shape[0], tokens_tensor.shape[1]))
 
 # load in our pretrained model
 model = XLNetModel.from_pretrained('checkpoints/')

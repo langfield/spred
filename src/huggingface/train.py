@@ -50,7 +50,7 @@ SEP_ID = -9997
 CLS_ID = -9998
 MASK_ID = -9999
 
-DEBUG = True
+DEBUG = False
 SIN = True
 
 class XLSpredDataset(Dataset):
@@ -77,8 +77,8 @@ class XLSpredDataset(Dataset):
         self.sample_counter = 0
 
         if SIN:
-            self.raw_data = pd.read_csv('tiny_sin.csv')
-            self.tensor_data = torch.tensor(self.raw_data.iloc[:,[0,1]].values)
+            self.raw_data = pd.read_csv('sin.csv')
+            self.tensor_data = torch.tensor(self.raw_data.iloc[:,:].values)
         else:
             # Load samples into memory from file.
             self.raw_data = pd.read_csv(corpus_path)
@@ -628,7 +628,9 @@ def main():
 
                     # extra padding due to CLS/SEP introduced after prepro
                     actual_num_predict = indices.shape[0]
+                    # TODO: By how much are we supposed to pad here vvvv?
                     pad_len = seq_len - actual_num_predict
+                    # pad_len = args.num_predict - actual_num_predict
 
                     # target mapping
                     inp = indices % seq_len
@@ -636,27 +638,48 @@ def main():
                     target_mapping = torch.FloatTensor(index_len, seq_len).zero_()
                     target_mapping.scatter_(1, inp_, 1) # Shape: (actual_num_predict, seq_len)
                     paddings = torch.zeros([pad_len, seq_len], dtype=target_mapping.dtype)
+                    # print("target_mapping_row shape:", target_mapping.shape)
                     target_mapping = torch.cat([target_mapping, paddings])
                     target_mappings.append(target_mapping)
 
                 perm_mask = torch.stack(perm_mask)
+
+                # Try flipping perm mask.
+                """ 
+                print("perm_mask preflip:", perm_mask[0])
+                perm_mask = perm_mask.byte()
+                perm_mask = ~perm_mask
+                perm_mask = perm_mask.float()
+                print("perm_mask postflip:", perm_mask[0])
+                """
+                # Had no effect. 
+
                 # Shape: (bsz, actual_num_predict, seq_len)
-                target_mappings = torch.stack(target_mappings) 
+                target_mappings = torch.stack(target_mappings)
+
+                # Try flipping target_mapping (should not be flipped). 
+                """
+                target_mappings = target_mappings.byte() 
+                target_mappings = ~target_mappings 
+                target_mappings = target_mappings.float()
+                """ 
+                # Had no effect. 
 
                 #===========^^^^^=============
                 #=======PERM GENERATOR========
-                
+ 
                 if DEBUG:
-                    print("inputs:", inputs)
-                    print("inputs_raw:", inputs_raw)
-                    print("targets_raw:\n", targets_raw)
-                    print("perm_mask:\n", perm_mask)
-                    print("target_mappings:\n", target_mappings)
+                    # print("inputs:", inputs)
+                    # print("inputs_raw:", inputs_raw)
+                    # print("targets_raw:\n", targets_raw)
+                    # print("perm_mask:\n", perm_mask)
+                    # print("target_mappings[0]:\n", target_mappings[0])
+                    # print("target_mappings[0][0]:\n", target_mappings[0][0])
+                    print('target_mappings shape:', target_mappings.shape)
                     print('input_ids shape:', inputs.shape)
                     print('inputs_raw shape:', inputs_raw.shape)
                     print('targets_raw shape:', targets_raw.shape)
                     print('perm_mask shape:', perm_mask.shape)
-                    print('target_mappings shape:', target_mappings.shape)
                 """
                 **input_ids**: ``torch.LongTensor`` of shape ``(batch_size, sequence_length)``:
                     Indices of input sequence tokens in the vocabulary.
@@ -696,6 +719,8 @@ def main():
 
  
                 outputs = model(inputs, inputs_raw, targets_raw, None, None, None, None, perm_mask, target_mappings.to(device))
+                print("train.py: outputs[0]:", outputs[0]) 
+                sys.stdout.flush()
 
                 if DEBUG:
                     print("train.py: outputs[0]:", outputs[0]) 
