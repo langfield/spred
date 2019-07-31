@@ -28,7 +28,7 @@ from io import open
 import numpy as np
 import torch
 from perm_generator import _local_perm
-from split_a_and_b_torch import _split_a_and_b
+from split_a_and_b_spred import _split_a_and_b
 from torch.utils.data import DataLoader, Dataset, RandomSampler
 from torch.utils.data.distributed import DistributedSampler
 from tqdm import tqdm, trange
