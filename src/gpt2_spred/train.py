@@ -53,43 +53,6 @@ def accuracy(out, labels):
     outputs = np.argmax(out, axis=1)
     return np.sum(outputs == labels)
 
-def load_rocstories_dataset(dataset_path):
-    """ Output a list of tuples(story, 1st continuation, 2nd continuation, label) """
-    with open(dataset_path, encoding='utf_8') as f:
-        f = csv.reader(f)
-        output = []
-        next(f) # skip the first line
-        for line in tqdm(f):
-            output.append((' '.join(line[1:5]), line[5], line[6], int(line[-1])-1))
-    return output
-
-def pre_process_datasets(encoded_datasets, input_len, cap_length, start_token, delimiter_token, clf_token):
-    """ Pre-process datasets containing lists of tuples(story, 1st continuation, 2nd continuation, label)
-
-        To Transformer inputs of shape (n_batch, n_alternative, length) comprising for each batch, continuation:
-        input_ids[batch, alternative, :] = [start_token] + story[:cap_length] + [delimiter_token] + cont1[:cap_length] + [clf_token]
-    """
-    tensor_datasets = []
-    for dataset in encoded_datasets:
-        n_batch = len(dataset)
-        input_ids = np.zeros((n_batch, 2, input_len), dtype=np.int64)
-        mc_token_ids = np.zeros((n_batch, 2), dtype=np.int64)
-        lm_labels = np.full((n_batch, 2, input_len), fill_value=-1, dtype=np.int64)
-        mc_labels = np.zeros((n_batch,), dtype=np.int64)
-        for i, (story, cont1, cont2, mc_label), in enumerate(dataset):
-            with_cont1 = [start_token] + story[:cap_length] + [delimiter_token] + cont1[:cap_length] + [clf_token]
-            with_cont2 = [start_token] + story[:cap_length] + [delimiter_token] + cont2[:cap_length] + [clf_token]
-            input_ids[i, 0, :len(with_cont1)] = with_cont1
-            input_ids[i, 1, :len(with_cont2)] = with_cont2
-            mc_token_ids[i, 0] = len(with_cont1) - 1
-            mc_token_ids[i, 1] = len(with_cont2) - 1
-            lm_labels[i, 0, :len(with_cont1)] = with_cont1
-            lm_labels[i, 1, :len(with_cont2)] = with_cont2
-            mc_labels[i] = mc_label
-        all_inputs = (input_ids, mc_token_ids, lm_labels, mc_labels)
-        tensor_datasets.append(tuple(torch.tensor(t) for t in all_inputs))
-    return tensor_datasets
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name', type=str, default='openai-gpt',
@@ -111,9 +74,12 @@ def main():
     parser.add_argument('--weight_decay', type=float, default=0.01)
     parser.add_argument('--lm_coef', type=float, default=0.9)
     parser.add_argument('--n_valid', type=int, default=374)
-
     parser.add_argument('--server_ip', type=str, default='', help="Can be used for distant debugging.")
     parser.add_argument('--server_port', type=str, default='', help="Can be used for distant debugging.")
+
+    # Added. 
+    parser.add_argument("--xlspred_model", default=None, type=str, required=True,
+                        help="XLSpred pre-trained model path")
     args = parser.parse_args()
     print(args)
 
@@ -140,6 +106,7 @@ def main():
         os.makedirs(args.output_dir)
 
     # TODO: create ``config``. 
+    config = OpenAIGPTConfig.from_pretrained(args.gptspred_model)
     model = OpenAIGPTLMHeadModel.from_pretrained(config)
     model.to(device)
 
@@ -179,8 +146,8 @@ def main():
                 assert input_ids.shape == (args.train_batch_size, max_length)
                 assert lm_labels.shape == (args.train_batch_size, max_length)
                 assert inputs_raw.shape == (args.train_batch_size, max_length)
-                losses = model(input_ids, lm_labels, inputs_raw)
-                loss = args.lm_coef * losses[0] + losses[1]
+                outputs = model(input_ids, lm_labels, inputs_raw)
+                loss = outputs[0]
                 loss.backward()
                 optimizer.step()
                 optimizer.zero_grad()
@@ -200,13 +167,12 @@ def main():
 
         torch.save(model_to_save.state_dict(), output_model_file)
         model_to_save.config.to_json_file(output_config_file)
-        tokenizer.save_vocabulary(args.output_dir)
 
         # Load a trained model and vocabulary that you have fine-tuned
         model = OpenAIGPTDoubleHeadsModel.from_pretrained(args.output_dir)
-        tokenizer = OpenAIGPTTokenizer.from_pretrained(args.output_dir)
         model.to(device)
 
+    """
     if args.do_eval:
         model.eval()
         eval_loss, eval_accuracy = 0, 0
@@ -241,6 +207,7 @@ def main():
             for key in sorted(result.keys()):
                 logger.info("  %s = %s", key, str(result[key]))
                 writer.write("%s = %s\n" % (key, str(result[key])))
+    """
 
 if __name__ == '__main__':
     main()
