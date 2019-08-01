@@ -512,9 +512,6 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         else:
             token_type_embeds = 0
 
-        print(inputs_embeds.type())
-        print(position_embeds.type())
-        print(type(token_type_embeds))
         hidden_states = inputs_embeds + position_embeds + token_type_embeds
         hidden_states = self.drop(hidden_states)
 
@@ -600,7 +597,8 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
                                                inputs_raw=inputs_raw,
                                                head_mask=head_mask)
         hidden_states = transformer_outputs[0]
-        assert hidden_states.shape == input_ids.shape
+        print("Shape of ``hidden_states``:", hidden_states.shape)
+        assert hidden_states.shape == inputs_raw.shape
         lm_logits = hidden_states
 
         outputs = (lm_logits,) + transformer_outputs[1:]
