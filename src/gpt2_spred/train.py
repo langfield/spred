@@ -78,7 +78,7 @@ def main():
     parser.add_argument('--server_port', type=str, default='', help="Can be used for distant debugging.")
 
     # Added. 
-    parser.add_argument("--xlspred_model", default=None, type=str, required=True,
+    parser.add_argument("--gptspred_model", default=None, type=str, required=True,
                         help="XLSpred pre-trained model path")
     args = parser.parse_args()
     print(args)
