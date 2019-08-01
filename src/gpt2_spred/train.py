@@ -39,8 +39,9 @@ import torch
 from torch.utils.data import (DataLoader, RandomSampler, SequentialSampler,
                               TensorDataset)
 
-from pytorch_transformers import (OpenAIGPTDoubleHeadsModel, OpenAIGPTTokenizer,
-                                     AdamW, cached_path, WEIGHTS_NAME, CONFIG_NAME)
+from pytorch_transformers import (AdamW, cached_path, WEIGHTS_NAME, CONFIG_NAME)
+from dataset import GPTSpredDataset
+from modeling_openai import OpenAIGPTLMHeadModel
 
 ROCSTORIES_URL = "https://s3.amazonaws.com/datasets.huggingface.co/ROCStories.tar.gz"
 
