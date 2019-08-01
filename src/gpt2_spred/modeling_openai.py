@@ -13,7 +13,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-"""PyTorch OpenAI GPT-2 model."""
+"""PyTorch OpenAI GPT model."""
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
@@ -30,43 +30,59 @@ import torch.nn as nn
 from torch.nn import CrossEntropyLoss
 from torch.nn.parameter import Parameter
 
-from pytorch_transformers.modeling_utils import (Conv1D, CONFIG_NAME, WEIGHTS_NAME, PretrainedConfig,
+from .modeling_utils import (Conv1D, CONFIG_NAME, WEIGHTS_NAME, PretrainedConfig,
                              PreTrainedModel, prune_conv1d_layer, SequenceSummary,
                              add_start_docstrings)
-from pytorch_transformers.modeling_bert import BertLayerNorm as LayerNorm
+from .modeling_bert import BertLayerNorm as LayerNorm
 
 logger = logging.getLogger(__name__)
 
-GPT2_PRETRAINED_MODEL_ARCHIVE_MAP = {"gpt2": "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-pytorch_model.bin",
-                                     "gpt2-medium": "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-medium-pytorch_model.bin"}
-GPT2_PRETRAINED_CONFIG_ARCHIVE_MAP = {"gpt2": "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-config.json",
-                                      "gpt2-medium": "https://s3.amazonaws.com/models.huggingface.co/bert/gpt2-medium-config.json"}
+OPENAI_GPT_PRETRAINED_MODEL_ARCHIVE_MAP = {"openai-gpt": "https://s3.amazonaws.com/models.huggingface.co/bert/openai-gpt-pytorch_model.bin"}
+OPENAI_GPT_PRETRAINED_CONFIG_ARCHIVE_MAP = {"openai-gpt": "https://s3.amazonaws.com/models.huggingface.co/bert/openai-gpt-config.json"}
 
-def load_tf_weights_in_gpt2(model, config, gpt2_checkpoint_path):
-    """ Load tf checkpoints in a pytorch model
+
+def load_tf_weights_in_openai_gpt(model, config, openai_checkpoint_folder_path):
+    """ Load tf pre-trained weights in a pytorch model (from NumPy arrays here)
     """
-    try:
-        import re
-        import numpy as np
-        import tensorflow as tf
-    except ImportError:
-        logger.error("Loading a TensorFlow models in PyTorch, requires TensorFlow to be installed. Please see "
-            "https://www.tensorflow.org/install/ for installation instructions.")
-        raise
-    tf_path = os.path.abspath(gpt2_checkpoint_path)
-    logger.info("Converting TensorFlow checkpoint from {}".format(tf_path))
-    # Load weights from TF model
-    init_vars = tf.train.list_variables(tf_path)
-    names = []
-    arrays = []
-    for name, shape in init_vars:
-        logger.info("Loading TF weight {} with shape {}".format(name, shape))
-        array = tf.train.load_variable(tf_path, name)
-        names.append(name)
-        arrays.append(array.squeeze())
+    import re
+    import numpy as np
 
-    for name, array in zip(names, arrays):
+    if '.ckpt' in openai_checkpoint_folder_path:
+        openai_checkpoint_folder_path = os.path.dirname(openai_checkpoint_folder_path)
+
+    logger.info("Loading weights from {}".format(openai_checkpoint_folder_path))
+
+    names = json.load(open(openai_checkpoint_folder_path + '/parameters_names.json', "r", encoding='utf-8'))
+    shapes = json.load(open(openai_checkpoint_folder_path + '/params_shapes.json', "r", encoding='utf-8'))
+    offsets = np.cumsum([np.prod(shape) for shape in shapes])
+    init_params = [np.load(openai_checkpoint_folder_path + '/params_{}.npy'.format(n)) for n in range(10)]
+    init_params = np.split(np.concatenate(init_params, 0), offsets)[:-1]
+    init_params = [param.reshape(shape) for param, shape in zip(init_params, shapes)]
+
+    # This was used when we had a single embedding matrix for positions and tokens
+    # init_params[0] = np.concatenate([init_params[1], init_params[0]], 0)
+    # del init_params[1]
+    init_params = [arr.squeeze() for arr in init_params]
+
+    try:
+        assert model.tokens_embed.weight.shape == init_params[1].shape
+        assert model.positions_embed.weight.shape == init_params[0].shape
+    except AssertionError as e:
+        e.args += (model.tokens_embed.weight.shape, init_params[1].shape)
+        e.args += (model.positions_embed.weight.shape, init_params[0].shape)
+        raise
+
+    model.tokens_embed.weight.data = torch.from_numpy(init_params[1])
+    model.positions_embed.weight.data = torch.from_numpy(init_params[0])
+    names.pop(0)
+    # Pop position and token embedding arrays
+    init_params.pop(0)
+    init_params.pop(0)
+
+    for name, array in zip(names, init_params): # names[1:n_transfer], init_params[1:n_transfer]):
         name = name[6:]  # skip "model/"
+        assert name[-2:] == ":0"
+        name = name[:-2]
         name = name.split('/')
         pointer = model
         for m_name in name:
@@ -74,18 +90,22 @@ def load_tf_weights_in_gpt2(model, config, gpt2_checkpoint_path):
                 l = re.split(r'(\d+)', m_name)
             else:
                 l = [m_name]
-            if l[0] == 'w' or l[0] == 'g':
+            if l[0] == 'g':
                 pointer = getattr(pointer, 'weight')
             elif l[0] == 'b':
                 pointer = getattr(pointer, 'bias')
-            elif l[0] == 'wpe' or l[0] == 'wte':
-                pointer = getattr(pointer, l[0])
+            elif l[0] == 'w':
                 pointer = getattr(pointer, 'weight')
             else:
                 pointer = getattr(pointer, l[0])
             if len(l) >= 2:
                 num = int(l[1])
                 pointer = pointer[num]
+        try:
+            assert pointer.shape == array.shape
+        except AssertionError as e:
+            e.args += (pointer.shape, array.shape)
+            raise
         try:
             assert pointer.shape == array.shape
         except AssertionError as e:
@@ -100,41 +120,55 @@ def gelu(x):
     return 0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * torch.pow(x, 3))))
 
 
-class GPT2Config(PretrainedConfig):
-    """Configuration class to store the configuration of a `GPT2Model`.
+def swish(x):
+    return x * torch.sigmoid(x)
+
+
+ACT_FNS = {"relu": nn.ReLU, "swish": swish, "gelu": gelu}
+
+
+class OpenAIGPTConfig(PretrainedConfig):
+    """
+    Configuration class to store the configuration of a `OpenAIGPTModel`.
 
     Args:
-        vocab_size_or_config_json_file: Vocabulary size of `inputs_ids` in `GPT2Model` or a configuration json file.
+        vocab_size_or_config_json_file: Vocabulary size of `inputs_ids` in `OpenAIGPTModel` or a configuration json file.
+        n_special: The number of special tokens to learn during fine-tuning ('[SEP]', '[CLF]', ...)
         n_positions: Number of positional embeddings.
         n_ctx: Size of the causal mask (usually same as n_positions).
         n_embd: Dimensionality of the embeddings and hidden states.
         n_layer: Number of hidden layers in the Transformer encoder.
         n_head: Number of attention heads for each attention layer in
             the Transformer encoder.
-        layer_norm_epsilon: epsilon to use in the layer norm layers
+        afn: The non-linear activation function (function or string) in the
+            encoder and pooler. If string, "gelu", "relu" and "swish" are supported.
         resid_pdrop: The dropout probabilitiy for all fully connected
             layers in the embeddings, encoder, and pooler.
         attn_pdrop: The dropout ratio for the attention
             probabilities.
         embd_pdrop: The dropout ratio for the embeddings.
+        layer_norm_epsilon: epsilon to use in the layer norm layers
         initializer_range: The sttdev of the truncated_normal_initializer for
             initializing all weight matrices.
+        predict_special_tokens: should we predict special tokens (when the model has a LM head)
     """
-    pretrained_config_archive_map = GPT2_PRETRAINED_CONFIG_ARCHIVE_MAP
+    pretrained_config_archive_map = OPENAI_GPT_PRETRAINED_CONFIG_ARCHIVE_MAP
 
     def __init__(
         self,
-        vocab_size_or_config_json_file=50257,
-        n_positions=1024,
-        n_ctx=1024,
+        vocab_size_or_config_json_file=40478,
+        n_positions=512,
+        n_ctx=512,
         n_embd=768,
         n_layer=12,
         n_head=12,
+        afn="gelu",
         resid_pdrop=0.1,
         embd_pdrop=0.1,
         attn_pdrop=0.1,
         layer_norm_epsilon=1e-5,
         initializer_range=0.02,
+        predict_special_tokens=True,
 
         num_labels=1,
         summary_type='token_ids',
@@ -144,26 +178,9 @@ class GPT2Config(PretrainedConfig):
         summary_first_dropout=0.1,
         **kwargs
     ):
-        """Constructs GPT2Config.
-
-        Args:
-            vocab_size_or_config_json_file: Vocabulary size of `inputs_ids` in `GPT2Model` or a configuration json file.
-            n_positions: Number of positional embeddings.
-            n_ctx: Size of the causal mask (usually same as n_positions).
-            n_embd: Dimensionality of the embeddings and hidden states.
-            n_layer: Number of hidden layers in the Transformer encoder.
-            n_head: Number of attention heads for each attention layer in
-                the Transformer encoder.
-            layer_norm_epsilon: epsilon to use in the layer norm layers
-            resid_pdrop: The dropout probabilitiy for all fully connected
-                layers in the embeddings, encoder, and pooler.
-            attn_pdrop: The dropout ratio for the attention
-                probabilities.
-            embd_pdrop: The dropout ratio for the embeddings.
-            initializer_range: The sttdev of the truncated_normal_initializer for
-                initializing all weight matrices.
+        """Constructs OpenAIGPTConfig.
         """
-        super(GPT2Config, self).__init__(**kwargs)
+        super(OpenAIGPTConfig, self).__init__(**kwargs)
 
         if isinstance(vocab_size_or_config_json_file, str) or (sys.version_info[0] == 2
                         and isinstance(vocab_size_or_config_json_file, unicode)):
@@ -178,11 +195,13 @@ class GPT2Config(PretrainedConfig):
             self.n_embd = n_embd
             self.n_layer = n_layer
             self.n_head = n_head
+            self.afn = afn
             self.resid_pdrop = resid_pdrop
             self.embd_pdrop = embd_pdrop
             self.attn_pdrop = attn_pdrop
             self.layer_norm_epsilon = layer_norm_epsilon
             self.initializer_range = initializer_range
+            self.predict_special_tokens = predict_special_tokens
 
             self.num_labels = num_labels
             self.summary_type = summary_type
@@ -213,12 +232,9 @@ class GPT2Config(PretrainedConfig):
         return self.n_layer
 
 
-
 class Attention(nn.Module):
     def __init__(self, nx, n_ctx, config, scale=False):
         super(Attention, self).__init__()
-        self.output_attentions = config.output_attentions
-
         n_state = nx  # in Attention: n_state=768 (nx=n_embd)
         # [switch nx => n_state from Block to Attention to keep identical to TF implem]
         assert n_state % config.n_head == 0
@@ -226,6 +242,8 @@ class Attention(nn.Module):
         self.n_head = config.n_head
         self.split_size = n_state
         self.scale = scale
+
+        self.output_attentions = config.output_attentions
 
         self.c_attn = Conv1D(n_state * 3, nx)
         self.c_proj = Conv1D(n_state, nx)
@@ -252,9 +270,10 @@ class Attention(nn.Module):
         w = torch.matmul(q, k)
         if self.scale:
             w = w / math.sqrt(v.size(-1))
-        nd, ns = w.size(-2), w.size(-1)
-        b = self.bias[:, :, ns-nd:ns, :ns]
-        w = w * b - 1e4 * (1 - b)
+        # w = w * self.bias + -1e9 * (1 - self.bias)  # TF implem method: mask_attn_weights
+        # XD: self.b may be larger than w, so we need to crop it
+        b = self.bias[:, :, : w.size(-2), : w.size(-1)]
+        w = w * b + -1e9 * (1 - b)
 
         w = nn.Softmax(dim=-1)(w)
         w = self.attn_dropout(w)
@@ -277,21 +296,16 @@ class Attention(nn.Module):
         new_x_shape = x.size()[:-1] + (self.n_head, x.size(-1) // self.n_head)
         x = x.view(*new_x_shape)  # in Tensorflow implem: fct split_states
         if k:
-            return x.permute(0, 2, 3, 1)  # (batch, head, head_features, seq_length)
+            return x.permute(0, 2, 3, 1)
         else:
-            return x.permute(0, 2, 1, 3)  # (batch, head, seq_length, head_features)
+            return x.permute(0, 2, 1, 3)
 
-    def forward(self, x, layer_past=None, head_mask=None):
+    def forward(self, x, head_mask=None):
         x = self.c_attn(x)
         query, key, value = x.split(self.split_size, dim=2)
         query = self.split_heads(query)
         key = self.split_heads(key, k=True)
         value = self.split_heads(value)
-        if layer_past is not None:
-            past_key, past_value = layer_past[0].transpose(-2, -1), layer_past[1]  # transpose back cf below
-            key = torch.cat((past_key, key), dim=-1)
-            value = torch.cat((past_value, value), dim=-2)
-        present = torch.stack((key.transpose(-2, -1), value))  # transpose to have same shapes for stacking
 
         attn_outputs = self._attn(query, key, value, head_mask)
         a = attn_outputs[0]
@@ -300,8 +314,8 @@ class Attention(nn.Module):
         a = self.c_proj(a)
         a = self.resid_dropout(a)
 
-        outputs = [a, present] + attn_outputs[1:]
-        return outputs  # a, present, (attentions)
+        outputs = [a] + attn_outputs[1:]
+        return outputs  # a, (attentions)
 
 
 class MLP(nn.Module):
@@ -310,7 +324,7 @@ class MLP(nn.Module):
         nx = config.n_embd
         self.c_fc = Conv1D(n_state, nx)
         self.c_proj = Conv1D(nx, n_state)
-        self.act = gelu
+        self.act = ACT_FNS[config.afn]
         self.dropout = nn.Dropout(config.resid_pdrop)
 
     def forward(self, x):
@@ -323,34 +337,34 @@ class Block(nn.Module):
     def __init__(self, n_ctx, config, scale=False):
         super(Block, self).__init__()
         nx = config.n_embd
-        self.ln_1 = LayerNorm(nx, eps=config.layer_norm_epsilon)
         self.attn = Attention(nx, n_ctx, config, scale)
-        self.ln_2 = LayerNorm(nx, eps=config.layer_norm_epsilon)
+        self.ln_1 = LayerNorm(nx, eps=config.layer_norm_epsilon)
         self.mlp = MLP(4 * nx, config)
+        self.ln_2 = LayerNorm(nx, eps=config.layer_norm_epsilon)
 
-    def forward(self, x, layer_past=None, head_mask=None):
-        output_attn = self.attn(self.ln_1(x), layer_past=layer_past, head_mask=head_mask)
-        a = output_attn[0]  # output_attn: a, present, (attentions)
+    def forward(self, x, head_mask=None):
+        attn_outputs = self.attn(x, head_mask=head_mask)
+        a = attn_outputs[0]
 
-        x = x + a
-        m = self.mlp(self.ln_2(x))
-        x = x + m
+        n = self.ln_1(x + a)
+        m = self.mlp(n)
+        h = self.ln_2(n + m)
 
-        outputs = [x] + output_attn[1:]
-        return outputs  # x, present, (attentions)
+        outputs = [h] + attn_outputs[1:]
+        return outputs
 
 
-class GPT2PreTrainedModel(PreTrainedModel):
+class OpenAIGPTPreTrainedModel(PreTrainedModel):
     """ An abstract class to handle weights initialization and
         a simple interface for dowloading and loading pretrained models.
     """
-    config_class = GPT2Config
-    pretrained_model_archive_map = GPT2_PRETRAINED_MODEL_ARCHIVE_MAP
-    load_tf_weights = load_tf_weights_in_gpt2
+    config_class = OpenAIGPTConfig
+    pretrained_model_archive_map = OPENAI_GPT_PRETRAINED_MODEL_ARCHIVE_MAP
+    load_tf_weights = load_tf_weights_in_openai_gpt
     base_model_prefix = "transformer"
 
     def __init__(self, *inputs, **kwargs):
-        super(GPT2PreTrainedModel, self).__init__(*inputs, **kwargs)
+        super(OpenAIGPTPreTrainedModel, self).__init__(*inputs, **kwargs)
 
     def init_weights(self, module):
         """ Initialize the weights.
@@ -366,26 +380,26 @@ class GPT2PreTrainedModel(PreTrainedModel):
             module.weight.data.fill_(1.0)
 
 
-GPT2_START_DOCSTRING = r"""    OpenAI GPT-2 model was proposed in
-    `Language Models are Unsupervised Multitask Learners`_
-    by Alec Radford*, Jeffrey Wu*, Rewon Child, David Luan, Dario Amodei** and Ilya Sutskever**.
-    It's a causal (unidirectional) transformer pre-trained using  language modeling on a very large
-    corpus of ~40 GB of text data.
+OPENAI_GPT_START_DOCSTRING = r"""    OpenAI GPT model was proposed in
+    `Improving Language Understanding by Generative Pre-Training`_
+    by Alec Radford, Karthik Narasimhan, Tim Salimans and Ilya Sutskever.
+    It's a causal (unidirectional) transformer pre-trained using language modeling on a large
+    corpus will long range dependencies, the Toronto Book Corpus.
 
     This model is a PyTorch `torch.nn.Module`_ sub-class. Use it as a regular PyTorch Module and
     refer to the PyTorch documentation for all matter related to general usage and behavior.
 
-    .. _`Language Models are Unsupervised Multitask Learners`:
-        https://openai.com/blog/better-language-models/
+    .. _`Improving Language Understanding by Generative Pre-Training`:
+        https://openai.com/blog/language-unsupervised/
 
     .. _`torch.nn.Module`:
         https://pytorch.org/docs/stable/nn.html#module
 
     Parameters:
-        config (:class:`~pytorch_transformers.GPT2Config`): Model configuration class with all the parameters of the model.
+        config (:class:`~pytorch_transformers.OpenAIGPTConfig`): Model configuration class with all the parameters of the model.
 """
 
-GPT2_INPUTS_DOCSTRING = r"""    Inputs:
+OPENAI_GPT_INPUTS_DOCSTRING = r"""    Inputs:
         **input_ids**: ``torch.LongTensor`` of shape ``(batch_size, sequence_length)``:
             Indices of input sequence tokens in the vocabulary.
             Indices can be obtained using :class:`pytorch_transformers.BPT2Tokenizer`.
@@ -398,31 +412,23 @@ GPT2_INPUTS_DOCSTRING = r"""    Inputs:
             A parallel sequence of tokens (can be used to indicate various portions of the inputs).
             The embeddings from these tokens will be summed with the respective token embeddings.
             Indices are selected in the vocabulary (unlike BERT which has a specific vocabulary for segment indices).
-        **past**:
-            list of ``torch.FloatTensor`` (one for each layer):
-            that contains pre-computed hidden-states (key and values in the attention blocks) as computed by the model
-            (see `past` output below). Can be used to speed up sequential decoding.
-        **attention_mask**: (`optional`) ``torch.Tensor`` of shape ``(batch_size, sequence_length)``:
+        **attention_mask**: (`optional`) ``torch.FloatTensor`` of shape ``(batch_size, sequence_length)``:
             Mask to avoid performing attention on padding token indices.
             Mask values selected in ``[0, 1]``:
             ``1`` for tokens that are NOT MASKED, ``0`` for MASKED tokens.
-        **head_mask**: (`optional`) ``torch.Tensor`` of shape ``(num_heads,)`` or ``(num_layers, num_heads)``:
+        **head_mask**: (`optional`) ``torch.FloatTensor`` of shape ``(num_heads,)`` or ``(num_layers, num_heads)``:
             Mask to nullify selected heads of the self-attention modules.
             Mask values selected in ``[0, 1]``:
             ``1`` indicates the head is **not masked**, ``0`` indicates the head is **masked**.
 """
 
-@add_start_docstrings("The bare GPT2 Model transformer outputing raw hidden-states without any specific head on top.",
-                      GPT2_START_DOCSTRING, GPT2_INPUTS_DOCSTRING)
-class GPT2Model(GPT2PreTrainedModel):
+@add_start_docstrings("The bare OpenAI GPT transformer model outputing raw hidden-states without any specific head on top.",
+                      OPENAI_GPT_START_DOCSTRING, OPENAI_GPT_INPUTS_DOCSTRING)
+class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
     r"""
     Outputs: `Tuple` comprising various elements depending on the configuration (config) and inputs:
         **last_hidden_state**: ``torch.FloatTensor`` of shape ``(batch_size, sequence_length, hidden_size)``
             Sequence of hidden-states at the last layer of the model.
-        **past**:
-            list of ``torch.FloatTensor`` (one for each layer) of shape ``(batch_size, num_heads, sequence_length, sequence_length)``:
-            that contains pre-computed hidden-states (key and values in the attention blocks).
-            Can be used (see `past` input) to speed up sequential decoding.
         **hidden_states**: (`optional`, returned when ``config.output_hidden_states=True``)
             list of ``torch.FloatTensor`` (one for the output of each layer + the output of the embeddings)
             of shape ``(batch_size, sequence_length, hidden_size)``:
@@ -433,30 +439,29 @@ class GPT2Model(GPT2PreTrainedModel):
 
     Examples::
 
-        >>> config = GPT2Config.from_pretrained('gpt2')
-        >>> tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
-        >>> model = GPT2Model(config)
+        >>> config = OpenAIGPTConfig.from_pretrained('openai-gpt')
+        >>> tokenizer = OpenAIGPTTokenizer.from_pretrained('openai-gpt')
+        >>> model = OpenAIGPTModel(config)
         >>> input_ids = torch.tensor(tokenizer.encode("Hello, my dog is cute")).unsqueeze(0)  # Batch size 1
         >>> outputs = model(input_ids)
         >>> last_hidden_states = outputs[0]  # The last hidden-state is the first element of the output tuple
 
     """
     def __init__(self, config):
-        super(GPT2Model, self).__init__(config)
-        self.output_hidden_states = config.output_hidden_states
+        super(OpenAIGPTModel, self).__init__(config)
         self.output_attentions = config.output_attentions
+        self.output_hidden_states = config.output_hidden_states
 
-        self.wte = nn.Embedding(config.vocab_size, config.n_embd)
-        self.wpe = nn.Embedding(config.n_positions, config.n_embd)
+        self.tokens_embed = nn.Embedding(config.vocab_size, config.n_embd)
+        self.positions_embed = nn.Embedding(config.n_positions, config.n_embd)
         self.drop = nn.Dropout(config.embd_pdrop)
         self.h = nn.ModuleList([Block(config.n_ctx, config, scale=True) for _ in range(config.n_layer)])
-        self.ln_f = LayerNorm(config.n_embd, eps=config.layer_norm_epsilon)
 
         self.apply(self.init_weights)
 
     def _resize_token_embeddings(self, new_num_tokens):
-        self.wte = self._get_resized_embeddings(self.wte, new_num_tokens)
-        return self.wte
+        self.tokens_embed = self._get_resized_embeddings(self.tokens_embed, new_num_tokens)
+        return self.tokens_embed
 
     def _prune_heads(self, heads_to_prune):
         """ Prunes heads of the model.
@@ -465,14 +470,13 @@ class GPT2Model(GPT2PreTrainedModel):
         for layer, heads in heads_to_prune.items():
             self.h[layer].attn.prune_heads(heads)
 
-    def forward(self, input_ids, position_ids=None, token_type_ids=None, past=None, head_mask=None):
-        if past is None:
-            past_length = 0
-            past = [None] * len(self.h)
-        else:
-            past_length = past[0][0].size(-2)
+    def forward(self, input_ids, position_ids=None, token_type_ids=None, head_mask=None):
         if position_ids is None:
-            position_ids = torch.arange(past_length, input_ids.size(-1) + past_length, dtype=torch.long, device=input_ids.device)
+            # This was used when we had a single embedding matrice from position and token embeddings
+            # start = self.config.vocab_size + self.config.n_special
+            # end = start + input_ids.size(-1)
+            # position_ids = torch.arange(start, end, dtype=torch.long, device=input_ids.device)
+            position_ids = torch.arange(input_ids.size(-1), dtype=torch.long, device=input_ids.device)
             position_ids = position_ids.unsqueeze(0).expand_as(input_ids)
 
         # Prepare head mask if needed
@@ -493,11 +497,11 @@ class GPT2Model(GPT2PreTrainedModel):
         input_ids = input_ids.view(-1, input_ids.size(-1))
         position_ids = position_ids.view(-1, position_ids.size(-1))
 
-        inputs_embeds = self.wte(input_ids)
-        position_embeds = self.wpe(position_ids)
+        inputs_embeds = self.tokens_embed(input_ids)
+        position_embeds = self.positions_embed(position_ids)
         if token_type_ids is not None:
             token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1))
-            token_type_embeds = self.wte(token_type_ids)
+            token_type_embeds = self.tokens_embed(token_type_ids)
         else:
             token_type_embeds = 0
         hidden_states = inputs_embeds + position_embeds + token_type_embeds
@@ -505,45 +509,36 @@ class GPT2Model(GPT2PreTrainedModel):
 
         output_shape = input_shape + (hidden_states.size(-1),)
 
-        presents = ()
-        all_attentions = []
+        all_attentions = ()
         all_hidden_states = ()
-        for i, (block, layer_past) in enumerate(zip(self.h, past)):
+        for i, block in enumerate(self.h):
             if self.output_hidden_states:
                 all_hidden_states = all_hidden_states + (hidden_states.view(*output_shape),)
 
-            outputs = block(hidden_states, layer_past, head_mask[i])
-            hidden_states, present = outputs[:2]
-            presents = presents + (present,)
-
+            outputs = block(hidden_states, head_mask[i])
+            hidden_states = outputs[0]
             if self.output_attentions:
-                all_attentions.append(outputs[2])
+                all_attentions = all_attentions + (outputs[1],)
 
-        hidden_states = self.ln_f(hidden_states)
-
-        hidden_states = hidden_states.view(*output_shape)
-        # Add last hidden state
+        # Add last layer
         if self.output_hidden_states:
-            all_hidden_states = all_hidden_states + (hidden_states,)
+            all_hidden_states = all_hidden_states + (hidden_states.view(*output_shape),)
 
-        outputs = (hidden_states, presents)
+        outputs = (hidden_states.view(*output_shape),)
         if self.output_hidden_states:
             outputs = outputs + (all_hidden_states,)
         if self.output_attentions:
-            # let the number of heads free (-1) so we can extract attention even after head pruning
-            attention_output_shape = input_shape[:-1] + (-1,) + all_attentions[0].shape[-2:]
-            all_attentions = tuple(t.view(*attention_output_shape) for t in all_attentions)
             outputs = outputs + (all_attentions,)
-        return outputs  # last hidden state, presents, (all hidden_states), (attentions)
+        return outputs  # last hidden state, (all hidden states), (all attentions)
 
 
-@add_start_docstrings("""The GPT2 Model transformer with a language modeling head on top
-(linear layer with weights tied to the input embeddings). """, GPT2_START_DOCSTRING, GPT2_INPUTS_DOCSTRING)
-class GPT2LMHeadModel(GPT2PreTrainedModel):
+@add_start_docstrings("""OpenAI GPT Model transformer with a language modeling head on top
+(linear layer with weights tied to the input embeddings). """, OPENAI_GPT_START_DOCSTRING, OPENAI_GPT_INPUTS_DOCSTRING)
+class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
     r"""
         **labels**: (`optional`) ``torch.LongTensor`` of shape ``(batch_size, sequence_length)``:
             Labels for language modeling.
-            Note that the labels **are shifted** inside the model, i.e. you can set ``lm_labels = input_ids``
+            Note that the labels **are shifted** inside the model, i.e. you can set ``labels = input_ids``
             Indices are selected in ``[-1, 0, ..., config.vocab_size]``
             All labels set to ``-1`` are ignored (masked), the loss is only
             computed for labels in ``[0, ..., config.vocab_size]``
@@ -553,10 +548,6 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
             Language modeling loss.
         **prediction_scores**: ``torch.FloatTensor`` of shape ``(batch_size, sequence_length, config.vocab_size)``
             Prediction scores of the language modeling head (scores for each vocabulary token before SoftMax).
-        **past**:
-            list of ``torch.FloatTensor`` (one for each layer) of shape ``(batch_size, num_heads, sequence_length, sequence_length)``:
-            that contains pre-computed hidden-states (key and values in the attention blocks).
-            Can be used (see `past` input) to speed up sequential decoding.
         **hidden_states**: (`optional`, returned when ``config.output_hidden_states=True``)
             list of ``torch.FloatTensor`` (one for the output of each layer + the output of the embeddings)
             of shape ``(batch_size, sequence_length, hidden_size)``:
@@ -567,17 +558,17 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
 
     Examples::
 
-        >>> config = GPT2Config.from_pretrained('gpt2')
-        >>> tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
-        >>> model = GPT2LMHeadModel(config)
+        >>> config = OpenAIGPTConfig.from_pretrained('openai-gpt')
+        >>> tokenizer = OpenAIGPTTokenizer.from_pretrained('openai-gpt')
+        >>> model = OpenAIGPTLMHeadModel(config)
         >>> input_ids = torch.tensor(tokenizer.encode("Hello, my dog is cute")).unsqueeze(0)  # Batch size 1
         >>> outputs = model(input_ids, labels=input_ids)
         >>> loss, logits = outputs[:2]
 
     """
     def __init__(self, config):
-        super(GPT2LMHeadModel, self).__init__(config)
-        self.transformer = GPT2Model(config)
+        super(OpenAIGPTLMHeadModel, self).__init__(config)
+        self.transformer = OpenAIGPTModel(config)
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
 
         self.apply(self.init_weights)
@@ -588,13 +579,12 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
             Export to TorchScript can't handle parameter sharing so we are cloning them instead.
         """
         self._tie_or_clone_weights(self.lm_head,
-                                   self.transformer.wte)
+                                   self.transformer.tokens_embed)
 
-    def forward(self, input_ids, position_ids=None, token_type_ids=None, labels=None, past=None, head_mask=None):
+    def forward(self, input_ids, position_ids=None, token_type_ids=None, labels=None, head_mask=None):
         transformer_outputs = self.transformer(input_ids, position_ids=position_ids, token_type_ids=token_type_ids,
-                                               past=past, head_mask=head_mask)
+                                               head_mask=head_mask)
         hidden_states = transformer_outputs[0]
-
         lm_logits = self.lm_head(hidden_states)
 
         outputs = (lm_logits,) + transformer_outputs[1:]
@@ -608,15 +598,15 @@ class GPT2LMHeadModel(GPT2PreTrainedModel):
                             shift_labels.view(-1))
             outputs = (loss,) + outputs
 
-        return outputs  # (loss), lm_logits, presents, (all hidden_states), (attentions)
+        return outputs  # (loss), lm_logits, (all hidden states), (all attentions)
 
 
-@add_start_docstrings("""The GPT2 Model transformer with a language modeling and a multiple-choice classification
+@add_start_docstrings("""OpenAI GPT Model transformer with a language modeling and a multiple-choice classification
 head on top e.g. for RocStories/SWAG tasks. The two heads are two linear layers.
 The language modeling head has its weights tied to the input embeddings,
 the classification head takes as input the input of a specified classification token index in the intput sequence).
-""", GPT2_START_DOCSTRING)
-class GPT2DoubleHeadsModel(GPT2PreTrainedModel):
+""", OPENAI_GPT_START_DOCSTRING)
+class OpenAIGPTDoubleHeadsModel(OpenAIGPTPreTrainedModel):
     r"""    Inputs:
         **input_ids**: ``torch.LongTensor`` of shape ``(batch_size, num_choices, sequence_length)``:
             Indices of input sequence tokens in the vocabulary.
@@ -634,15 +624,11 @@ class GPT2DoubleHeadsModel(GPT2PreTrainedModel):
             A parallel sequence of tokens (can be used to indicate various portions of the inputs).
             The embeddings from these tokens will be summed with the respective token embeddings.
             Indices are selected in the vocabulary (unlike BERT which has a specific vocabulary for segment indices).
-        **past**:
-            list of ``torch.FloatTensor`` (one for each layer):
-            that contains pre-computed hidden-states (key and values in the attention blocks) as computed by the model
-            (see `past` output below). Can be used to speed up sequential decoding.
-        **attention_mask**: (`optional`) ``torch.Tensor`` of shape ``(batch_size, num_choices, sequence_length)``:
+        **attention_mask**: (`optional`) ``torch.FloatTensor`` of shape ``(batch_size, num_choices, sequence_length)``:
             Mask to avoid performing attention on padding token indices.
             Mask values selected in ``[0, 1]``:
             ``1`` for tokens that are NOT MASKED, ``0`` for MASKED tokens.
-        **head_mask**: (`optional`) ``torch.Tensor`` of shape ``(num_heads,)`` or ``(num_layers, num_heads)``:
+        **head_mask**: (`optional`) ``torch.FloatTensor`` of shape ``(num_heads,)`` or ``(num_layers, num_heads)``:
             Mask to nullify selected heads of the self-attention modules.
             Mask values selected in ``[0, 1]``:
             ``1`` indicates the head is **not masked**, ``0`` indicates the head is **masked**.
@@ -669,10 +655,6 @@ class GPT2DoubleHeadsModel(GPT2PreTrainedModel):
             Prediction scores of the language modeling head (scores for each vocabulary token before SoftMax).
         **mc_prediction_scores**: ``torch.FloatTensor`` of shape ``(batch_size, num_choices)``
             Prediction scores of the multiplechoice classification head (scores for each choice before SoftMax).
-        **past**:
-            list of ``torch.FloatTensor`` (one for each layer) of shape ``(batch_size, num_heads, sequence_length, sequence_length)``:
-            that contains pre-computed hidden-states (key and values in the attention blocks).
-            Can be used (see `past` input) to speed up sequential decoding.
         **hidden_states**: (`optional`, returned when ``config.output_hidden_states=True``)
             list of ``torch.FloatTensor`` (one for the output of each layer + the output of the embeddings)
             of shape ``(batch_size, sequence_length, hidden_size)``:
@@ -683,9 +665,9 @@ class GPT2DoubleHeadsModel(GPT2PreTrainedModel):
 
     Examples::
 
-        >>> config = GPT2Config.from_pretrained('gpt2')
-        >>> tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
-        >>> model = GPT2DoubleHeadsModel(config)
+        >>> config = OpenAIGPTConfig.from_pretrained('openai-gpt')
+        >>> tokenizer = OpenAIGPTTokenizer.from_pretrained('openai-gpt')
+        >>> model = OpenAIGPTDoubleHeadsModel(config)
         >>> choices = ["Hello, my dog is cute [CLS]", "Hello, my cat is cute [CLS]"]  # Assume you've added [CLS] to the vocabulary
         >>> input_ids = torch.tensor([tokenizer.encode(s) for s in choices]).unsqueeze(0)  # Batch size 1, 2 choices
         >>> mc_token_ids = torch.tensor([-1, -1]).unsqueeze(0)  # Batch size 1
@@ -694,24 +676,26 @@ class GPT2DoubleHeadsModel(GPT2PreTrainedModel):
 
     """
     def __init__(self, config):
-        super(GPT2DoubleHeadsModel, self).__init__(config)
-        self.transformer = GPT2Model(config)
+        super(OpenAIGPTDoubleHeadsModel, self).__init__(config)
+
+        self.transformer = OpenAIGPTModel(config)
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
         self.multiple_choice_head = SequenceSummary(config)
 
         self.apply(self.init_weights)
+        self.tie_weights()
 
     def tie_weights(self):
         """ Make sure we are sharing the input and output embeddings.
             Export to TorchScript can't handle parameter sharing so we are cloning them instead.
         """
         self._tie_or_clone_weights(self.lm_head,
-                                   self.transformer.wte)
+                                   self.transformer.tokens_embed)
 
     def forward(self, input_ids, mc_token_ids=None, lm_labels=None, mc_labels=None, token_type_ids=None,
-                position_ids=None, past=None, head_mask=None):
+                position_ids=None, head_mask=None):
         transformer_outputs = self.transformer(input_ids, position_ids=position_ids, token_type_ids=token_type_ids,
-                                               past=past, head_mask=head_mask)
+                                               head_mask=head_mask)
         hidden_states = transformer_outputs[0]
 
         lm_logits = self.lm_head(hidden_states)
@@ -731,4 +715,4 @@ class GPT2DoubleHeadsModel(GPT2PreTrainedModel):
                             shift_labels.view(-1))
             outputs = (loss,) + outputs
 
-        return outputs  # (lm loss), (mc loss), lm logits, mc logits, presents, (all hidden_states), (attentions)
+        return outputs  # (lm loss), (mc loss), lm logits, mc logits, (all hidden_states), (attentions)
