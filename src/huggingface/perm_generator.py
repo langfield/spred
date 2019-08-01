@@ -92,8 +92,55 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len, device, SEP_ID, 
     
     # new target: [next token] for LM and [curr token] (self) for PLM
     new_targets = torch.cat([inputs[0: 1], targets[: -1]], 0)
+
+    def tp(tensor: torch.Tensor, label: str, max_label_size: int) -> None:
+        """ Tabbed print. """
+        if len(label) > max_label_size:
+            raise ValueError('``label``: ' + label + ' is too long for ``max_label_size``: ' + str(max_label_size))
+        tabs = (max_label_size - len(label)) // 8
+        tabs += 1
+        print(label, end=tabs * '\t')
+        for val in tensor:
+            print(int(val), end='\t')
+        print("\n")
+
+    def mtp(inputs: torch.Tensor, 
+           is_masked: torch.BoolTensor, 
+           label: str, 
+           max_label_size: int) -> None:
+        """ Masked print. """
+        if len(label) > max_label_size:
+            raise ValueError('``label``: ' + label + ' is too long for ``max_label_size``: ' + str(max_label_size))
+        tabs = (max_label_size - len(label)) // 8
+        tabs += 1
+        print(label, end=tabs * '\t')
+         
+        for i, val in enumerate(inputs):
+            if bool(is_masked[i]):
+                print(4 * '\u2588', end='\t')
+            else:
+                print(1*"", end='\t')
+        print("\n")
     
     if DEBUG:
+        # print("input indices:", np.array(inputs.cpu()))
+        print("\n\n")
+        print("\u2588 indicates ``TRUE``.")
+        tp(inputs, "input indices", 24)
+        mtp(inputs, is_masked, "is_masked", 24)
+        tp(index, "perm index", 24)
+        mtp(inputs, non_func_tokens, "Non functional tokens", 24)
+        mtp(inputs, non_mask_tokens, "Non masked tokens", 24)
+        mtp(inputs, masked_or_func_tokens, "Maskedorfunc tokens", 24)
+        tp(rev_index, "rev_index", 24)
+        mtp(inputs, target_tokens, "target_tokens", 24) 
+        tp(target_mask, "target_mask", 24)
+        tp(self_rev_index, "self_rev_index", 24)
+        # Slicing with ``None`` adds a new axis where you place ``None``.
+        tp(self_rev_index[:, None], "self_rev_index", 24)
+    
+        
+        """
         print("permutation index:", np.array(index.cpu()))
         print("Non functional tokens:", np.array(non_func_tokens.cpu()))
         print("Non masked tokens:", np.array(non_mask_tokens.cpu()))
@@ -110,6 +157,7 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len, device, SEP_ID, 
         print("inputs[0: 1]:", inputs[0: 1].cpu())
         print("targets[: -1]:", targets[: -1].cpu())
         print("new_targets:", new_targets.cpu())
+        """
     
     # construct inputs_k
     inputs_k = inputs
