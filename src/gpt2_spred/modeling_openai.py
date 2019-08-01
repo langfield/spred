@@ -30,10 +30,10 @@ import torch.nn as nn
 from torch.nn import CrossEntropyLoss
 from torch.nn.parameter import Parameter
 
-from .modeling_utils import (Conv1D, CONFIG_NAME, WEIGHTS_NAME, PretrainedConfig,
+from pytorch_transformers.modeling_utils import (Conv1D, CONFIG_NAME, WEIGHTS_NAME, PretrainedConfig,
                              PreTrainedModel, prune_conv1d_layer, SequenceSummary,
                              add_start_docstrings)
-from .modeling_bert import BertLayerNorm as LayerNorm
+from pytorch_transformers.modeling_bert import BertLayerNorm as LayerNorm
 
 logger = logging.getLogger(__name__)
 
