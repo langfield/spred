@@ -604,6 +604,10 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         outputs = (lm_logits,) + transformer_outputs[1:]
         if targets_raw is not None:
             # Shift so that tokens < n predict n
+            print("lm_logits shape:", lm_logits.shape)
+            print("targets_raw shape:", targets_raw.shape)
+            print("lm_logits[:, :-1, :] shape:", lm_logits[:,:-1,:].shape)
+            print("targets_raw[:, 1:] shape:", targets_raw[:, 1:].shape)
             shift_logits = lm_logits[..., :-1, :].contiguous()
             shift_labels = targets_raw[..., 1:].contiguous()
             # Flatten the tokens
