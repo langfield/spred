@@ -602,12 +602,12 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         lm_logits = hidden_states
 
         outputs = (lm_logits,) + transformer_outputs[1:]
-        if labels is not None:
+        if targets_raw is not None:
             # Shift so that tokens < n predict n
             shift_logits = lm_logits[..., :-1, :].contiguous()
-            shift_labels = labels[..., 1:].contiguous()
+            shift_labels = targets_raw[..., 1:].contiguous()
             # Flatten the tokens
-            loss = self.regression_loss(shift_logits, shift_labels)
+            loss = self.regression_loss(shift_logits.view(-1, shift_logits.size(-1)), shift_labels.view(-1))
             # loss_fct = CrossEntropyLoss(ignore_index=-1)
             # loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)),
             #                 shift_labels.view(-1))
