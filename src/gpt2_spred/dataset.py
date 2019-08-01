@@ -18,7 +18,6 @@ class GPTSpredDataset(Dataset):
         self.seq_len = seq_len
 
         self.on_memory = on_memory
-        self.corpus_lines = corpus_lines  # number of non-empty lines in input corpus
         self.corpus_path = corpus_path
         self.encoding = encoding
 
