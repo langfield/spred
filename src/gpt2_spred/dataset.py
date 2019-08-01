@@ -5,7 +5,7 @@ import copy
 import torch
 from torch.utils.data import Dataset
 
-DEBUG = False
+DEBUG = True
 SIN = True
 
 class GPTSpredDataset(Dataset):
