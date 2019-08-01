@@ -71,7 +71,9 @@ class GPTSpredDataset(Dataset):
         for i in range(num_seqs):
             inputs_raw = self.tensor_data[i * seq_len: (i + 1) * seq_len]
             input_ids = input_ids_all[i * seq_len: (i + 1) * seq_len]
+            position_ids = np.arange(0, seq_len)
             lm_labels = copy.deepcopy(input_ids)
-            features.append((input_ids, lm_labels, inputs_raw))      
+            targets_raw = copy.deepcopy(inputs_raw)
+            features.append((input_ids, position_ids, lm_labels, inputs_raw, targets_raw))      
         
         return features
