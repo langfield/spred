@@ -63,7 +63,8 @@ class GPTSpredDataset(Dataset):
 
         num_seqs = original_data_len // seq_len
         input_ids_all = np.arange(0, num_seqs * seq_len)
-         
+        
+        features = []
         for i in range(num_seqs):
             inputs_raw = self.tensor_data[i * seq_len: (i + 1) * seq_len]
             input_ids = input_ids_all[i * seq_len: (i + 1) * seq_len]
