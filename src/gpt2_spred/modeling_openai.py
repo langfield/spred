@@ -611,5 +611,3 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
             outputs = (loss,) + outputs
 
         return outputs  # (loss), lm_logits, (all hidden states), (all attentions)
-
-
