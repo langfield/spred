@@ -633,6 +633,8 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         # print("labels shape:", labels.shape)
         #===DEBUG===
         logits = hidden
+        print(logits.type())
+        print(labels.type())
         diff = logits - labels
         loss = torch.mul(diff, diff)
 
