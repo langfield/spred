@@ -511,6 +511,10 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
             token_type_embeds = self.tokens_embed(token_type_ids)
         else:
             token_type_embeds = 0
+
+        print(inputs_embeds.type())
+        print(position_embeds.type())
+        print(type(token_type_embeds))
         hidden_states = inputs_embeds + position_embeds + token_type_embeds
         hidden_states = self.drop(hidden_states)
 
