@@ -597,7 +597,7 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
                                                head_mask=head_mask)
         hidden_states = transformer_outputs[0]
         assert hidden_states.shape == input_ids.shape
-        lm_logits = self.lm_head(hidden_states)
+        lm_logits = hidden_states
 
         outputs = (lm_logits,) + transformer_outputs[1:]
         if labels is not None:
@@ -605,9 +605,32 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
             shift_logits = lm_logits[..., :-1, :].contiguous()
             shift_labels = labels[..., 1:].contiguous()
             # Flatten the tokens
-            loss_fct = CrossEntropyLoss(ignore_index=-1)
-            loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)),
-                            shift_labels.view(-1))
+            loss = self.regression_loss(shift_logits, shift_labels)
+            # loss_fct = CrossEntropyLoss(ignore_index=-1)
+            # loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)),
+            #                 shift_labels.view(-1))
             outputs = (loss,) + outputs
 
         return outputs  # (loss), lm_logits, (all hidden states), (all attentions)
+
+    def regression_loss(self, hidden, labels):
+        """
+        logit_shape = list(hidden.shape)
+        logit_shape[-1] = 1
+        logit_layer = nn.Linear(hidden.shape[-1], tuple(logit_shape))
+        logits = logit_layer(hidden)
+        logits = torch.squeeze(logits, dim=-1)
+        """
+        #===DEBUG===
+        # print("hidden shape:", hidden.shape)
+        # print("labels shape:", labels.shape)
+        #===DEBUG===
+        logits = hidden
+        diff = logits - labels
+        loss = torch.mul(diff, diff)
+
+        # Make a scalar. 
+        loss = torch.mean(loss)
+        
+        return loss
+
