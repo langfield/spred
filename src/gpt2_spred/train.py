@@ -147,7 +147,7 @@ def main():
                 assert input_ids.shape == (args.train_batch_size, max_length)
                 assert lm_labels.shape == (args.train_batch_size, max_length)
                 assert inputs_raw.shape == (args.train_batch_size, max_length)
-                outputs = model(input_ids, position_ids, lm_labels, inputs_raw, targets_raw)
+                outputs = model(input_ids, position_ids, None, lm_labels, inputs_raw, targets_raw)
                 loss = outputs[0]
                 loss.backward()
                 optimizer.step()
