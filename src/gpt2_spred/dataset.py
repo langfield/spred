@@ -11,16 +11,14 @@ from split_a_and_b_spred import _split_a_and_b
 DEBUG = False
 SIN = True
 
-class XLSpredDataset(Dataset):
+class GPTSpredDataset(Dataset):
     def __init__(self, 
                  corpus_path, 
                  seq_len, 
-                 data_batch_size,
                  encoding="utf-8", 
                  on_memory=True):
 
         self.seq_len = seq_len
-        self.data_batch_size = data_batch_size
 
         self.on_memory = on_memory
         self.corpus_lines = corpus_lines  # number of non-empty lines in input corpus

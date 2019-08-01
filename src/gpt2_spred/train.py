@@ -139,48 +139,16 @@ def main():
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
-    # Load tokenizer and model
-    # This loading functions also add new tokens and embeddings called `special tokens`
-    # These new embeddings will be fine-tuned on the RocStories dataset
-    special_tokens = ['_start_', '_delimiter_', '_classify_']
-    tokenizer = OpenAIGPTTokenizer.from_pretrained(args.model_name, special_tokens=special_tokens)
-    special_tokens_ids = list(tokenizer.convert_tokens_to_ids(token) for token in special_tokens)
-    model = OpenAIGPTDoubleHeadsModel.from_pretrained(args.model_name, num_special_tokens=len(special_tokens))
+    # TODO: create ``config``. 
+    model = OpenAIGPTLMHeadModel.from_pretrained(config)
     model.to(device)
 
-    # Load and encode the datasets
-    if not args.train_dataset and not args.eval_dataset:
-        roc_stories = cached_path(ROCSTORIES_URL)
-    def tokenize_and_encode(obj):
-        """ Tokenize and encode a nested object """
-        if isinstance(obj, str):
-            return tokenizer.convert_tokens_to_ids(tokenizer.tokenize(obj))
-        elif isinstance(obj, int):
-            return obj
-        return list(tokenize_and_encode(o) for o in obj)
-    logger.info("Encoding dataset...")
-    train_dataset = load_rocstories_dataset(args.train_dataset)
-    eval_dataset = load_rocstories_dataset(args.eval_dataset)
-    datasets = (train_dataset, eval_dataset)
-    encoded_datasets = tokenize_and_encode(datasets)
-
     # Compute the max input length for the Transformer
-    max_length = model.config.n_positions // 2 - 2
-    input_length = max(len(story[:max_length]) + max(len(cont1[:max_length]), len(cont2[:max_length])) + 3  \
-                           for dataset in encoded_datasets for story, cont1, cont2, _ in dataset)
-    input_length = min(input_length, model.config.n_positions)  # Max size of input for the pre-trained model
+    max_length = model.config.n_positions
 
-    # Prepare inputs tensors and dataloaders
-    tensor_datasets = pre_process_datasets(encoded_datasets, input_length, max_length, *special_tokens_ids)
-    train_tensor_dataset, eval_tensor_dataset = tensor_datasets[0], tensor_datasets[1]
-
-    train_data = TensorDataset(*train_tensor_dataset)
+    train_data = GPTSpredDataset(args.train_dataset, max_length) 
     train_sampler = RandomSampler(train_data)
     train_dataloader = DataLoader(train_data, sampler=train_sampler, batch_size=args.train_batch_size)
-
-    eval_data = TensorDataset(*eval_tensor_dataset)
-    eval_sampler = SequentialSampler(eval_data)
-    eval_dataloader = DataLoader(eval_data, sampler=eval_sampler, batch_size=args.eval_batch_size)
 
     # Prepare optimizer
     if args.do_train:
