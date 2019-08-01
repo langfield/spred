@@ -154,7 +154,8 @@ def main():
                 outputs = model(input_ids, position_ids, None, lm_labels, inputs_raw, targets_raw)
                 loss = outputs[0]
                 loss.backward()
-                optimizer.step()
+                scheduler.step()
+                optimizer.step() 
                 optimizer.zero_grad()
                 tr_loss += loss.item()
                 exp_average_loss = loss.item() if exp_average_loss is None else 0.7*exp_average_loss+0.3*loss.item()
