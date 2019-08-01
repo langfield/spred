@@ -108,7 +108,7 @@ def main():
 
     # TODO: create ``config``. 
     config = OpenAIGPTConfig.from_pretrained(args.gptspred_model)
-    model = OpenAIGPTLMHeadModel.from_pretrained(config)
+    model = OpenAIGPTLMHeadModel(config)
     model.to(device)
 
     # Compute the max input length for the Transformer
