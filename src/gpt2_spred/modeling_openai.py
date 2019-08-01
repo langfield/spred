@@ -581,7 +581,7 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         self._tie_or_clone_weights(self.lm_head,
                                    self.transformer.tokens_embed)
 
-    def forward(self, input_ids, position_ids=None, token_type_ids=None, labels=None, head_mask=None):
+    def forward(self, input_ids, position_ids=None, token_type_ids=None, labels=None, inputs_raw=None, targets_raw=None, head_mask=None):
         transformer_outputs = self.transformer(input_ids, position_ids=position_ids, token_type_ids=token_type_ids,
                                                head_mask=head_mask)
         hidden_states = transformer_outputs[0]
