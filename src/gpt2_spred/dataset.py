@@ -5,9 +5,6 @@ import copy
 import torch
 from torch.utils.data import Dataset
 
-from sample_mask_spred import _sample_mask
-from split_a_and_b_spred import _split_a_and_b
-
 DEBUG = False
 SIN = True
 
