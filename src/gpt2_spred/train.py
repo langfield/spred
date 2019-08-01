@@ -39,7 +39,7 @@ import torch
 from torch.utils.data import (DataLoader, RandomSampler, SequentialSampler,
                               TensorDataset)
 
-from pytorch_transformers import (AdamW, cached_path, WEIGHTS_NAME, CONFIG_NAME)
+from pytorch_transformers import (AdamW, WarmupLinearSchedule, cached_path, WEIGHTS_NAME, CONFIG_NAME)
 from dataset import GPTSpredDataset
 from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 
@@ -130,10 +130,13 @@ def main():
         num_train_optimization_steps = len(train_dataloader) * args.num_train_epochs
         optimizer = AdamW(optimizer_grouped_parameters,
                                lr=args.learning_rate,
-                               warmup=args.warmup_proportion,
-                               max_grad_norm=args.max_grad_norm,
-                               weight_decay=args.weight_decay,
-                               t_total=num_train_optimization_steps)
+                               #warmup=args.warmup_proportion,
+                               #max_grad_norm=args.max_grad_norm,
+                               weight_decay=args.weight_decay)
+        scheduler = WarmupLinearSchedule(optimizer,
+                                         warmup_steps=(args.warmup_proportion *
+                                         num_train_optimization_steps), 
+                                         t_total=num_train_optimization_steps)
 
     if args.do_train:
         nb_tr_steps, tr_loss, exp_average_loss = 0, 0, None
@@ -147,7 +150,7 @@ def main():
                 input_ids, position_ids, lm_labels, inputs_raw, targets_raw = batch
                 assert input_ids.shape == (args.train_batch_size, max_length)
                 assert lm_labels.shape == (args.train_batch_size, max_length)
-                assert inputs_raw.shape == (args.train_batch_size, max_length)
+                assert inputs_raw.shape == (args.train_batch_size, max_length, inputs_raw.shape[2])
                 outputs = model(input_ids, position_ids, None, lm_labels, inputs_raw, targets_raw)
                 loss = outputs[0]
                 loss.backward()
@@ -156,7 +159,7 @@ def main():
                 tr_loss += loss.item()
                 exp_average_loss = loss.item() if exp_average_loss is None else 0.7*exp_average_loss+0.3*loss.item()
                 nb_tr_steps += 1
-                tqdm_bar.desc = "Training loss: {:.2e} lr: {:.2e}".format(exp_average_loss, optimizer.get_lr()[0])
+                tqdm_bar.desc = "Training loss: {:.2e}".format(exp_average_loss)
 
     # Save a trained model
     if args.do_train:
