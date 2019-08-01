@@ -596,6 +596,7 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
                                                inputs_raw=inputs_raw,
                                                head_mask=head_mask)
         hidden_states = transformer_outputs[0]
+        assert hidden_states.shape == input_ids.shape
         lm_logits = self.lm_head(hidden_states)
 
         outputs = (lm_logits,) + transformer_outputs[1:]
