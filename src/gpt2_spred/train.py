@@ -41,7 +41,7 @@ from torch.utils.data import (DataLoader, RandomSampler, SequentialSampler,
 
 from pytorch_transformers import (AdamW, cached_path, WEIGHTS_NAME, CONFIG_NAME)
 from dataset import GPTSpredDataset
-from modeling_openai import OpenAIGPTLMHeadModel
+from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 
 ROCSTORIES_URL = "https://s3.amazonaws.com/datasets.huggingface.co/ROCStories.tar.gz"
 
@@ -170,7 +170,7 @@ def main():
         model_to_save.config.to_json_file(output_config_file)
 
         # Load a trained model and vocabulary that you have fine-tuned
-        model = OpenAIGPTDoubleHeadsModel.from_pretrained(args.output_dir)
+        model = OpenAIGPTLMHeadModel.from_pretrained(args.output_dir)
         model.to(device)
 
     """
