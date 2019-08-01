@@ -175,8 +175,11 @@ def main():
             tqdm_bar = tqdm(train_dataloader, desc="Training")
             for step, batch in enumerate(tqdm_bar):
                 batch = tuple(t.to(device) for t in batch)
-                input_ids, mc_token_ids, lm_labels, mc_labels = batch
-                losses = model(input_ids, mc_token_ids, lm_labels, mc_labels)
+                input_ids, lm_labels, inputs_raw = batch
+                assert input_ids.shape == (args.train_batch_size, max_length)
+                assert lm_labels.shape == (args.train_batch_size, max_length)
+                assert inputs_raw.shape == (args.train_batch_size, max_length)
+                losses = model(input_ids, lm_labels, inputs_raw)
                 loss = args.lm_coef * losses[0] + losses[1]
                 loss.backward()
                 optimizer.step()
