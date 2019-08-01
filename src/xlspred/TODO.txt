@@ -1,0 +1,22 @@
+Move the permutation logic (how we take in a sequence, split it, get a sample mask, permute it, and generate ``target_mapping`) into the ``XLSpredDataset`` class. 
+Convert the token/row_id tensors into raw data (price features) tensors. 
+We need to make sure our looping logic over batches makes sense, and aligns with ``data_utils.py`` looping from original XLNet repo. Note that the original repo has us looping over ``data_len`` first, and then the batch ``idx``.
+
+Need to figure out how why we're getting this Float/Double TypeError. What should embeddings look like? What is their type supposed to be?
+
+VERY IMPORTANT: If ``bi_data`` is set to ``True`` in ``config.json``, then you must have an even ``batch_size``. Otherwise you will get very bad things happening. Put in an `assert`` statement to block this. 
+
+The training script is not broken, it is just that the forward function does not currently output loss as the first element. Need to get loss. 
+
+TODO: verify shapes of output from forward function.
+
+
+Testing plan:
+
+    1. Switch to ``XLNetLMHeadModel``
+    
+    2. Make changes to a fresh copy of ``modeling_xlnet.py``. 
+
+    3. Assume modeling files are correct. Write unit tests for all preprocessing scripts. 
+
+    4. Write unittests for ``modeling_xlnet.py``. 
