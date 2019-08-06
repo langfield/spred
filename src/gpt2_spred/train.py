@@ -36,8 +36,11 @@ from tqdm import tqdm, trange
 
 import numpy as np
 import torch
-from torch.utils.data import (DataLoader, RandomSampler, SequentialSampler,
-                              TensorDataset)
+from torch.utils.data import DataLoader
+try:
+    from torch.utils.data import RandomSampler
+except ImportError:
+    from torch_addons.sampler import RandomSampler
 
 from pytorch_transformers import (AdamW, WarmupLinearSchedule, cached_path, WEIGHTS_NAME, CONFIG_NAME)
 from dataset import GPTSpredDataset
