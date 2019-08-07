@@ -46,8 +46,8 @@ tokens_tensor = tokens_tensor[:1000]
 print("token tensor shape:", tokens_tensor.shape)
 position_ids = torch.arange(0, tokens_tensor.shape[0])
 
-id_tensor = torch.reshape(torch.arange(tokens_tensor.shape[0]), (1, tokens_tensor.shape[0]))
-tokens_tensor = torch.reshape(tokens_tensor, (1, tokens_tensor.shape[0], tokens_tensor.shape[1]))
+# id_tensor = torch.reshape(torch.arange(tokens_tensor.shape[0]), (1, tokens_tensor.shape[0]))
+# tokens_tensor = torch.reshape(tokens_tensor, (1, tokens_tensor.shape[0], tokens_tensor.shape[1]))
 
 # load in our pretrained model
 model = OpenAIGPTModel.from_pretrained('checkpoints/')
@@ -57,7 +57,7 @@ model.eval()
 
 # Predict all tokens
 with torch.no_grad():
-    outputs = model(id_tensor, None, None, None, tokens_tensor)
+    outputs = model(position_ids, position_ids, None, None, tokens_tensor)
     predictions = outputs[0]
 
 # get the predicted next token
