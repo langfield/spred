@@ -30,9 +30,11 @@ import torch.nn as nn
 from torch.nn import CrossEntropyLoss
 from torch.nn.parameter import Parameter
 
-from pytorch_transformers.modeling_utils import (Conv1D, CONFIG_NAME, WEIGHTS_NAME, PretrainedConfig,
+#===MOD===
+from pytorch_transformers_addons.modeling_utils import (Conv1D, CONFIG_NAME, WEIGHTS_NAME, PretrainedConfig,
                              PreTrainedModel, prune_conv1d_layer, SequenceSummary,
                              add_start_docstrings)
+#===MOD===
 from pytorch_transformers.modeling_bert import BertLayerNorm as LayerNorm
 
 logger = logging.getLogger(__name__)
@@ -273,9 +275,14 @@ class Attention(nn.Module):
         # w = w * self.bias + -1e9 * (1 - self.bias)  # TF implem method: mask_attn_weights
         # XD: self.b may be larger than w, so we need to crop it
         b = self.bias[:, :, : w.size(-2), : w.size(-1)]
+        #===DEBUG===
+        w = torch.cuda.FloatTensor(w.data)
+        # print(w.type())
+        # print(b.type())
+        #===DEBUG===
         w = w * b + -1e9 * (1 - b)
 
-        w = nn.Softmax(dim=-1)(w)
+        w = nn.Softmax(dim=-1)(torch.autograd.Variable(w))
         w = self.attn_dropout(w)
 
         # Mask heads if we want to
@@ -294,6 +301,7 @@ class Attention(nn.Module):
 
     def split_heads(self, x, k=False):
         new_x_shape = x.size()[:-1] + (self.n_head, x.size(-1) // self.n_head)
+        x = x.contiguous()
         x = x.view(*new_x_shape)  # in Tensorflow implem: fct split_states
         if k:
             return x.permute(0, 2, 3, 1)
@@ -511,7 +519,12 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
             token_type_embeds = self.tokens_embed(token_type_ids)
         else:
             token_type_embeds = 0
-
+        #===DEBUG=== 
+        # print(inputs_embeds.type())
+        # print(position_embeds.type())
+        # print(token_type_embeds.type())
+        #===DEBUG=== 
+        position_embeds = torch.cuda.FloatTensor(position_embeds.data)
         hidden_states = inputs_embeds + position_embeds + token_type_embeds
         hidden_states = self.drop(hidden_states)
 
