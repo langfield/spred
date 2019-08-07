@@ -41,6 +41,9 @@ try:
     from torch.utils.data import RandomSampler
 except ImportError:
     from torch_addons.sampler import RandomSampler
+#===MOD===
+from torch.autograd import Variable
+#===MOD===
 
 from pytorch_transformers import (AdamW, WarmupLinearSchedule, cached_path, WEIGHTS_NAME, CONFIG_NAME)
 from dataset import GPTSpredDataset
@@ -99,9 +102,9 @@ def main():
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     n_gpu = torch.cuda.device_count()
-    logger.info("device: {}, n_gpu {}".format(device, n_gpu))
+    # logger.info("device: {}, n_gpu {}".format(device, n_gpu))
 
     if not args.do_train and not args.do_eval:
         raise ValueError("At least one of `do_train` or `do_eval` must be True.")
@@ -112,7 +115,7 @@ def main():
     # TODO: create ``config``. 
     config = OpenAIGPTConfig.from_pretrained(args.gptspred_model)
     model = OpenAIGPTLMHeadModel(config)
-    model.to(device)
+    model.cuda()
 
     # Compute the max input length for the Transformer
     max_length = model.config.n_positions
@@ -149,21 +152,31 @@ def main():
             nb_tr_steps = 0
             tqdm_bar = tqdm(train_dataloader, desc="Training")
             for step, batch in enumerate(tqdm_bar):
-                batch = tuple(t.to(device) for t in batch)
+                #===MOD===
+                # t.to(device) -> t.cuda()
+                batch = tuple(t.cuda() for t in batch)
+                #===MOD===
                 input_ids, position_ids, lm_labels, inputs_raw, targets_raw = batch
                 inputs_raw = inputs_raw.float()
                 targets_raw = targets_raw.float()
                 assert input_ids.shape == (args.train_batch_size, max_length)
                 assert lm_labels.shape == (args.train_batch_size, max_length)
                 assert inputs_raw.shape == (args.train_batch_size, max_length, inputs_raw.shape[2])
+                # input_ids = Variable(input_ids).contiguous()
+                position_ids = Variable(position_ids).contiguous()
+                # lm_labels = Variable(lm_labels.contiguous())
+                # inputs_raw = Variable(inputs_raw).contiguous()
+                targets_raw = Variable(targets_raw.contiguous())
                 outputs = model(input_ids, position_ids, None, lm_labels, inputs_raw, targets_raw)
                 loss = outputs[0]
                 loss.backward()
                 scheduler.step()
                 optimizer.step() 
                 optimizer.zero_grad()
-                tr_loss += loss.item()
-                exp_average_loss = loss.item() if exp_average_loss is None else 0.7*exp_average_loss+0.3*loss.item()
+                # print(loss.data)
+                loss_data = float(loss.data)
+                tr_loss += loss_data
+                exp_average_loss = loss_data if exp_average_loss is None else 0.7*exp_average_loss+0.3*loss_data
                 nb_tr_steps += 1
                 tqdm_bar.desc = "Training loss: {:.2e}".format(exp_average_loss)
 
