@@ -29,11 +29,15 @@ import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss
 from torch.nn import functional as F
+#===MOD===
+from torch_addons.module import Module
+#===MOD===
 
 from .file_utils import cached_path
 
 #===MOD===
 from torch_addons import nn_init
+from torch_addons import serialization
 import numpy as np
 #===MOD===
 
@@ -190,8 +194,10 @@ class PretrainedConfig(object):
         with open(json_file_path, "w", encoding='utf-8') as writer:
             writer.write(self.to_json_string())
 
-
-class PreTrainedModel(nn.Module):
+#===MOD===
+# nn.Module -> Module
+class PreTrainedModel(Module):
+#===MOD===
     """ Base class for all models. Handle loading/storing model config and
         a simple interface for dowloading and loading pretrained models.
     """
@@ -412,7 +418,10 @@ class PreTrainedModel(nn.Module):
         model = cls(config)
 
         if state_dict is None and not from_tf:
-            state_dict = torch.load(resolved_archive_file, map_location='cpu')
+            #===MOD===
+            # torch.load() -> serialization.load()
+            state_dict = serialization.load(resolved_archive_file, map_location='cpu')
+            #===MOD===
         if from_tf:
             # Directly load from a TensorFlow checkpoint
             return cls.load_tf_weights(model, config, resolved_archive_file[:-6])  # Remove the '.index'

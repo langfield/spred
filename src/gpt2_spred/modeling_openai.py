@@ -24,6 +24,8 @@ import math
 import os
 import sys
 from io import open
+    
+import numpy as np
 
 import torch
 import torch.nn as nn
@@ -233,9 +235,11 @@ class OpenAIGPTConfig(PretrainedConfig):
     def num_hidden_layers(self):
         return self.n_layer
 
-
+#===MOD===
+# Adding a self.training variable to init. 
+#===MOD===
 class Attention(nn.Module):
-    def __init__(self, nx, n_ctx, config, scale=False):
+    def __init__(self, nx, n_ctx, config, scale=False, training=True):
         super(Attention, self).__init__()
         n_state = nx  # in Attention: n_state=768 (nx=n_embd)
         # [switch nx => n_state from Block to Attention to keep identical to TF implem]
@@ -251,6 +255,11 @@ class Attention(nn.Module):
         self.c_proj = Conv1D(n_state, nx)
         self.attn_dropout = nn.Dropout(config.attn_pdrop)
         self.resid_dropout = nn.Dropout(config.resid_pdrop)
+        
+        #===DEBUG===
+        print("self training in Attention init:", training)
+        #===DEBUG===
+        self.training = training
 
     def prune_heads(self, heads):
         if len(heads) == 0:
@@ -275,11 +284,19 @@ class Attention(nn.Module):
         # w = w * self.bias + -1e9 * (1 - self.bias)  # TF implem method: mask_attn_weights
         # XD: self.b may be larger than w, so we need to crop it
         b = self.bias[:, :, : w.size(-2), : w.size(-1)]
-        #===DEBUG===
-        w = torch.cuda.FloatTensor(w.data)
-        # print(w.type())
-        # print(b.type())
-        #===DEBUG===
+        #===MOD===
+        w_array = np.array(w.data)
+        print("self training:", self.training)
+        if self.training:
+            print("I'm training.")
+            # w = torch.cuda.FloatTensor(w_array)
+            w = torch.FloatTensor(w_array)
+        else:
+            print("I'm NOT training.")
+            w = torch.FloatTensor(w_array)
+        print(w.type())
+        print(b.type())
+        #===MOD===
         w = w * b + -1e9 * (1 - b)
 
         w = nn.Softmax(dim=-1)(torch.autograd.Variable(w))
@@ -340,15 +357,21 @@ class MLP(nn.Module):
         h2 = self.c_proj(h)
         return self.dropout(h2)
 
-
+#===MOD===
+# Adding a self.training variable to the init. 
+#===MOD===
 class Block(nn.Module):
-    def __init__(self, n_ctx, config, scale=False):
+    def __init__(self, n_ctx, config, scale=False, training=True):
         super(Block, self).__init__()
         nx = config.n_embd
-        self.attn = Attention(nx, n_ctx, config, scale)
+        #===DEBUG===
+        print("self training in Block init:", training)
+        #===DEBUG===
+        self.attn = Attention(nx, n_ctx, config, scale, training)
         self.ln_1 = LayerNorm(nx, eps=config.layer_norm_epsilon)
         self.mlp = MLP(4 * nx, config)
         self.ln_2 = LayerNorm(nx, eps=config.layer_norm_epsilon)
+        self.training = training
 
     def forward(self, x, head_mask=None):
         attn_outputs = self.attn(x, head_mask=head_mask)
@@ -463,7 +486,10 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         self.tokens_embed = nn.Embedding(config.vocab_size, config.n_embd)
         self.positions_embed = nn.Embedding(config.n_positions, config.n_embd)
         self.drop = nn.Dropout(config.embd_pdrop)
-        self.h = nn.ModuleList([Block(config.n_ctx, config, scale=True) for _ in range(config.n_layer)])
+        #===DEBUG===
+        print("self training in Model init:", self.training)
+        #===DEBUG===
+        self.h = nn.ModuleList([Block(config.n_ctx, config, scale=True, training=self.training) for _ in range(config.n_layer)])
 
         self.apply(self.init_weights)
 
@@ -486,6 +512,7 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
                                                head_mask=head_mask)
         """
     def forward(self, input_ids, position_ids=None, token_type_ids=None, labels=None, inputs_raw=None, head_mask=None):
+
         if position_ids is None:
             # This was used when we had a single embedding matrice from position and token embeddings
             # start = self.config.vocab_size + self.config.n_special
@@ -521,10 +548,17 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
             token_type_embeds = 0
         #===DEBUG=== 
         # print(inputs_embeds.type())
-        # print(position_embeds.type())
+        print(type(position_embeds.data))
         # print(token_type_embeds.type())
         #===DEBUG=== 
-        position_embeds = torch.cuda.FloatTensor(position_embeds.data)
+        #===MOD===
+        print("self training:", self.training)
+        if self.training:
+            position_embeds = torch.cuda.FloatTensor(position_embeds.data)
+        else:
+            position_embeds_array = np.array(position_embeds.data)
+            position_embeds = torch.FloatTensor(position_embeds_array)
+        #===MOD===
         hidden_states = inputs_embeds + position_embeds + token_type_embeds
         hidden_states = self.drop(hidden_states)
 

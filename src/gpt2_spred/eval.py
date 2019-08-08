@@ -2,6 +2,9 @@ import torch
 import numpy as np
 import pandas as pd
 from modeling_openai import OpenAIGPTModel
+#===MOD===
+from torch.autograd import Variable
+#===MOD===
 
 plot = False
 
@@ -40,11 +43,14 @@ model = OpenAIGPTModel.from_pretrained('checkpoints/')
 
 # Set the model to evaluation mode
 model.eval()
+print(model.training)
 
 # Predict all tokens
-with torch.no_grad():
-    outputs = model(id_tensor, id_tensor, None, None, tokens_tensor)
-    predictions = outputs[0]
+# with torch.no_grad():
+id_tensor = id_tensor.long()
+position_ids = Variable(id_tensor).contiguous()
+outputs = model(id_tensor, position_ids, None, None, tokens_tensor)
+predictions = outputs[0]
 
 # get the predicted next token
 print('Prediction: ', predictions[0, -1, :])
