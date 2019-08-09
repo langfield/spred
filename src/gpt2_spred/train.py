@@ -49,6 +49,8 @@ from pytorch_transformers import (AdamW, WarmupLinearSchedule, cached_path, WEIG
 from dataset import GPTSpredDataset
 from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 
+import matplotlib.pyplot as plt
+
 ROCSTORIES_URL = "https://s3.amazonaws.com/datasets.huggingface.co/ROCStories.tar.gz"
 
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
@@ -59,6 +61,23 @@ logger = logging.getLogger(__name__)
 def accuracy(out, labels):
     outputs = np.argmax(out, axis=1)
     return np.sum(outputs == labels)
+
+def plot_grad_flow(named_parameters):
+    ave_grads = []
+    layers = []
+    for n, p in named_parameters:
+        if(p.requires_grad) and ("bias" not in n):
+            layers.append(n)
+            ave_grads.append(p.grad.abs().mean())
+    plt.plot(ave_grads, alpha=0.3, color="b")
+    plt.hlines(0, 0, len(ave_grads)+1, linewidth=1, color="k" )
+    plt.xticks(range(0,len(ave_grads), 1), layers, rotation="vertical")
+    plt.xlim(xmin=0, xmax=len(ave_grads))
+    plt.xlabel("Layers")
+    plt.ylabel("average gradient")
+    plt.title("Gradient flow")
+    plt.grid(True)
+    plt.savefig("loss.png")
 
 def main():
     parser = argparse.ArgumentParser()
@@ -183,6 +202,7 @@ def main():
                 outputs = model(input_ids, inputs_raw, targets_raw, position_ids=position_ids)
                 loss = outputs[0]
                 loss.backward()
+                plot_grad_flow(model.named_parameters())
                 scheduler.step()
                 optimizer.step() 
                 optimizer.zero_grad()
