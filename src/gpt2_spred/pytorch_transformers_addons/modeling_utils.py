@@ -29,16 +29,15 @@ import torch
 from torch import nn
 from torch.nn import CrossEntropyLoss
 from torch.nn import functional as F
-#===MOD===
-from torch_addons.module import Module
-#===MOD===
 
 from .file_utils import cached_path
 
 #===MOD===
+import numpy as np
 from torch_addons import nn_init
 from torch_addons import serialization
-import numpy as np
+
+from torch_addons.module_041 import Module as Module_041
 #===MOD===
 
 logger = logging.getLogger(__name__)
@@ -194,10 +193,8 @@ class PretrainedConfig(object):
         with open(json_file_path, "w", encoding='utf-8') as writer:
             writer.write(self.to_json_string())
 
-#===MOD===
-# nn.Module -> Module
-class PreTrainedModel(Module):
-#===MOD===
+
+class PreTrainedModel(Module_041):
     """ Base class for all models. Handle loading/storing model config and
         a simple interface for dowloading and loading pretrained models.
     """
@@ -390,7 +387,7 @@ class PreTrainedModel(Module):
         # redirect to the cache, if necessary
         try:
             #===DEBUG===
-            print("pytorch-transformers.modeling_utils.py: Getting model file.")
+            # print("pytorch-transformers.modeling_utils.py: Getting model file.")
             #===DEBUG===
             
             resolved_archive_file = cached_path(archive_file, cache_dir=cache_dir)
@@ -418,10 +415,7 @@ class PreTrainedModel(Module):
         model = cls(config)
 
         if state_dict is None and not from_tf:
-            #===MOD===
-            # torch.load() -> serialization.load()
             state_dict = serialization.load(resolved_archive_file, map_location='cpu')
-            #===MOD===
         if from_tf:
             # Directly load from a TensorFlow checkpoint
             return cls.load_tf_weights(model, config, resolved_archive_file[:-6])  # Remove the '.index'
@@ -504,13 +498,19 @@ class Conv1D(nn.Module):
         #===MOD===
         #===MOD===
         # nn_init.normal_(w, std=0.02)
-        w = torch.FloatTensor(np.random.normal(0, 0.02, (nx, nf))) 
+        w = torch.cuda.FloatTensor(np.random.normal(0, 0.02, (nx, nf))) 
         #===MOD===
         self.weight = nn.Parameter(w)
-        self.bias = nn.Parameter(torch.zeros(nf))
+        #===MOD===
+        # Added.cuda() to the end. 
+        self.bias = nn.Parameter(torch.zeros(nf)).cuda()
+        #===MOD===
 
     def forward(self, x):
         size_out = x.size()[:-1] + (self.nf,)
+        #===DEBUG===
+        # print("Type of self.weight.data:", type(self.weight.data))
+        #===DEBUG=== 
         x = torch.addmm(self.bias, x.view(-1, x.size(-1)), self.weight)
         x = x.view(*size_out)
         return x

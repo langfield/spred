@@ -1,3 +1,4 @@
+import sys
 import torch
 import numpy as np
 import pandas as pd
@@ -28,9 +29,10 @@ if plot:
 zeros = np.ones(num_steps)
 df = pd.DataFrame({'Price': price})
 df = df[[col for col in df.columns for i in range(60)]]
-print(df)
+# print(df)
 tokens_tensor = torch.Tensor(np.array(df))
 tokens_tensor = tokens_tensor[:30]
+inputs_raw = tokens_tensor.cuda()
 position_ids = torch.arange(0, tokens_tensor.shape[0])
 position_ids = torch.stack([position_ids])
 id_tensor = position_ids
@@ -40,16 +42,24 @@ print("position_ids shape:", position_ids.shape)
 
 # load in our pretrained model
 model = OpenAIGPTModel.from_pretrained('checkpoints/')
-
+# model = torch.load('checkpoints/pytorch_model.bin')
 # Set the model to evaluation mode
 model.eval()
 print(model.training)
 
 # Predict all tokens
 # with torch.no_grad():
-id_tensor = id_tensor.long()
-position_ids = Variable(id_tensor).contiguous()
-outputs = model(id_tensor, position_ids, None, None, tokens_tensor)
+input_ids = id_tensor.long().cuda()
+position_ids = Variable(id_tensor.long().cuda()).contiguous()
+#===DEBUG===
+print("=======================================")
+print("Type of input_ids:", type(input_ids)) 
+print("Type of position_ids:", type(position_ids)) 
+print("type of position_ids data:", type(position_ids.data)) 
+print("Type of inputs_raw:", type(inputs_raw)) 
+#===DEBUG===
+# sys.exit()
+outputs = model(input_ids, inputs_raw, position_ids=position_ids)
 predictions = outputs[0]
 
 # get the predicted next token
