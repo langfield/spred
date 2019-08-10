@@ -639,6 +639,7 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
                                                head_mask=head_mask)
         #===MOD===
         hidden_states = transformer_outputs[0]
+        print("Hidden states grad:", hidden_states)
         assert hidden_states.shape == inputs_raw.shape
         lm_logits = hidden_states
 
