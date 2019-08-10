@@ -186,11 +186,12 @@ def main():
                 print("=======================================")
                 print("Type of input_ids:", type(input_ids)) 
                 print("Type of position_ids:", type(position_ids)) 
-                print("type of position_ids data:", type(position_ids.data)) 
                 print("Type of lm_labels:", type(lm_labels)) 
                 print("Type of inputs_raw:", type(inputs_raw)) 
                 print("Type of targets_raw:", type(targets_raw)) 
-                print("Type of targets_raw data:", type(targets_raw.data))
+                if torch.__version__[:5] == "0.3.1":
+                    print("type of position_ids data:", type(position_ids.data)) 
+                    print("Type of targets_raw data:", type(targets_raw.data))
                 """
                 #===DEBUG=== 
                 # Forward call.
@@ -200,10 +201,15 @@ def main():
                 scheduler.step()
                 optimizer.step() 
                 optimizer.zero_grad()
-                # print(loss.data)
-                loss_data = float(loss.data)
-                tr_loss += loss_data
-                exp_average_loss = loss_data if exp_average_loss is None else 0.7*exp_average_loss+0.3*loss_data
+                #===MOD===
+                if torch.__version__[:5] == "0.3.1":
+                    loss_data = float(loss.data)
+                    tr_loss += loss_data
+                    exp_average_loss = loss_data if exp_average_loss is None else 0.7*exp_average_loss+0.3*loss_data
+                else:
+                    tr_loss += loss.item()
+                    exp_average_loss = loss.item() if exp_average_loss is None else 0.7*exp_average_loss+0.3*loss.item()
+                #===MOD===
                 nb_tr_steps += 1
                 tqdm_bar.desc = "Training loss: {:.2e}".format(exp_average_loss)
 
@@ -215,17 +221,20 @@ def main():
         # If we save using the predefined names, we can load using `from_pretrained`
         output_model_file = os.path.join(args.output_dir, WEIGHTS_NAME)
         output_config_file = os.path.join(args.output_dir, CONFIG_NAME)
+            
+        torch.save(model_to_save.state_dict(), output_model_file)
+        model_to_save.config.to_json_file(output_config_file)
 
         #===MOD===
+        # Load a trained model.
         if torch.__version__[:5] == "0.3.1":
-            torch.save(model_to_save.state_dict(), output_model_file)
-            model_to_save.config.to_json_file(output_config_file)
-
-            # Load a trained model and vocabulary that you have fine-tuned
             loaded_config = OpenAIGPTConfig.from_json_file(output_config_file)
             model = OpenAIGPTLMHeadModel(loaded_config)
             model.load_state_dict(torch.load(output_model_file))
             model.cuda()
+        else:
+            model = OpenAIGPTLMHeadModel.from_pretrained(args.output_dir)
+            model.to(device)
         #===MOD===
 
 if __name__ == '__main__':
