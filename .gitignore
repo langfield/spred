@@ -1,3 +1,5 @@
 API_keys.txt
 *.swp
 *.bin
+__pycache__/
+*.py[cod]
