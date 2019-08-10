@@ -33,10 +33,10 @@ from torch.nn import functional as F
 from .file_utils import cached_path
 
 #===MOD===
-from torch_addons import nn_init
-import numpy as np
 import itertools
-from torch_addons.module_modified import Module
+import numpy as np
+from torch_addons import nn_init
+from torch_addons.module import Module
 #===MOD===
 
 logger = logging.getLogger(__name__)
