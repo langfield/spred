@@ -4,43 +4,15 @@ import numpy as np
 import pandas as pd
 from modeling_openai import OpenAIGPTModel
 from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
+from dataset import GPTSpredEvalDataset
 from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME
 #===MOD===
 from torch.autograd import Variable
 #===MOD===
-
-plot = False
-
-width = 100
-num_steps = 10000
-# x vals
-time = np.arange(0, width, 100 / num_steps)
-print('Number of data points:', time.shape[0])
-# y vals
-price = np.sin(time) + 10
-# price = np.array([0.5] * num_steps)
-
-
-if plot:
-    plt.plot(time, price)
-    plt.title('Sample Time Series')
-    plt.xlabel('Time (min)')
-    plt.ylabel('Price')
-    plt.show()
-
-zeros = np.ones(num_steps)
-df = pd.DataFrame({'Price': price})
-df = df[[col for col in df.columns for i in range(60)]]
-# print(df)
-tokens_tensor = torch.Tensor(np.array(df))
-tokens_tensor = tokens_tensor[:30]
-inputs_raw = tokens_tensor.cuda()
-
-position_ids = torch.arange(0, tokens_tensor.shape[0])
-position_ids = torch.stack([position_ids])
-id_tensor = position_ids
-print("token tensor shape:", tokens_tensor.shape)
-print("position_ids shape:", position_ids.shape)
+try:
+    from torch.utils.data import SequentialSampler
+except ImportError:
+    from torch_addons.sampler import SequentialSampler
 
 # load in our pretrained model      
 output_dir = 'checkpoints/'
@@ -54,6 +26,52 @@ model.load_state_dict(torch.load(output_model_file))
 model.cuda()
 model.eval()
 print("Is model training:", model.training) 
+
+DIM = model.config.n_embd
+MAX_SEQ_LEN = model.config.n_positions
+BATCH_SIZE = 4
+TOTAL_DATA_LEN = 10000
+
+print("Data dimensionality:", DIM)
+print("Max sequence length :", MAX_SEQ_LEN)
+print("Eval batch size:", BATCH_SIZE)
+
+plot = False
+
+width = 100
+# x vals
+time = np.arange(0, width, 100 / TOTAL_DATA_LEN)
+print('Number of data points:', time.shape[0])
+# y vals
+price = np.sin(time) + 10
+# price = np.array([0.5] * TOTAL_DATA_LEN)
+
+if plot:
+    plt.plot(time, price)
+    plt.title('Sample Time Series')
+    plt.xlabel('Time (min)')
+    plt.ylabel('Price')
+    plt.show()
+
+zeros = np.ones(TOTAL_DATA_LEN)
+df = pd.DataFrame({'Price': price})
+df = df[[col for col in df.columns for i in range(DIM)]]
+# print(df)
+tensor_data = torch.Tensor(np.array(df))
+tensor_data.view()
+inputs_raw = tensor_data.cuda()
+
+eval_data = GPTSpredEvalDataset(tensor_data, MAX_SEQ_LEN) 
+print("Length of eval dataset:", len(eval_data))
+eval_sampler = SequentialSampler(eval_data)
+eval_dataloader = DataLoader(eval_data, sampler=eval_sampler, batch_size=BATCH_SIZE)
+
+
+position_ids = torch.arange(0, tensor_data.shape[0])
+position_ids = torch.stack([position_ids])
+id_tensor = position_ids
+print("tensor data shape:", tensor_data.shape)
+print("position_ids shape:", position_ids.shape)
 
 # Predict all tokens
 input_ids = id_tensor.long().cuda()
