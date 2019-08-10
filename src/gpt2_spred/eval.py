@@ -7,13 +7,14 @@ from modeling_openai import OpenAIGPTModel
 from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 from dataset import GPTSpredEvalDataset
 from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME
+
 #===MOD===
-from torch.autograd import Variable
-#===MOD===
-try:
-    from torch.utils.data import SequentialSampler
-except ImportError:
+if torch.__version__[:5] == "0.3.1":
+    from torch.autograd import Variable
     from torch_addons.sampler import SequentialSampler
+else:
+    from torch.utils.data import SequentialSampler
+#===MOD===
 
 DEBUG = False
 
@@ -27,7 +28,11 @@ def load_model() -> OpenAIGPTLMHeadModel:
     model.load_state_dict(torch.load(output_model_file))
 
     # Set the model to evaluation mode
-    model.cuda()
+    if torch.__version__[:5] == "0.3.1":
+        model.cuda()
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model.to(device)
     model.eval()
     print("Is model training:", model.training) 
     return model
@@ -85,15 +90,21 @@ def main() -> None:
     position_ids = position_ids.view(BATCH_SIZE, MAX_SEQ_LEN)
 
     # Casting to correct ``torch.Tensor`` type. 
-    input_ids = input_ids.long().cuda()
-    position_ids = Variable(position_ids.long().cuda()).contiguous()
-    inputs_raw = inputs_raw.cuda()
+    if torch.__version__[:5] == "0.3.1":
+        input_ids = input_ids.long().cuda()
+        position_ids = Variable(position_ids.long().cuda()).contiguous()
+        inputs_raw = inputs_raw.cuda()
+    else:
+        input_ids = input_ids.to(device)
+        position_ids = position_ids.to(device)
+        inputs_raw = inputs_raw.to(device)
 
     if DEBUG:
         print("================TYPECHECK==================")
         print("Type of input_ids:", type(input_ids)) 
         print("Type of position_ids:", type(position_ids)) 
-        print("type of position_ids data:", type(position_ids.data)) 
+        if torch.__version__[:5] == "0.3.1":
+            print("type of position_ids data:", type(position_ids.data)) 
         print("Type of inputs_raw:", type(inputs_raw)) 
         print("================SHAPECHECK=================")
         print("input_ids shape:", input_ids.shape)
