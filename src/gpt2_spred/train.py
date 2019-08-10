@@ -166,6 +166,7 @@ def main():
                 position_ids = Variable(position_ids).contiguous()
                 targets_raw = Variable(targets_raw.contiguous())
                 #===DEBUG===
+                """
                 print("=======================================")
                 print("Type of input_ids:", type(input_ids)) 
                 print("Type of position_ids:", type(position_ids)) 
@@ -174,6 +175,7 @@ def main():
                 print("Type of inputs_raw:", type(inputs_raw)) 
                 print("Type of targets_raw:", type(targets_raw)) 
                 print("Type of targets_raw data:", type(targets_raw.data))
+                """
                 #===DEBUG=== 
                 # Forward call.
                 outputs = model(input_ids, position_ids, None, lm_labels, inputs_raw, targets_raw)

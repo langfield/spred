@@ -61,11 +61,12 @@ tensor_data = torch.Tensor(np.array(df))
 tensor_data.view()
 inputs_raw = tensor_data.cuda()
 
+"""
 eval_data = GPTSpredEvalDataset(tensor_data, MAX_SEQ_LEN) 
 print("Length of eval dataset:", len(eval_data))
 eval_sampler = SequentialSampler(eval_data)
 eval_dataloader = DataLoader(eval_data, sampler=eval_sampler, batch_size=BATCH_SIZE)
-
+"""
 
 position_ids = torch.arange(0, tensor_data.shape[0])
 position_ids = torch.stack([position_ids])
