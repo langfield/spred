@@ -37,13 +37,12 @@ from tqdm import tqdm, trange
 import numpy as np
 import torch
 from torch.utils.data import DataLoader
-try:
-    from torch.utils.data import RandomSampler
-except ImportError:
+
+if torch.__version__[:5] == "0.3.1":
+    from torch.autograd import Variable
     from torch_addons.sampler import RandomSampler
-#===MOD===
-from torch.autograd import Variable
-#===MOD===
+else:
+    from torch.utils.data import RandomSampler
 
 from pytorch_transformers import (AdamW, WarmupLinearSchedule, cached_path, WEIGHTS_NAME, CONFIG_NAME)
 from dataset import GPTSpredDataset
@@ -101,10 +100,14 @@ def main():
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
-
-    # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+   
+    #===MOD=== 
+    if not torch.__version__[:5] == "0.3.1":
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     n_gpu = torch.cuda.device_count()
-    # logger.info("device: {}, n_gpu {}".format(device, n_gpu))
+    if not torch.__version__[:5] == "0.3.1":
+        logger.info("device: {}, n_gpu {}".format(device, n_gpu))
+    #===MOD=== 
 
     if not args.do_train and not args.do_eval:
         raise ValueError("At least one of `do_train` or `do_eval` must be True.")
@@ -115,7 +118,12 @@ def main():
     # TODO: create ``config``. 
     config = OpenAIGPTConfig.from_pretrained(args.gptspred_model)
     model = OpenAIGPTLMHeadModel(config)
-    model.cuda()
+    #===MOD===
+    if torch.__version__[:5] == "0.3.1":
+        model.cuda()
+    else:
+        model.to(device)
+    #===MOD===
 
     # Compute the max input length for the Transformer
     max_length = model.config.n_positions
@@ -154,7 +162,10 @@ def main():
             for step, batch in enumerate(tqdm_bar):
                 #===MOD===
                 # t.to(device) -> t.cuda()
-                batch = tuple(t.cuda() for t in batch)
+                if torch.__version__[:5] == "0.3.1":
+                    batch = tuple(t.cuda() for t in batch)
+                else:
+                    batch = tuple(t.to(device) for t in batch)
                 #===MOD===
                 input_ids, position_ids, lm_labels, inputs_raw, targets_raw = batch
                 inputs_raw = inputs_raw.float()
@@ -163,9 +174,13 @@ def main():
                 assert position_ids.shape == (args.train_batch_size, max_length)
                 assert lm_labels.shape == (args.train_batch_size, max_length)
                 assert inputs_raw.shape == (args.train_batch_size, max_length, inputs_raw.shape[2])
+                
+                #===MOD===
                 # torch_0.3.1 casting.
-                position_ids = Variable(position_ids).contiguous()
-                targets_raw = Variable(targets_raw.contiguous())
+                if torch.__version__[:5] == "0.3.1":
+                    position_ids = Variable(position_ids).contiguous()
+                    targets_raw = Variable(targets_raw.contiguous())
+                #===MOD===
                 #===DEBUG===
                 """
                 print("=======================================")
@@ -201,14 +216,17 @@ def main():
         output_model_file = os.path.join(args.output_dir, WEIGHTS_NAME)
         output_config_file = os.path.join(args.output_dir, CONFIG_NAME)
 
-        torch.save(model_to_save.state_dict(), output_model_file)
-        model_to_save.config.to_json_file(output_config_file)
+        #===MOD===
+        if torch.__version__[:5] == "0.3.1":
+            torch.save(model_to_save.state_dict(), output_model_file)
+            model_to_save.config.to_json_file(output_config_file)
 
-        # Load a trained model and vocabulary that you have fine-tuned
-        loaded_config = OpenAIGPTConfig.from_json_file(output_config_file)
-        model = OpenAIGPTLMHeadModel(loaded_config)
-        model.load_state_dict(torch.load(output_model_file))
-        model.cuda()
+            # Load a trained model and vocabulary that you have fine-tuned
+            loaded_config = OpenAIGPTConfig.from_json_file(output_config_file)
+            model = OpenAIGPTLMHeadModel(loaded_config)
+            model.load_state_dict(torch.load(output_model_file))
+            model.cuda()
+        #===MOD===
 
 if __name__ == '__main__':
     main()

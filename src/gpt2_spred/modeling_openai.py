@@ -31,9 +31,14 @@ from torch.nn import CrossEntropyLoss
 from torch.nn.parameter import Parameter
 
 #===MOD===
-from pytorch_transformers_addons.modeling_utils import (Conv1D, CONFIG_NAME, WEIGHTS_NAME, PretrainedConfig,
-                             PreTrainedModel, prune_conv1d_layer, SequenceSummary,
-                             add_start_docstrings)
+if torch.__version__[:5] == "0.3.1":
+    from pytorch_transformers_addons.modeling_utils import (Conv1D, CONFIG_NAME, WEIGHTS_NAME, PretrainedConfig,
+                                 PreTrainedModel, prune_conv1d_layer, SequenceSummary,
+                                 add_start_docstrings)
+else:
+    from pytorch_transformers.modeling_utils import (Conv1D, CONFIG_NAME, WEIGHTS_NAME, PretrainedConfig,
+                                 PreTrainedModel, prune_conv1d_layer, SequenceSummary,
+                                 add_start_docstrings)
 #===MOD===
 from pytorch_transformers.modeling_bert import BertLayerNorm as LayerNorm
 
@@ -275,11 +280,10 @@ class Attention(nn.Module):
         # w = w * self.bias + -1e9 * (1 - self.bias)  # TF implem method: mask_attn_weights
         # XD: self.b may be larger than w, so we need to crop it
         b = self.bias[:, :, : w.size(-2), : w.size(-1)]
-        #===DEBUG===
-        w = torch.cuda.FloatTensor(w.data)
-        # print(w.type())
-        # print(b.type())
-        #===DEBUG===
+        #===MOD===
+        if torch.__version__[:5] == "0.3.1":
+            w = torch.cuda.FloatTensor(w.data)
+        #===MOD===
         w = w * b + -1e9 * (1 - b)
 
         w = nn.Softmax(dim=-1)(torch.autograd.Variable(w))
@@ -513,22 +517,16 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         position_ids = position_ids.view(-1, position_ids.size(-1))
 
         inputs_embeds = inputs_raw
-        #===DEBUG=== 
-        print("pos ids type:", type(position_ids))
-        print("pos ids data type:", type(position_ids.data))
-        #===DEBUG=== 
         position_embeds = self.positions_embed(position_ids)
         if token_type_ids is not None:
             token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1))
             token_type_embeds = self.tokens_embed(token_type_ids)
         else:
             token_type_embeds = 0
-        #===DEBUG=== 
-        # print(inputs_embeds.type())
-        # print(position_embeds.type())
-        # print(token_type_embeds.type())
-        #===DEBUG=== 
-        position_embeds = torch.cuda.FloatTensor(position_embeds.data)
+        #===MOD===
+        if torch.__version__[:5] == "0.3.1":
+            position_embeds = torch.cuda.FloatTensor(position_embeds.data)
+        #===MOD===
         hidden_states = inputs_embeds + position_embeds + token_type_embeds
         hidden_states = self.drop(hidden_states)
 
