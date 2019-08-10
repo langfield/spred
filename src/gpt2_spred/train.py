@@ -162,11 +162,20 @@ def main():
                 assert input_ids.shape == (args.train_batch_size, max_length)
                 assert lm_labels.shape == (args.train_batch_size, max_length)
                 assert inputs_raw.shape == (args.train_batch_size, max_length, inputs_raw.shape[2])
-                # input_ids = Variable(input_ids).contiguous()
+                # torch_0.3.1 casting.
                 position_ids = Variable(position_ids).contiguous()
-                # lm_labels = Variable(lm_labels.contiguous())
-                # inputs_raw = Variable(inputs_raw).contiguous()
                 targets_raw = Variable(targets_raw.contiguous())
+                #===DEBUG===
+                print("=======================================")
+                print("Type of input_ids:", type(input_ids)) 
+                print("Type of position_ids:", type(position_ids)) 
+                print("type of position_ids data:", type(position_ids.data)) 
+                print("Type of lm_labels:", type(lm_labels)) 
+                print("Type of inputs_raw:", type(inputs_raw)) 
+                print("Type of targets_raw:", type(targets_raw)) 
+                print("Type of targets_raw data:", type(targets_raw.data))
+                #===DEBUG=== 
+                # Forward call.
                 outputs = model(input_ids, position_ids, None, lm_labels, inputs_raw, targets_raw)
                 loss = outputs[0]
                 loss.backward()
