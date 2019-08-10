@@ -29,13 +29,17 @@ import torch
 import torch.nn as nn
 from torch.nn import CrossEntropyLoss
 from torch.nn.parameter import Parameter
+from torch.autograd import Variable
 
 #===MOD===
 from pytorch_transformers_addons.modeling_utils import (Conv1D, CONFIG_NAME, WEIGHTS_NAME, PretrainedConfig,
                              PreTrainedModel, prune_conv1d_layer, SequenceSummary,
                              add_start_docstrings)
 #===MOD===
-from pytorch_transformers.modeling_bert import BertLayerNorm as LayerNorm
+#===MOD===
+# from pytorch_transformers.modeling_bert import BertLayerNorm as LayerNorm
+from pytorch_transformers_addons.bert_layer_norm import LayerNorm
+#===MOD===
 
 logger = logging.getLogger(__name__)
 
@@ -276,9 +280,12 @@ class Attention(nn.Module):
         # XD: self.b may be larger than w, so we need to crop it
         b = self.bias[:, :, : w.size(-2), : w.size(-1)]
         #===DEBUG===
-        w = torch.cuda.FloatTensor(w.data)
-        # print(w.type())
-        # print(b.type())
+        # print("Type of w.data:", type(w.data))
+        # print("Type of w:", type(w))
+        # print("Type of b:", b.type())
+        w = w.data.cuda()
+        b = b.cuda()
+        # w = torch.cuda.FloatTensor(w.data)
         #===DEBUG===
         w = w * b + -1e9 * (1 - b)
 
@@ -485,7 +492,9 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
                                                inputs_raw=inputs_raw,
                                                head_mask=head_mask)
         """
-    def forward(self, input_ids, position_ids=None, token_type_ids=None, labels=None, inputs_raw=None, head_mask=None):
+
+    # OLD: def forward(self, input_ids, position_ids=None, token_type_ids=None, labels=None, inputs_raw=None, head_mask=None):
+    def forward(self, input_ids, inputs_raw, position_ids=None, token_type_ids=None, head_mask=None):
         if position_ids is None:
             # This was used when we had a single embedding matrice from position and token embeddings
             # start = self.config.vocab_size + self.config.n_special
@@ -523,14 +532,29 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
             token_type_embeds = self.tokens_embed(token_type_ids)
         else:
             token_type_embeds = 0
-        #===DEBUG=== 
-        # print(inputs_embeds.type())
-        # print(position_embeds.type())
-        # print(token_type_embeds.type())
-        #===DEBUG=== 
-        position_embeds = torch.cuda.FloatTensor(position_embeds.data)
+        #===MOD===
+        # position_embeds = torch.cuda.FloatTensor(position_embeds.data)
+        position_embeds = position_embeds.data.cuda()
+        #===MOD===
+        #===DEBUG===
+        """
+        print("input_embeds type:", type(inputs_embeds))
+        print("position_ids type:", type(position_embeds))
+        print("token_type_embeds type:", type(token_type_embeds))
+        """
+        #===DEBUG===
         hidden_states = inputs_embeds + position_embeds + token_type_embeds
         hidden_states = self.drop(hidden_states)
+        #===MOD===
+        hidden_states = Variable(hidden_states.data.cuda())
+        #===MOD===
+        #===DEBUG===
+        """
+        print("hidden_states type:", type(hidden_states))
+        print("hidden_states.data type:", type(hidden_states.data))
+        """
+        #===DEBUG===
+
 
         output_shape = input_shape + (hidden_states.size(-1),)
 
@@ -606,13 +630,15 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         self._tie_or_clone_weights(self.lm_head,
                                    self.transformer.tokens_embed)
 
-    def forward(self, input_ids, position_ids=None, token_type_ids=None, labels=None, inputs_raw=None, targets_raw=None, head_mask=None):
-        transformer_outputs = self.transformer(input_ids, 
+    def forward(self, input_ids, inputs_raw, targets_raw, position_ids=None, token_type_ids=None, head_mask=None):
+        #===MOD===
+        # Dropped ``labels`` kwarg, made ``inputs_raw`` a pos. arg. 
+        transformer_outputs = self.transformer(input_ids,
+                                               inputs_raw,
                                                position_ids=position_ids, 
                                                token_type_ids=token_type_ids, 
-                                               labels=labels, 
-                                               inputs_raw=inputs_raw,
                                                head_mask=head_mask)
+        #===MOD===
         hidden_states = transformer_outputs[0]
         print("Shape of hidden_states:", hidden_states.shape)
         print("Shape of inputs_raw:", inputs_raw.shape)

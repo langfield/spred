@@ -33,7 +33,6 @@ from torch.nn import functional as F
 from .file_utils import cached_path
 
 #===MOD===
-from torch_addons import nn_init
 import numpy as np
 import itertools
 from torch_addons.module_modified import Module
@@ -386,7 +385,7 @@ class PreTrainedModel(nn.Module):
         # redirect to the cache, if necessary
         try:
             #===DEBUG===
-            print("pytorch-transformers.modeling_utils.py: Getting model file.")
+            # print("pytorch-transformers.modeling_utils.py: Getting model file.")
             #===DEBUG===
             
             resolved_archive_file = cached_path(archive_file, cache_dir=cache_dir)
@@ -414,7 +413,7 @@ class PreTrainedModel(nn.Module):
         model = cls(config)
 
         if state_dict is None and not from_tf:
-            state_dict = torch.load(resolved_archive_file, map_location='cpu')
+            state_dict = serialization.load(resolved_archive_file, map_location='cpu')
         if from_tf:
             # Directly load from a TensorFlow checkpoint
             return cls.load_tf_weights(model, config, resolved_archive_file[:-6])  # Remove the '.index'
@@ -566,13 +565,19 @@ class Conv1D(nn.Module):
         #===MOD===
         #===MOD===
         # nn_init.normal_(w, std=0.02)
-        w = torch.FloatTensor(np.random.normal(0, 0.02, (nx, nf))) 
+        w = torch.cuda.FloatTensor(np.random.normal(0, 0.02, (nx, nf))) 
         #===MOD===
         self.weight = nn.Parameter(w)
-        self.bias = nn.Parameter(torch.zeros(nf))
+        #===MOD===
+        # Added.cuda() to the end. 
+        self.bias = nn.Parameter(torch.zeros(nf)).cuda()
+        #===MOD===
 
     def forward(self, x):
         size_out = x.size()[:-1] + (self.nf,)
+        #===DEBUG===
+        # print("Type of self.weight.data:", type(self.weight.data))
+        #===DEBUG=== 
         x = torch.addmm(self.bias, x.view(-1, x.size(-1)), self.weight)
         x = x.view(*size_out)
         return x
