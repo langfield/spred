@@ -1,4 +1,5 @@
 import os
+import copy
 import torch
 import numpy as np
 import pandas as pd
@@ -14,79 +15,101 @@ try:
 except ImportError:
     from torch_addons.sampler import SequentialSampler
 
-# load in our pretrained model      
-output_dir = 'checkpoints/'
-output_model_file = os.path.join(output_dir, WEIGHTS_NAME)
-output_config_file = os.path.join(output_dir, CONFIG_NAME)
-loaded_config = OpenAIGPTConfig.from_json_file(output_config_file)
-model = OpenAIGPTLMHeadModel(loaded_config)
-model.load_state_dict(torch.load(output_model_file))
+DEBUG = False
 
-# Set the model to evaluation mode
-model.cuda()
-model.eval()
-print("Is model training:", model.training) 
+def load_model() -> OpenAIGPTLMHeadModel:
+    """Load in our pretrained model."""
+    output_dir = 'checkpoints/'
+    output_model_file = os.path.join(output_dir, WEIGHTS_NAME)
+    output_config_file = os.path.join(output_dir, CONFIG_NAME)
+    loaded_config = OpenAIGPTConfig.from_json_file(output_config_file)
+    model = OpenAIGPTLMHeadModel(loaded_config)
+    model.load_state_dict(torch.load(output_model_file))
 
-DIM = model.config.n_embd
-MAX_SEQ_LEN = model.config.n_positions
-BATCH_SIZE = 4
-TOTAL_DATA_LEN = 10000
+    # Set the model to evaluation mode
+    model.cuda()
+    model.eval()
+    print("Is model training:", model.training) 
+    return model
 
-print("Data dimensionality:", DIM)
-print("Max sequence length :", MAX_SEQ_LEN)
-print("Eval batch size:", BATCH_SIZE)
+def create_sample_data(dim: int, max_seq_len: int, width: int, plot: int) -> torch.Tensor:
+    """Construct sample time series."""
+    # x vals.
+    time = np.arange(0, width, 100 / max_seq_len)
+    # y vals.
+    price = np.sin(time) + 10
+    # price = np.array([0.5] * MAX_SEQ_LEN)
 
-plot = False
+    if plot:
+        plt.plot(time, price)
+        plt.title('Sample Time Series')
+        plt.xlabel('Time (min)')
+        plt.ylabel('Price')
+        plt.show()
 
-width = 100
-# x vals
-time = np.arange(0, width, 100 / TOTAL_DATA_LEN)
-print('Number of data points:', time.shape[0])
-# y vals
-price = np.sin(time) + 10
-# price = np.array([0.5] * TOTAL_DATA_LEN)
+    zeros = np.ones(max_seq_len)
+    df = pd.DataFrame({'Price': price})
+    df = df[[col for col in df.columns for i in range(dim)]]
+    tensor_data = torch.Tensor(np.array(df))
+    return tensor_data
 
-if plot:
-    plt.plot(time, price)
-    plt.title('Sample Time Series')
-    plt.xlabel('Time (min)')
-    plt.ylabel('Price')
-    plt.show()
+def main() -> None:
+    """Make predictions on a single sequence."""
+    model = load_model()
 
-zeros = np.ones(TOTAL_DATA_LEN)
-df = pd.DataFrame({'Price': price})
-df = df[[col for col in df.columns for i in range(DIM)]]
-# print(df)
-tensor_data = torch.Tensor(np.array(df))
-tensor_data.view()
-inputs_raw = tensor_data.cuda()
+    # Set hyperparameters.
+    DIM = model.config.n_embd
+    MAX_SEQ_LEN = model.config.n_positions
+    BATCH_SIZE = 1
+    TOTAL_DATA_LEN = None
+    PLOT = False
+    WIDTH = 100
+    print("Data dimensionality:", DIM)
+    print("Max sequence length :", MAX_SEQ_LEN)
+    print("Eval batch size:", BATCH_SIZE)
 
-"""
-eval_data = GPTSpredEvalDataset(tensor_data, MAX_SEQ_LEN) 
-print("Length of eval dataset:", len(eval_data))
-eval_sampler = SequentialSampler(eval_data)
-eval_dataloader = DataLoader(eval_data, sampler=eval_sampler, batch_size=BATCH_SIZE)
-"""
+    # Get sample data.
+    tensor_data = create_sample_data(DIM, MAX_SEQ_LEN, WIDTH, PLOT) 
+    inputs_raw = tensor_data.contiguous()
 
-position_ids = torch.arange(0, tensor_data.shape[0])
-position_ids = torch.stack([position_ids])
-id_tensor = position_ids
-print("tensor data shape:", tensor_data.shape)
-print("position_ids shape:", position_ids.shape)
+    # Create ``position_ids``.
+    position_ids = torch.arange(0, tensor_data.shape[0])
+    position_ids = torch.stack([position_ids])
 
-# Predict all tokens
-input_ids = id_tensor.long().cuda()
-position_ids = Variable(id_tensor.long().cuda()).contiguous()
-# position_ids = Variable(id_tensor.long()).contiguous()
-#===DEBUG===
-print("=======================================")
-print("Type of input_ids:", type(input_ids)) 
-print("Type of position_ids:", type(position_ids)) 
-print("type of position_ids data:", type(position_ids.data)) 
-print("Type of inputs_raw:", type(inputs_raw)) 
-#===DEBUG===
-outputs = model(input_ids, position_ids, None, None, inputs_raw)
-predictions = outputs[0]
+    # Create ``input_ids``.
+    input_ids = copy.deepcopy(position_ids)
 
-# get the predicted next token
-print('Prediction: ', predictions[0, -1, :])
+    # Reshape.
+    inputs_raw = inputs_raw.view(BATCH_SIZE, MAX_SEQ_LEN, DIM)
+    input_ids = input_ids.view(BATCH_SIZE, MAX_SEQ_LEN)
+    position_ids = position_ids.view(BATCH_SIZE, MAX_SEQ_LEN)
+
+    # Casting to correct ``torch.Tensor`` type. 
+    input_ids = input_ids.long().cuda()
+    position_ids = Variable(position_ids.long().cuda()).contiguous()
+    inputs_raw = inputs_raw.cuda()
+
+    if DEBUG:
+        print("================TYPECHECK==================")
+        print("Type of input_ids:", type(input_ids)) 
+        print("Type of position_ids:", type(position_ids)) 
+        print("type of position_ids data:", type(position_ids.data)) 
+        print("Type of inputs_raw:", type(inputs_raw)) 
+        print("================SHAPECHECK=================")
+        print("input_ids shape:", input_ids.shape)
+        print("position_ids shape:", position_ids.shape)
+        print("inputs_raw shape:", inputs_raw.shape)
+
+    # Shape check.
+    assert input_ids.shape == (BATCH_SIZE, MAX_SEQ_LEN)
+    assert position_ids.shape == (BATCH_SIZE, MAX_SEQ_LEN)
+    assert inputs_raw.shape == (BATCH_SIZE, MAX_SEQ_LEN, DIM)
+
+    outputs = model(input_ids, position_ids, None, None, inputs_raw)
+    predictions = outputs[0]
+
+    # get the predicted next token
+    print('Prediction: ', predictions[0, -1, :])
+
+if __name__ == "__main__":
+    main()

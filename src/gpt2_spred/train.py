@@ -160,6 +160,7 @@ def main():
                 inputs_raw = inputs_raw.float()
                 targets_raw = targets_raw.float()
                 assert input_ids.shape == (args.train_batch_size, max_length)
+                assert position_ids.shape == (args.train_batch_size, max_length)
                 assert lm_labels.shape == (args.train_batch_size, max_length)
                 assert inputs_raw.shape == (args.train_batch_size, max_length, inputs_raw.shape[2])
                 # torch_0.3.1 casting.
