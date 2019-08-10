@@ -2,6 +2,7 @@ import torch
 import numpy as np
 import pandas as pd
 from modeling_openai import OpenAIGPTModel
+from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME
 
 plot = False
 
@@ -34,9 +35,13 @@ id_tensor = position_ids
 print("token tensor shape:", tokens_tensor.shape)
 print("position_ids shape:", position_ids.shape)
 
-
-# load in our pretrained model
-model = OpenAIGPTModel.from_pretrained('checkpoints/')
+# load in our pretrained model      
+output_dir = 'checkpoints/'
+output_model_file = os.path.join(output_dir, WEIGHTS_NAME)
+output_config_file = os.path.join(output_dir, CONFIG_NAME)
+loaded_config = OpenAIGPTConfig.from_json_file(output_config_file)
+model = OpenAIGPTLMHeadModel(loaded_config)
+model.load_state_dict(torch.load(output_model_file))
 
 # Set the model to evaluation mode
 model.eval()
