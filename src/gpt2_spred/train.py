@@ -48,8 +48,7 @@ from torch.autograd import Variable
 from pytorch_transformers import (AdamW, WarmupLinearSchedule, cached_path, WEIGHTS_NAME, CONFIG_NAME)
 from dataset import GPTSpredDataset
 from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
-
-import matplotlib.pyplot as plt
+from gradflow_check import plot_grad_flow_v2
 
 ROCSTORIES_URL = "https://s3.amazonaws.com/datasets.huggingface.co/ROCStories.tar.gz"
 
@@ -194,6 +193,7 @@ def main():
                 exp_average_loss = loss_data if exp_average_loss is None else 0.7*exp_average_loss+0.3*loss_data
                 nb_tr_steps += 1
                 tqdm_bar.desc = "Training loss: {:.2e}".format(exp_average_loss)
+            plot_grad_flow_v2(model.named_parameters())
 
     # Save a trained model
     if args.do_train:

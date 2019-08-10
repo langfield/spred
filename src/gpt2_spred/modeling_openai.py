@@ -544,8 +544,10 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         #===DEBUG===
         hidden_states = inputs_embeds + position_embeds + token_type_embeds
         hidden_states = self.drop(hidden_states)
-        #===DEBUG===
+        #===MOD===
         hidden_states = Variable(hidden_states.data.cuda())
+        #===MOD===
+        #===DEBUG===
         """
         print("hidden_states type:", type(hidden_states))
         print("hidden_states.data type:", type(hidden_states.data))
