@@ -522,10 +522,11 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         position_ids = position_ids.view(-1, position_ids.size(-1))
 
         inputs_embeds = inputs_raw
-        #===MOD===
-        # position_ids -> position_ids.cpu()
-        position_embeds = self.positions_embed(position_ids.cpu())
-        #===MOD===
+        #===DEBUG=== 
+        print("pos ids type:", type(position_ids))
+        print("pos ids data type:", type(position_ids.data))
+        #===DEBUG=== 
+        position_embeds = self.positions_embed(position_ids)
         if token_type_ids is not None:
             token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1))
             token_type_embeds = self.tokens_embed(token_type_ids)
@@ -639,7 +640,8 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
                                                head_mask=head_mask)
         #===MOD===
         hidden_states = transformer_outputs[0]
-        print("Hidden states grad:", hidden_states)
+        print("Shape of hidden_states:", hidden_states.shape)
+        print("Shape of inputs_raw:", inputs_raw.shape)
         assert hidden_states.shape == inputs_raw.shape
         lm_logits = hidden_states
 

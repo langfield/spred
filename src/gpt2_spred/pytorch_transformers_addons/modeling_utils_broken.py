@@ -34,8 +34,10 @@ from .file_utils import cached_path
 
 #===MOD===
 import numpy as np
-import itertools
-from torch_addons.module_modified import Module
+from torch_addons import nn_init
+from torch_addons import serialization
+
+from torch_addons.module_041 import Module as Module_041
 #===MOD===
 
 logger = logging.getLogger(__name__)
@@ -192,7 +194,7 @@ class PretrainedConfig(object):
             writer.write(self.to_json_string())
 
 
-class PreTrainedModel(nn.Module):
+class PreTrainedModel(Module_041):
     """ Base class for all models. Handle loading/storing model config and
         a simple interface for dowloading and loading pretrained models.
     """
@@ -482,77 +484,8 @@ class PreTrainedModel(nn.Module):
 
         return model
 
-    #============MOD============
 
-    def _load_from_state_dict(self, state_dict, prefix, metadata, strict, missing_keys, unexpected_keys, error_msgs):
-        r"""Copies parameters and buffers from :attr:`state_dict` into only
-        this module, but not its descendants. This is called on every submodule
-        in :meth:`~torch.nn.Module.load_state_dict`. Metadata saved for this
-        module in input :attr:`state_dict` is provided as :attr`metadata`.
-        For state dicts without meta data, :attr`metadata` is empty.
-        Subclasses can achieve class-specific backward compatible loading using
-        the version number at `metadata.get("version", None)`.
-        .. note::
-            :attr:`state_dict` is not the same object as the input
-            :attr:`state_dict` to :meth:`~torch.nn.Module.load_state_dict`. So
-            it can be modified.
-        Arguments:
-            state_dict (dict): a dict containing parameters and
-                persistent buffers.
-            prefix (str): the prefix for parameters and buffers used in this
-                module
-            metadata (dict): a dict containing the metadata for this moodule.
-                See
-            strict (bool): whether to strictly enforce that the keys in
-                :attr:`state_dict` with :attr:`prefix` match the names of
-                parameters and buffers in this module
-            missing_keys (list of str): if ``strict=False``, add missing keys to
-                this list
-            unexpected_keys (list of str): if ``strict=False``, add unexpected
-                keys to this list
-            error_msgs (list of str): error messages should be added to this
-                list, and will be reported together in
-                :meth:`~torch.nn.Module.load_state_dict`
-        """
-        local_name_params = itertools.chain(self._parameters.items(), self._buffers.items())
-        local_state = {k: v.data for k, v in local_name_params if v is not None}
-
-        for name, param in local_state.items():
-            key = prefix + name
-            if key in state_dict:
-                input_param = state_dict[key]
-
-                if input_param.shape != param.shape:
-                    # local shape should match the one in checkpoint
-                    error_msgs.append('size mismatch for {}: copying a param of {} from checkpoint, '
-                                      'where the shape is {} in current model.'
-                                      .format(key, param.shape, input_param.shape))
-                    continue
-
-                if isinstance(input_param, Parameter):
-                    # backwards compatibility for serialized parameters
-                    input_param = input_param.data
-                try:
-                    param.copy_(input_param)
-                except Exception:
-                    error_msgs.append('While copying the parameter named "{}", '
-                                      'whose dimensions in the model are {} and '
-                                      'whose dimensions in the checkpoint are {}.'
-                                      .format(key, param.size(), input_param.size()))
-            elif strict:
-                missing_keys.append(key)
-
-        if strict:
-            for key, input_param in state_dict.items():
-                if key.startswith(prefix):
-                    input_name = key[len(prefix):]
-                    input_name = input_name.split('.', 1)[0]  # get the name of param/buffer/child
-                    if input_name not in self._modules and input_name not in local_state:
-                        unexpected_keys.append(key)
-
-    #============MOD============
-
-class Conv1D(nn.Module):
+class Conv1D(Module_041):
     def __init__(self, nf, nx):
         """ Conv1D layer as defined by Radford et al. for OpenAI GPT (and also used in GPT-2)
             Basically works like a Linear layer but the weights are transposed
@@ -583,7 +516,7 @@ class Conv1D(nn.Module):
         return x
 
 
-class PoolerStartLogits(nn.Module):
+class PoolerStartLogits(Module_041):
     """ Compute SQuAD start_logits from sequence hidden states. """
     def __init__(self, config):
         super(PoolerStartLogits, self).__init__()
@@ -603,7 +536,7 @@ class PoolerStartLogits(nn.Module):
         return x
 
 
-class PoolerEndLogits(nn.Module):
+class PoolerEndLogits(Module_041):
     """ Compute SQuAD end_logits from sequence hidden states and start token hidden state.
     """
     def __init__(self, config):
@@ -644,7 +577,7 @@ class PoolerEndLogits(nn.Module):
         return x
 
 
-class PoolerAnswerClass(nn.Module):
+class PoolerAnswerClass(Module_041):
     """ Compute SQuAD 2.0 answer class from classification and start tokens hidden states. """
     def __init__(self, config):
         super(PoolerAnswerClass, self).__init__()
@@ -688,7 +621,7 @@ class PoolerAnswerClass(nn.Module):
         return x
 
 
-class SQuADHead(nn.Module):
+class SQuADHead(Module_041):
     r""" A SQuAD head inspired by XLNet.
 
     Parameters:
@@ -797,7 +730,7 @@ class SQuADHead(nn.Module):
         return outputs
 
 
-class SequenceSummary(nn.Module):
+class SequenceSummary(Module_041):
     r""" Compute a single vector summary of a sequence hidden states according to various possibilities:
         Args of the config class:
             summary_type:

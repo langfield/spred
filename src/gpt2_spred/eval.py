@@ -1,66 +1,115 @@
-import sys
+import os
+import copy
 import torch
 import numpy as np
 import pandas as pd
 from modeling_openai import OpenAIGPTModel
+from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
+from dataset import GPTSpredEvalDataset
+from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME
 #===MOD===
 from torch.autograd import Variable
 #===MOD===
+try:
+    from torch.utils.data import SequentialSampler
+except ImportError:
+    from torch_addons.sampler import SequentialSampler
 
-plot = False
+DEBUG = False
 
-width = 100
-num_steps = 10000
-# x vals
-time = np.arange(0, width, 100 / num_steps)
-print('Number of data points:', time.shape[0])
-# y vals
-price = np.sin(time) + 10
-# price = np.array([0.5] * num_steps)
+def load_model() -> OpenAIGPTLMHeadModel:
+    """Load in our pretrained model."""
+    output_dir = 'checkpoints/'
+    output_model_file = os.path.join(output_dir, WEIGHTS_NAME)
+    output_config_file = os.path.join(output_dir, CONFIG_NAME)
+    loaded_config = OpenAIGPTConfig.from_json_file(output_config_file)
+    model = OpenAIGPTLMHeadModel(loaded_config)
+    model.load_state_dict(torch.load(output_model_file))
 
+    # Set the model to evaluation mode
+    model.cuda()
+    model.eval()
+    print("Is model training:", model.training) 
+    return model
 
-if plot:
-    plt.plot(time, price)
-    plt.title('Sample Time Series')
-    plt.xlabel('Time (min)')
-    plt.ylabel('Price')
-    plt.show()
+def create_sample_data(dim: int, max_seq_len: int, width: int, plot: int) -> torch.Tensor:
+    """Construct sample time series."""
+    # x vals.
+    time = np.arange(0, width, 100 / max_seq_len)
+    # y vals.
+    price = np.sin(time) + 10
+    # price = np.array([0.5] * MAX_SEQ_LEN)
 
-zeros = np.ones(num_steps)
-df = pd.DataFrame({'Price': price})
-df = df[[col for col in df.columns for i in range(60)]]
-# print(df)
-tokens_tensor = torch.Tensor(np.array(df))
-tokens_tensor = tokens_tensor[:30]
-inputs_raw = tokens_tensor.cuda()
-position_ids = torch.arange(0, tokens_tensor.shape[0])
-position_ids = torch.stack([position_ids])
-id_tensor = position_ids
-print("token tensor shape:", tokens_tensor.shape)
-print("position_ids shape:", position_ids.shape)
+    if plot:
+        plt.plot(time, price)
+        plt.title('Sample Time Series')
+        plt.xlabel('Time (min)')
+        plt.ylabel('Price')
+        plt.show()
 
+    zeros = np.ones(max_seq_len)
+    df = pd.DataFrame({'Price': price})
+    df = df[[col for col in df.columns for i in range(dim)]]
+    tensor_data = torch.Tensor(np.array(df))
+    return tensor_data
 
-# load in our pretrained model
-model = OpenAIGPTModel.from_pretrained('checkpoints/')
-# model = torch.load('checkpoints/pytorch_model.bin')
-# Set the model to evaluation mode
-model.eval()
-print(model.training)
+def main() -> None:
+    """Make predictions on a single sequence."""
+    model = load_model()
 
-# Predict all tokens
-# with torch.no_grad():
-input_ids = id_tensor.long().cuda()
-position_ids = Variable(id_tensor.long().cuda()).contiguous()
-#===DEBUG===
-print("=======================================")
-print("Type of input_ids:", type(input_ids)) 
-print("Type of position_ids:", type(position_ids)) 
-print("type of position_ids data:", type(position_ids.data)) 
-print("Type of inputs_raw:", type(inputs_raw)) 
-#===DEBUG===
-# sys.exit()
-outputs = model(input_ids, inputs_raw, position_ids=position_ids)
-predictions = outputs[0]
+    # Set hyperparameters.
+    DIM = model.config.n_embd
+    MAX_SEQ_LEN = model.config.n_positions
+    BATCH_SIZE = 1
+    TOTAL_DATA_LEN = None
+    PLOT = False
+    WIDTH = 100
+    print("Data dimensionality:", DIM)
+    print("Max sequence length :", MAX_SEQ_LEN)
+    print("Eval batch size:", BATCH_SIZE)
 
-# get the predicted next token
-print('Prediction: ', predictions[0, -1, :])
+    # Get sample data.
+    tensor_data = create_sample_data(DIM, MAX_SEQ_LEN, WIDTH, PLOT) 
+    inputs_raw = tensor_data.contiguous()
+
+    # Create ``position_ids``.
+    position_ids = torch.arange(0, tensor_data.shape[0])
+    position_ids = torch.stack([position_ids])
+
+    # Create ``input_ids``.
+    input_ids = copy.deepcopy(position_ids)
+
+    # Reshape.
+    inputs_raw = inputs_raw.view(BATCH_SIZE, MAX_SEQ_LEN, DIM)
+    input_ids = input_ids.view(BATCH_SIZE, MAX_SEQ_LEN)
+    position_ids = position_ids.view(BATCH_SIZE, MAX_SEQ_LEN)
+
+    # Casting to correct ``torch.Tensor`` type. 
+    input_ids = input_ids.long().cuda()
+    position_ids = Variable(position_ids.long().cuda()).contiguous()
+    inputs_raw = inputs_raw.cuda()
+
+    if DEBUG:
+        print("================TYPECHECK==================")
+        print("Type of input_ids:", type(input_ids)) 
+        print("Type of position_ids:", type(position_ids)) 
+        print("type of position_ids data:", type(position_ids.data)) 
+        print("Type of inputs_raw:", type(inputs_raw)) 
+        print("================SHAPECHECK=================")
+        print("input_ids shape:", input_ids.shape)
+        print("position_ids shape:", position_ids.shape)
+        print("inputs_raw shape:", inputs_raw.shape)
+
+    # Shape check.
+    assert input_ids.shape == (BATCH_SIZE, MAX_SEQ_LEN)
+    assert position_ids.shape == (BATCH_SIZE, MAX_SEQ_LEN)
+    assert inputs_raw.shape == (BATCH_SIZE, MAX_SEQ_LEN, DIM)
+
+    outputs = model(input_ids, position_ids, None, None, inputs_raw)
+    predictions = outputs[0]
+
+    # get the predicted next token
+    print('Prediction: ', predictions[0, -1, :])
+
+if __name__ == "__main__":
+    main()

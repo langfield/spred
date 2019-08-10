@@ -161,12 +161,11 @@ def main():
                 inputs_raw = inputs_raw.float()
                 targets_raw = targets_raw.float()
                 assert input_ids.shape == (args.train_batch_size, max_length)
+                assert position_ids.shape == (args.train_batch_size, max_length)
                 assert lm_labels.shape == (args.train_batch_size, max_length)
                 assert inputs_raw.shape == (args.train_batch_size, max_length, inputs_raw.shape[2])
-                # input_ids = Variable(input_ids).contiguous()
+                # torch_0.3.1 casting.
                 position_ids = Variable(position_ids).contiguous()
-                # lm_labels = Variable(lm_labels.contiguous())
-                # inputs_raw = Variable(inputs_raw).contiguous()
                 targets_raw = Variable(targets_raw.contiguous())
                 #===DEBUG===
                 """
@@ -179,9 +178,9 @@ def main():
                 print("Type of targets_raw:", type(targets_raw)) 
                 print("Type of targets_raw data:", type(targets_raw.data))
                 """
-                #===DEBUG===
-                # lm_labels is unused.
-                outputs = model(input_ids, inputs_raw, targets_raw, position_ids=position_ids)
+                #===DEBUG=== 
+                # Forward call.
+                outputs = model(input_ids, position_ids, None, lm_labels, inputs_raw, targets_raw)
                 loss = outputs[0]
                 loss.backward()
                 scheduler.step()
@@ -208,45 +207,10 @@ def main():
         model_to_save.config.to_json_file(output_config_file)
 
         # Load a trained model and vocabulary that you have fine-tuned
-        model = OpenAIGPTLMHeadModel.from_pretrained(args.output_dir)
-        model.to(device)
-
-    """
-    if args.do_eval:
-        model.eval()
-        eval_loss, eval_accuracy = 0, 0
-        nb_eval_steps, nb_eval_examples = 0, 0
-        for batch in tqdm(eval_dataloader, desc="Evaluating"):
-            batch = tuple(t.to(device) for t in batch)
-            input_ids, mc_token_ids, lm_labels, mc_labels = batch
-            with torch.no_grad():
-                _, mc_loss = model(input_ids, mc_token_ids, lm_labels, mc_labels)
-                _, mc_logits = model(input_ids, mc_token_ids)
-
-            mc_logits = mc_logits.detach().cpu().numpy()
-            mc_labels = mc_labels.to('cpu').numpy()
-            tmp_eval_accuracy = accuracy(mc_logits, mc_labels)
-
-            eval_loss += mc_loss.mean().item()
-            eval_accuracy += tmp_eval_accuracy
-
-            nb_eval_examples += input_ids.size(0)
-            nb_eval_steps += 1
-
-        eval_loss = eval_loss / nb_eval_steps
-        eval_accuracy = eval_accuracy / nb_eval_examples
-        train_loss = tr_loss/nb_tr_steps if args.do_train else None
-        result = {'eval_loss': eval_loss,
-                  'eval_accuracy': eval_accuracy,
-                  'train_loss': train_loss}
-
-        output_eval_file = os.path.join(args.output_dir, "eval_results.txt")
-        with open(output_eval_file, "w") as writer:
-            logger.info("***** Eval results *****")
-            for key in sorted(result.keys()):
-                logger.info("  %s = %s", key, str(result[key]))
-                writer.write("%s = %s\n" % (key, str(result[key])))
-    """
+        loaded_config = OpenAIGPTConfig.from_json_file(output_config_file)
+        model = OpenAIGPTLMHeadModel(loaded_config)
+        model.load_state_dict(torch.load(output_model_file))
+        model.cuda()
 
 if __name__ == '__main__':
     main()
