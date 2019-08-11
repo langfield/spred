@@ -18,7 +18,7 @@ else:
 
 DEBUG = False
 
-def load_model(device: torch.device = None) -> OpenAIGPTLMHeadModel:
+def load_model(device=None) -> OpenAIGPTLMHeadModel:
     """Load in our pretrained model."""
     output_dir = 'checkpoints/'
     output_model_file = os.path.join(output_dir, WEIGHTS_NAME)
