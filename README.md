@@ -1,5 +1,5 @@
 # spred
-Stock prediction via blind internet trust
+Stock prediction via blind internet trust.
 
 ##	Web scraper
 * Go
@@ -41,6 +41,8 @@ Stock prediction via blind internet trust
     *	depends on target market(s)
 *	look into APIs
     * robinhood, binance, ...
+
+Finished web scraping, sentiment analysis model preliminary testing, and prediction model preliminary build.
 
 ## Additional Notes
 
