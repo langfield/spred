@@ -18,7 +18,7 @@ else:
 
 DEBUG = False
 
-def load_model() -> OpenAIGPTLMHeadModel:
+def load_model(device: torch.device = None) -> OpenAIGPTLMHeadModel:
     """Load in our pretrained model."""
     output_dir = 'checkpoints/'
     output_model_file = os.path.join(output_dir, WEIGHTS_NAME)
@@ -31,7 +31,6 @@ def load_model() -> OpenAIGPTLMHeadModel:
     if torch.__version__[:5] == "0.3.1":
         model.cuda()
     else:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model.to(device)
     model.eval()
     print("Is model training:", model.training) 
@@ -60,7 +59,11 @@ def create_sample_data(dim: int, max_seq_len: int, width: int, plot: int) -> tor
 
 def main() -> None:
     """Make predictions on a single sequence."""
-    model = load_model()
+    if torch.__version__[:5] == "0.3.1":
+        model = load_model()
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = load_model(device)
 
     # Set hyperparameters.
     DIM = model.config.n_embd
