@@ -1,9 +1,9 @@
 import os
 import torch
 import numpy as np
-DEBUG = False
+DEBUG = True
 
-def _local_perm(inputs, targets, is_masked, perm_size, seq_len, device):
+def _local_perm(inputs, targets, is_masked, perm_size, seq_len, device, SEP_ID, CLS_ID):
     """
     Sample a permutation of the factorization order, and create an
     attention mask accordingly.
@@ -16,10 +16,6 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len, device):
         Should not be larger than reuse_len or there will be data leaks.
         seq_len: int, sequence length.
     """
-    
-    SEP_ID = 3
-    CLS_ID = 4
-    
     # Generate permutation indices
     assert seq_len % perm_size == 0
     perm = torch.randperm(perm_size).int()
@@ -98,27 +94,28 @@ def _local_perm(inputs, targets, is_masked, perm_size, seq_len, device):
     new_targets = torch.cat([inputs[0: 1], targets[: -1]], 0)
     
     if DEBUG:
-        print("permutation index:", np.array(index))
-        print("Non functional tokens:", np.array(non_func_tokens))
-        print("Non masked tokens:", np.array(non_mask_tokens))
-        print("masked or func tokens:", np.array(masked_or_func_tokens))
-        print("smallest_index:\n", np.array(smallest_index))
-        print("rev_index:\n", np.array(rev_index))
-        print("target_tokens:\n", np.array(target_tokens))
-        print("target_mask:\n", np.array(target_mask))
-        print("self_rev_index:\n", np.array(self_rev_index))
-        print("self_rev_index[:, None]:\n", np.array(self_rev_index[:, None]))
-        print("rev_index[None, :]:\n", np.array(rev_index[None, :]))
-        print("<=\n", np.array(self_rev_index[:, None] <= rev_index[None, :]))
-        print("perm_mask:\n", np.array(perm_mask))
-        print("inputs[0: 1]:", inputs[0: 1])
-        print("targets[: -1]:", targets[: -1])
-        print("new_targets:", new_targets)
+        print("permutation index:", np.array(index.cpu()))
+        print("Non functional tokens:", np.array(non_func_tokens.cpu()))
+        print("Non masked tokens:", np.array(non_mask_tokens.cpu()))
+        print("masked or func tokens:", np.array(masked_or_func_tokens.cpu()))
+        print("smallest_index:\n", np.array(smallest_index.cpu()))
+        print("rev_index:\n", np.array(rev_index.cpu()))
+        print("target_tokens:\n", np.array(target_tokens.cpu()))
+        print("target_mask:\n", np.array(target_mask.cpu()))
+        print("self_rev_index:\n", np.array(self_rev_index.cpu()))
+        print("self_rev_index[:, None]:\n", np.array(self_rev_index[:, None].cpu()))
+        print("rev_index[None, :]:\n", np.array(rev_index[None, :].cpu()))
+        print("<=\n", np.array(self_rev_index[:, None].cpu() <= rev_index[None, :].cpu()))
+        print("perm_mask:\n", np.array(perm_mask.cpu()))
+        print("inputs[0: 1]:", inputs[0: 1].cpu())
+        print("targets[: -1]:", targets[: -1].cpu())
+        print("new_targets:", new_targets.cpu())
     
     # construct inputs_k
     inputs_k = inputs
     
     # construct inputs_q
     inputs_q = target_mask
-    
+    if DEBUG: 
+        input("Press Enter to continue...")
     return perm_mask, new_targets, target_mask, inputs_k, inputs_q
