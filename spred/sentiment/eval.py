@@ -117,7 +117,7 @@ def main():
                                   task_type=task_type)
         test_data_list.append(test_data)
 
-    model_path = args.init_checkpoint
+    model_path = os.path.abspath(args.init_checkpoint)
     state_dict = None
 
     if os.path.exists(model_path):
