@@ -7,6 +7,7 @@ import re
 import collections
 import argparse
 from sys import path
+path.insert(1, '../../../mt-dnn/')
 from data_utils.vocab import Vocabulary
 from pytorch_pretrained_bert.tokenization import BertTokenizer
 from data_utils.log_wrapper import create_logger
