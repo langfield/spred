@@ -36,8 +36,13 @@ from tqdm import tqdm, trange
 
 import numpy as np
 import torch
-from torch.utils.data import (DataLoader, RandomSampler, SequentialSampler,
-                              TensorDataset)
+from torch.utils.data import DataLoader
+
+if torch.__version__[:5] == "0.3.1":
+    from torch.autograd import Variable
+    from torch_addons.sampler import RandomSampler
+else:
+    from torch.utils.data import RandomSampler
 
 from pytorch_transformers import (AdamW, WarmupLinearSchedule, cached_path, WEIGHTS_NAME, CONFIG_NAME)
 from dataset import GPTSpredDataset
@@ -95,10 +100,14 @@ def main():
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+   
+    #===MOD=== 
+    if not torch.__version__[:5] == "0.3.1":
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     n_gpu = torch.cuda.device_count()
-    logger.info("device: {}, n_gpu {}".format(device, n_gpu))
+    if not torch.__version__[:5] == "0.3.1":
+        logger.info("device: {}, n_gpu {}".format(device, n_gpu))
+    #===MOD=== 
 
     if not args.do_train and not args.do_eval:
         raise ValueError("At least one of `do_train` or `do_eval` must be True.")
@@ -109,7 +118,12 @@ def main():
     # TODO: create ``config``. 
     config = OpenAIGPTConfig.from_pretrained(args.gptspred_model)
     model = OpenAIGPTLMHeadModel(config)
-    model.to(device)
+    #===MOD===
+    if torch.__version__[:5] == "0.3.1":
+        model.cuda()
+    else:
+        model.to(device)
+    #===MOD===
 
     # Compute the max input length for the Transformer
     max_length = model.config.n_positions
@@ -146,21 +160,56 @@ def main():
             nb_tr_steps = 0
             tqdm_bar = tqdm(train_dataloader, desc="Training")
             for step, batch in enumerate(tqdm_bar):
-                batch = tuple(t.to(device) for t in batch)
+                #===MOD===
+                # t.to(device) -> t.cuda()
+                if torch.__version__[:5] == "0.3.1":
+                    batch = tuple(t.cuda() for t in batch)
+                else:
+                    batch = tuple(t.to(device) for t in batch)
+                #===MOD===
                 input_ids, position_ids, lm_labels, inputs_raw, targets_raw = batch
                 inputs_raw = inputs_raw.float()
                 targets_raw = targets_raw.float()
                 assert input_ids.shape == (args.train_batch_size, max_length)
+                assert position_ids.shape == (args.train_batch_size, max_length)
                 assert lm_labels.shape == (args.train_batch_size, max_length)
                 assert inputs_raw.shape == (args.train_batch_size, max_length, inputs_raw.shape[2])
+                
+                #===MOD===
+                # torch_0.3.1 casting.
+                if torch.__version__[:5] == "0.3.1":
+                    position_ids = Variable(position_ids).contiguous()
+                    targets_raw = Variable(targets_raw.contiguous())
+                #===MOD===
+                #===DEBUG===
+                """
+                print("=======================================")
+                print("Type of input_ids:", type(input_ids)) 
+                print("Type of position_ids:", type(position_ids)) 
+                print("Type of lm_labels:", type(lm_labels)) 
+                print("Type of inputs_raw:", type(inputs_raw)) 
+                print("Type of targets_raw:", type(targets_raw)) 
+                if torch.__version__[:5] == "0.3.1":
+                    print("type of position_ids data:", type(position_ids.data)) 
+                    print("Type of targets_raw data:", type(targets_raw.data))
+                """
+                #===DEBUG=== 
+                # Forward call.
                 outputs = model(input_ids, position_ids, None, lm_labels, inputs_raw, targets_raw)
                 loss = outputs[0]
                 loss.backward()
                 scheduler.step()
                 optimizer.step() 
                 optimizer.zero_grad()
-                tr_loss += loss.item()
-                exp_average_loss = loss.item() if exp_average_loss is None else 0.7*exp_average_loss+0.3*loss.item()
+                #===MOD===
+                if torch.__version__[:5] == "0.3.1":
+                    loss_data = float(loss.data)
+                    tr_loss += loss_data
+                    exp_average_loss = loss_data if exp_average_loss is None else 0.7*exp_average_loss+0.3*loss_data
+                else:
+                    tr_loss += loss.item()
+                    exp_average_loss = loss.item() if exp_average_loss is None else 0.7*exp_average_loss+0.3*loss.item()
+                #===MOD===
                 nb_tr_steps += 1
                 tqdm_bar.desc = "Training loss: {:.2e}".format(exp_average_loss)
 
@@ -172,50 +221,21 @@ def main():
         # If we save using the predefined names, we can load using `from_pretrained`
         output_model_file = os.path.join(args.output_dir, WEIGHTS_NAME)
         output_config_file = os.path.join(args.output_dir, CONFIG_NAME)
-
+            
         torch.save(model_to_save.state_dict(), output_model_file)
         model_to_save.config.to_json_file(output_config_file)
 
-        # Load a trained model and vocabulary that you have fine-tuned
-        model = OpenAIGPTLMHeadModel.from_pretrained(args.output_dir)
-        model.to(device)
-
-    """
-    if args.do_eval:
-        model.eval()
-        eval_loss, eval_accuracy = 0, 0
-        nb_eval_steps, nb_eval_examples = 0, 0
-        for batch in tqdm(eval_dataloader, desc="Evaluating"):
-            batch = tuple(t.to(device) for t in batch)
-            input_ids, mc_token_ids, lm_labels, mc_labels = batch
-            with torch.no_grad():
-                _, mc_loss = model(input_ids, mc_token_ids, lm_labels, mc_labels)
-                _, mc_logits = model(input_ids, mc_token_ids)
-
-            mc_logits = mc_logits.detach().cpu().numpy()
-            mc_labels = mc_labels.to('cpu').numpy()
-            tmp_eval_accuracy = accuracy(mc_logits, mc_labels)
-
-            eval_loss += mc_loss.mean().item()
-            eval_accuracy += tmp_eval_accuracy
-
-            nb_eval_examples += input_ids.size(0)
-            nb_eval_steps += 1
-
-        eval_loss = eval_loss / nb_eval_steps
-        eval_accuracy = eval_accuracy / nb_eval_examples
-        train_loss = tr_loss/nb_tr_steps if args.do_train else None
-        result = {'eval_loss': eval_loss,
-                  'eval_accuracy': eval_accuracy,
-                  'train_loss': train_loss}
-
-        output_eval_file = os.path.join(args.output_dir, "eval_results.txt")
-        with open(output_eval_file, "w") as writer:
-            logger.info("***** Eval results *****")
-            for key in sorted(result.keys()):
-                logger.info("  %s = %s", key, str(result[key]))
-                writer.write("%s = %s\n" % (key, str(result[key])))
-    """
+        #===MOD===
+        # Load a trained model.
+        if torch.__version__[:5] == "0.3.1":
+            loaded_config = OpenAIGPTConfig.from_json_file(output_config_file)
+            model = OpenAIGPTLMHeadModel(loaded_config)
+            model.load_state_dict(torch.load(output_model_file))
+            model.cuda()
+        else:
+            model = OpenAIGPTLMHeadModel.from_pretrained(args.output_dir)
+            model.to(device)
+        #===MOD===
 
 if __name__ == '__main__':
     main()
