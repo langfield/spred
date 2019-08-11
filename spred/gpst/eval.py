@@ -16,9 +16,10 @@ else:
 
 DEBUG = False
 
+
 def load_model(device=None) -> OpenAIGPTLMHeadModel:
     """Load in our pretrained model."""
-    output_dir = 'checkpoints/'
+    output_dir = "checkpoints/"
     output_model_file = os.path.join(output_dir, WEIGHTS_NAME)
     output_config_file = os.path.join(output_dir, CONFIG_NAME)
     loaded_config = OpenAIGPTConfig.from_json_file(output_config_file)
@@ -31,10 +32,12 @@ def load_model(device=None) -> OpenAIGPTLMHeadModel:
     else:
         model.to(device)
     model.eval()
-    print("Is model training:", model.training) 
+    print("Is model training:", model.training)
     return model
 
-def create_sample_data(dim: int, max_seq_len: int, width: int, plot: int) -> torch.Tensor:
+
+def create_sample_data(dim: int, max_seq_len: int, width: int,
+                       plot: int) -> torch.Tensor:
     """Construct sample time series."""
     # x vals.
     time = np.arange(0, width, 100 / max_seq_len)
@@ -44,16 +47,17 @@ def create_sample_data(dim: int, max_seq_len: int, width: int, plot: int) -> tor
 
     if plot:
         plt.plot(time, price)
-        plt.title('Sample Time Series')
-        plt.xlabel('Time (min)')
-        plt.ylabel('Price')
+        plt.title("Sample Time Series")
+        plt.xlabel("Time (min)")
+        plt.ylabel("Price")
         plt.show()
 
     zeros = np.ones(max_seq_len)
-    df = pd.DataFrame({'Price': price})
+    df = pd.DataFrame({"Price": price})
     df = df[[col for col in df.columns for i in range(dim)]]
     tensor_data = torch.Tensor(np.array(df))
     return tensor_data
+
 
 def main() -> None:
     """Make predictions on a single sequence."""
@@ -75,7 +79,7 @@ def main() -> None:
     print("Eval batch size:", BATCH_SIZE)
 
     # Get sample data.
-    tensor_data = create_sample_data(DIM, MAX_SEQ_LEN, WIDTH, PLOT) 
+    tensor_data = create_sample_data(DIM, MAX_SEQ_LEN, WIDTH, PLOT)
     inputs_raw = tensor_data.contiguous()
 
     # Create ``position_ids``.
@@ -90,7 +94,7 @@ def main() -> None:
     input_ids = input_ids.view(BATCH_SIZE, MAX_SEQ_LEN)
     position_ids = position_ids.view(BATCH_SIZE, MAX_SEQ_LEN)
 
-    # Casting to correct ``torch.Tensor`` type. 
+    # Casting to correct ``torch.Tensor`` type.
     if torch.__version__[:5] == "0.3.1":
         input_ids = input_ids.long().cuda()
         position_ids = Variable(position_ids.long().cuda()).contiguous()
@@ -102,11 +106,11 @@ def main() -> None:
 
     if DEBUG:
         print("================TYPECHECK==================")
-        print("Type of input_ids:", type(input_ids)) 
-        print("Type of position_ids:", type(position_ids)) 
+        print("Type of input_ids:", type(input_ids))
+        print("Type of position_ids:", type(position_ids))
         if torch.__version__[:5] == "0.3.1":
-            print("type of position_ids data:", type(position_ids.data)) 
-        print("Type of inputs_raw:", type(inputs_raw)) 
+            print("type of position_ids data:", type(position_ids.data))
+        print("Type of inputs_raw:", type(inputs_raw))
         print("================SHAPECHECK=================")
         print("input_ids shape:", input_ids.shape)
         print("position_ids shape:", position_ids.shape)
@@ -121,7 +125,8 @@ def main() -> None:
     predictions = outputs[0]
 
     # get the predicted next token
-    print('Prediction: ', predictions[0, -1, :])
+    print("Prediction: ", predictions[0, -1, :])
+
 
 if __name__ == "__main__":
     main()
