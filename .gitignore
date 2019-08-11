@@ -3,3 +3,4 @@ API_keys.txt
 *.bin
 __pycache__/
 *.py[cod]
+spred/sentiment/checkpoints/*
