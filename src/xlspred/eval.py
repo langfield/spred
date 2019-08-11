@@ -56,7 +56,7 @@ model.eval()
 
 # Predict all tokens
 with torch.no_grad():
-    outputs = model(id_tensor, tokens_tensor)
+    utputs = model(id_tensor, tokens_tensor)
     predictions = outputs[0]
 
 # get the predicted next token
