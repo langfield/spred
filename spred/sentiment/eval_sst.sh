@@ -4,8 +4,9 @@ tstr=$(date +"%FT%H%M")
 
 test_datasets="sst"
 MODEL_ROOT="checkpoints"
-BERT_PATH="/home/mckade/spred/mt-dnn/scripts/checkpoints/sst_finetune/model_0.pt"
-DATA_DIR="../../../mt-dnn/data/mt_dnn_uncased_lower"
+# BERT_PATH="/home/mckade/spred/mt-dnn/scripts/checkpoints/sst_finetune/model_0.pt"
+BERT_PATH="~/packages/mt-dnn/mt_dnn_models/mt_dnn_base_uncased.pt"
+DATA_DIR="data/mt-dnn_uncased/"
 
 answer_opt=0
 grad_clipping=0
