@@ -5,12 +5,12 @@ from matplotlib import pyplot as plt
 plot = False
 
 width = 100
-num_steps = 1000
+num_steps = 10000
 # x vals
 time = np.arange(0, width, 100 / num_steps)
 print('Number of data points:', time.shape[0])
 # y vals
-price = np.sin(time) + 10
+price = [0.5] * num_steps
 
 if plot:
     plt.plot(time, price)

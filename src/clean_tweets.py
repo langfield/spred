@@ -5,7 +5,6 @@ import os
 
 DEBUG = False
 
-
 def get_df(dir='../..'):
     '''
     Return the dataframe that contains tweets (preprocessed for mt-dnn)
