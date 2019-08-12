@@ -5,16 +5,14 @@ import os
 
 DEBUG = False
 
-def get_df(sort=True):
+def get_df(tweet_dir, sort=True):
     '''
     Return the dataframe that contains tweets (preprocessed for mt-dnn)
     sorted by datetime in acsending order
     '''
     # Load tweets files from the TweetScraper Data directory
-    tweetscraper_dir = '../../../'
-    path = os.path.join(tweetscraper_dir, 'TweetScraper/Data/tweet/')
-    assert os.path.exists(path)
-    files = glob.glob(path + '*')
+    assert os.path.exists(tweet_dir)
+    files = glob.glob(tweet_dir + '*')
 
     # Put tweet data into a dataframe
     dictlist = []
@@ -73,6 +71,6 @@ def get_df(sort=True):
     return df
 
 if __name__ == "__main__":
-    df = get_df()
+    df = get_df('../../../TweetScraper/Data/tweet/')
     df = df.drop('datetime')
     df.to_csv("data.tsv", sep = '\t', index=False)
