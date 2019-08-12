@@ -19,6 +19,8 @@ from mt_dnn.model import MTDNNModel
 from prepro_tweet import get_prepro_data
 from prepro_tweet import prepro_config
 
+from datetime import datetime
+
 def model_config(parser):
     parser.add_argument('--mtl_opt', type=int, default=0)
     parser.add_argument('--ratio', type=float, default=0)
@@ -44,10 +46,6 @@ def train_config(parser):
 
     return parser
 
-def dump(path, data):
-    with open(path ,'w') as f:
-        json.dump(data, f)
-
 def submit(path, data):
     header = 'index\ttime\tprediction'
     with open(path ,'w') as writer:
@@ -62,7 +60,7 @@ def submit(path, data):
         for uid, pred, time in output_tuples:
             writer.write('{}\t{}\t{}\n'.format(uid, time, pred))
 
-def run_eval(tweet_data):
+def run_eval(tweet_data, logger, args):
     logger.info('Launching the MT-DNN evaluation')
     opt = vars(args)
     # update data dir
@@ -87,14 +85,10 @@ def run_eval(tweet_data):
     assert prefix in DATA_TYPE
     data_type = DATA_TYPE[prefix]
     
-    #===DEBUG===
-    print("tweet_data length:", len(tweet_data))
-    print("tweet_data type:", type(tweet_data))
-    #===DEBUG===
     timestamp_list = []
     for tweet in tweet_data:
         timestamp = tweet["timestamp"]
-        timestamp_list.append(str(timestamp))
+        timestamp_list.append(timestamp)
 
     test_data = None
     test_data = BatchGen(tweet_data,
@@ -135,28 +129,17 @@ def run_eval(tweet_data):
                                                                             dataset=prefix,
                                                                             use_cuda=args.cuda, 
                                                                             with_label=False)
-        score_file = os.path.join(output_dir, 'tweet_test_scores.json')
         results = {'metrics': test_metrics, 
                    'predictions': test_predictions, 
                    'uids': test_ids, 
                    'scores': scores,
                    'timestamps': timestamp_list}
-        dump(score_file, results)
-        official_score_file = os.path.join(output_dir, 'tweet_test_scores.tsv')
-        submit(official_score_file, results)
-        logger.info('[new test scores saved.]')
+        return results
 
+    return None
+        
 
-if __name__ == '__main__':
-    test = [{'uid': 1618, 'label': 0, 'token_id': [101, 100, 3114, 2000, 2224, 100, 100, 100, 1585, 100, 2012, 100, 100, 2031, 2764, 1037, 6028, 2005, 7861, 8270, 4667, 2951, 1999, 2189, 1998, 23820, 2009, 2000, 1037, 26381, 1011, 17727, 2121, 3401, 13876, 7028, 2000, 1996, 2529, 4540, 1012, 27593, 1012, 1048, 2100, 1013, 100, 1002, 102], 'type_id': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 'factor': 1.0}]
-
-    parser = argparse.ArgumentParser()
-    parser = data_config(parser)
-    parser = model_config(parser)
-    parser = train_config(parser)
-    parser = prepro_config(parser)
-    args = parser.parse_args()
-
+def get_labels(args):
     output_dir = args.output_dir
     os.makedirs(output_dir, exist_ok=True)
     output_dir = os.path.abspath(output_dir)
@@ -172,4 +155,18 @@ if __name__ == '__main__':
 
     # Run preprocessing script.
     data = get_prepro_data(args)
-    run_eval(data)
+    #data = [{'uid': 0, 'label': 0, 'token_id': [101, 100, 3114, 2000, 2224, 100, 100, 100, 1585, 100, 2012, 100, 100, 2031, 2764, 1037, 6028, 2005, 7861, 8270, 4667, 2951, 1999, 2189, 1998, 23820, 2009, 2000, 1037, 26381, 1011, 17727, 2121, 3401, 13876, 7028, 2000, 1996, 2529, 4540, 1012, 27593, 1012, 1048, 2100, 1013, 100, 1002, 102], 'type_id': [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 'factor': 1.0, 'timestamp': datetime(2019,8,9,20,0,0)}]
+    return run_eval(data, logger, args)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser = data_config(parser)
+    parser = model_config(parser)
+    parser = train_config(parser)
+    parser = prepro_config(parser)
+    args = parser.parse_args()
+
+    results = get_labels(args)
+    official_score_file = os.path.join(output_dir, 'tweet_test_scores.tsv')
+    submit(official_score_file, results)
+    logger.info('[new test scores saved.]')
