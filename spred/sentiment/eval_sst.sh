@@ -6,15 +6,10 @@ test_datasets="sst"
 MODEL_ROOT="checkpoints"
 # Requires absolute path.
 # BERT_PATH="/home/mckade/spred/mt-dnn/scripts/checkpoints/sst_finetune/model_0.pt"
-BERT_PATH="/homes/3/whitaker.213/packages/data/mt-dnn/mt_dnn_models/model_0.pt"
-# BERT_PATH="checkpoints/sst_finetune/model_0.pt"
+#BERT_PATH="/homes/3/whitaker.213/packages/data/mt-dnn/mt_dnn_models/model_0.pt"
+BERT_PATH="checkpoints/sst_finetune/model_0.pt"
 DATA_DIR="data/mt_dnn_uncased"
-
-answer_opt=0
-grad_clipping=0
-global_grad_clipping=1
-lr="2e-5"
 
 model_dir="checkpoints/${prefix}_eval_${tstr}"
 log_file="${model_dir}/log.log"
-python3 eval.py --data_dir ${DATA_DIR} --init_checkpoint ${BERT_PATH} --output_dir ${model_dir} --log_file ${log_file} --answer_opt ${answer_opt} --test_datasets ${test_datasets} --cuda "True"
+python3 eval.py --init_checkpoint ${BERT_PATH} --output_dir ${model_dir} --log_file ${log_file} --cuda "True"

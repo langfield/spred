@@ -22,17 +22,20 @@ logger = create_logger(__name__, to_disk=True, log_file='bert_data_proc_512.log'
 def build_data_single(data, dump_path, max_seq_len=MAX_SEQ_LEN, tokenizer=None):
     """Build data of single sentence tasks
     """
-    with open(dump_path, 'w', encoding='utf-8') as writer:
-        for idx, sample in enumerate(data):
-            ids = sample['uid']
-            premise = tokenizer.tokenize(sample['premise'])
-            label = sample['label']
-            if len(premise) >  max_seq_len - 3:
-                premise = premise[:max_seq_len - 3] 
-            input_ids =tokenizer.convert_tokens_to_ids(['[CLS]'] + premise + ['[SEP]'])
-            type_ids = [0] * ( len(premise) + 2)
-            features = {'uid': ids, 'label': label, 'token_id': input_ids, 'type_id': type_ids}
-            writer.write('{}\n'.format(json.dumps(features)))
+    #with open(dump_path, 'w', encoding='utf-8') as writer:
+    data = []
+    for idx, sample in enumerate(data):
+        ids = sample['uid']
+        premise = tokenizer.tokenize(sample['premise'])
+        label = sample['label']
+        if len(premise) >  max_seq_len - 3:
+            premise = premise[:max_seq_len - 3] 
+        input_ids =tokenizer.convert_tokens_to_ids(['[CLS]'] + premise + ['[SEP]'])
+        type_ids = [0] * ( len(premise) + 2)
+        features = {'uid': ids, 'label': label, 'token_id': input_ids, 'type_id': type_ids, 'factor': 1.0}
+        data.append(features)
+            # writer.write('{}\n'.format(json.dumps(features)))
+    return data
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Preprocessing GLUE/SNLI/SciTail dataset.')
@@ -52,7 +55,8 @@ def load_sst(df):
         rows.append(sample)
     return rows
 
-def main(args):
+def get_prepro_data():
+    args = parse_args()
     ## hyper param
     do_lower_case = args.do_lower_case
     root = args.root_dir
@@ -82,9 +86,9 @@ def main(args):
         os.mkdir(mt_dnn_root)
 
     tweet_test_fout = os.path.join(mt_dnn_root, 'tweet_test.json')
-    build_data_single(tweet_test_data, tweet_test_fout, tokenizer=tokenizer)
+    data = build_data_single(tweet_test_data, tweet_test_fout, tokenizer=tokenizer)
     logger.info('done with tweet')
+    return data
 
 if __name__ == '__main__':
-    args = parse_args()
-    main(args)
+    get_prepro_data()

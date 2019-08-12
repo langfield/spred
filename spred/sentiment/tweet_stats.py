@@ -7,7 +7,7 @@ from dateutil.relativedelta import relativedelta
 
 def get_minute_counts():
     print('Loading data...')
-    df = get_df()
+    df = get_df('../../../TweetScraper/Data/tweet/')
     print('Number of data points:', df.shape[0])
 
     # Put the data into minute-scale buckets
