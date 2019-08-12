@@ -58,11 +58,7 @@ def submit(path, data):
         paired = [(int(uid), predictions[idx]) for idx, uid in enumerate(uids)]
         paired = sorted(paired, key=lambda item: item[0])
         for uid, pred in paired:
-            if label_dict is None:
-                writer.write('{}\t{}\n'.format(uid, pred))
-            else:
-                assert type(pred) is int
-                writer.write('{}\t{}\n'.format(uid, label_dict[pred]))
+            writer.write('{}\t{}\n'.format(uid, pred))
 
 def run_eval(tweet_data):
     logger.info('Launching the MT-DNN evaluation')
