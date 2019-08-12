@@ -123,7 +123,9 @@ def main():
     if os.path.exists(model_path):
         state_dict = torch.load(model_path)
         config = state_dict['config']
+        print(opt)
         opt.update(config)
+        print(opt)
     else:
         logger.error('#' * 20)
         logger.error('Could not find the init model!\n The parameters will be initialized randomly!')
@@ -131,6 +133,7 @@ def main():
         config = BertConfig(vocab_size_or_config_json_file=30522).to_dict()
         opt.update(config)
 
+    print(opt)
     model = MTDNNModel(opt, state_dict=state_dict)
 
     logger.info("Total number of params: {}".format(model.total_param))
