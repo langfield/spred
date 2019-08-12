@@ -19,10 +19,9 @@ MAX_SEQ_LEN = 512
 
 logger = create_logger(__name__, to_disk=True, log_file='bert_data_proc_512.log')
 
-def build_data_single(data, dump_path, max_seq_len=MAX_SEQ_LEN, tokenizer=None):
+def build_data_single(data, max_seq_len=MAX_SEQ_LEN, tokenizer=None):
     """Build data of single sentence tasks
     """
-    #with open(dump_path, 'w', encoding='utf-8') as writer:
     data = []
     for idx, sample in enumerate(data):
         ids = sample['uid']
@@ -40,7 +39,6 @@ def build_data_single(data, dump_path, max_seq_len=MAX_SEQ_LEN, tokenizer=None):
 def prepro_config(parser):
     parser.add_argument('--model', type=str, default='bert-base-uncased')
     parser.add_argument('--do_lower_case', action='store_true')
-    parser.add_argument('--root_dir', type=str, default='data')
     parser.add_argument('--tweet_data_dir', type=str, default='../../../TweetScraper/Data/tweet/')
     return parser
 
@@ -55,8 +53,6 @@ def load_sst(df):
 def get_prepro_data(args):
     ## hyper param
     do_lower_case = args.do_lower_case
-    root = args.root_dir
-    assert os.path.exists(root)
     is_uncased = False
     if 'uncased' in args.model:
         is_uncased = True
@@ -77,12 +73,7 @@ def get_prepro_data(args):
     if do_lower_case:
         mt_dnn_suffix = '{}_lower'.format(mt_dnn_suffix)
 
-    mt_dnn_root = os.path.join(root, mt_dnn_suffix)
-    if not os.path.isdir(mt_dnn_root):
-        os.mkdir(mt_dnn_root)
-
-    tweet_test_fout = os.path.join(mt_dnn_root, 'tweet_test.json')
-    data = build_data_single(tweet_test_data, tweet_test_fout, tokenizer=tokenizer)
+    data = build_data_single(tweet_test_data, tokenizer=tokenizer)
     logger.info('done with tweet')
     return data
 
