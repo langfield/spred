@@ -5,13 +5,13 @@ import os
 
 DEBUG = False
 
-def get_df(dir='../..'):
+def get_df(sort=True):
     '''
     Return the dataframe that contains tweets (preprocessed for mt-dnn)
     sorted by datetime in acsending order
     '''
     # Load tweets files from the TweetScraper Data directory
-    tweetscraper_dir = '../../'
+    tweetscraper_dir = '../../../'
     path = os.path.join(tweetscraper_dir, 'TweetScraper/Data/tweet/')
     assert os.path.exists(path)
     files = glob.glob(path + '*')
@@ -26,13 +26,14 @@ def get_df(dir='../..'):
 
     df = pd.DataFrame(dictlist)
 
-    # convert datetime column to datetime type
-    # format-- "datetime": "2019-08-09 20:00:00"
-    df['datetime'] = pd.to_datetime(df.datetime, format='%Y-%m-%d %H:%M:%S')
-    # sort by datetime
-    df = df.sort_values('datetime')
-    if DEBUG:
-        print(df['datetime'].head(10))
+    if sort:
+        # convert datetime column to datetime type
+        # format-- "datetime": "2019-08-09 20:00:00"
+        df['datetime'] = pd.to_datetime(df.datetime, format='%Y-%m-%d %H:%M:%S')
+        # sort by datetime
+        df = df.sort_values('datetime')
+        if DEBUG:
+            print(df['datetime'].head(10))
 
     # remove unwanted content from tweets, e.g., whitespace, links, ...
     df = df.replace({'\n': ' '}, regex=True)
