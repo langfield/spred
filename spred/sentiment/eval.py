@@ -149,4 +149,5 @@ if __name__ == '__main__':
 
     # Run preprocessing script.
     data = get_prepro_data(args)
-    run_eval(test)
+    print(data[0])
+    run_eval(data)
