@@ -51,14 +51,16 @@ def dump(path, data):
 def submit(path, data):
     header = 'index\ttime\tprediction'
     with open(path ,'w') as writer:
-        predictions, uids = data['predictions'], data['uids']
+        predictions = data['predictions']
+        uids = data['uids']
+        timestamps = data['timestamps']
         writer.write('{}\n'.format(header))
         assert len(predictions) == len(uids)
+        assert len(timestamps) == len(timestamps)
         # sort label
-        paired = [(int(uid), predictions[idx]) for idx, uid in enumerate(uids)]
-        paired = sorted(paired, key=lambda item: item[0])
-        for uid, pred in paired:
-            writer.write('{}\t{}\n'.format(uid, pred))
+        output_tuples = [(int(uids[i]), predictions[i], timestamps[i]) for i in range(len(uids)) ]
+        for uid, pred, time in output_tuples:
+            writer.write('{}\t{}\t{}\n'.format(uid, time, pred))
 
 def run_eval(tweet_data):
     logger.info('Launching the MT-DNN evaluation')
@@ -84,6 +86,15 @@ def run_eval(tweet_data):
 
     assert prefix in DATA_TYPE
     data_type = DATA_TYPE[prefix]
+    
+    #===DEBUG===
+    print("tweet_data length:", len(tweet_data))
+    print("tweet_data type:", type(tweet_data))
+    #===DEBUG===
+    timestamp_list = []
+    for tweet in tweet_data:
+        timestamp = tweet["timestamp"]
+        timestamp_list.append(str(timestamp))
 
     test_data = None
     test_data = BatchGen(tweet_data,
@@ -116,10 +127,6 @@ def run_eval(tweet_data):
     if args.cuda:
         model.cuda()
    
-    #===DEBUG===
-    print("test_data:", test_data)
-    print("test_data type:", test_data)
-    #===DEBUG===
      
     # test eval
     if test_data is not None:
@@ -132,7 +139,8 @@ def run_eval(tweet_data):
         results = {'metrics': test_metrics, 
                    'predictions': test_predictions, 
                    'uids': test_ids, 
-                   'scores': scores}
+                   'scores': scores,
+                   'timestamps': timestamp_list}
         dump(score_file, results)
         official_score_file = os.path.join(output_dir, 'tweet_test_scores.tsv')
         submit(official_score_file, results)
@@ -164,4 +172,4 @@ if __name__ == '__main__':
 
     # Run preprocessing script.
     data = get_prepro_data(args)
-    run_eval(test)
+    run_eval(data)
