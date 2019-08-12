@@ -6,12 +6,14 @@ import pickle
 import re
 import collections
 import argparse
+import pandas
 from sys import path
 path.insert(1, '../../../mt-dnn/')
 from data_utils.vocab import Vocabulary
 from pytorch_pretrained_bert.tokenization import BertTokenizer
 from data_utils.log_wrapper import create_logger
 from data_utils.label_map import GLOBAL_MAP
+from clean_tweets import get_df
 DEBUG_MODE=False
 MAX_SEQ_LEN = 512
 
@@ -41,20 +43,12 @@ def parse_args():
     args = parser.parse_args()
     return args
 
-def load_sst(file, header=True):
+def load_sst(df):
     rows = []
-    cnt = 0
-    with open(file, encoding="utf8") as f:
-        for line in f:
-            if header:
-                header = False
-                continue
-            blocks = line.strip().split('\t')
-            lab = 0
-            sample = {'uid': int(blocks[0]), 'premise': blocks[1], 'label': lab}
+    for index, row in df.iterrows():
+        sample = {'uid': int(row['index']), 'premise': row['sentence'], 'label': 0}
 
-            cnt += 1
-            rows.append(sample)
+        rows.append(sample)
     return rows
 
 def main(args):
@@ -68,9 +62,11 @@ def main(args):
 
     tokenizer = BertTokenizer.from_pretrained(args.model, do_lower_case=do_lower_case)
 
-    tweet_test_path = os.path.join(root, 'tweet/test.tsv')
+    # tweet_test_path = os.path.join(root, 'tweet/test.tsv')
 
-    tweet_test_data = load_sst(tweet_test_path, is_train=False)
+    df = get_df()
+
+    tweet_test_data = load_sst(df)
     logger.info('Loaded {} tweet test samples'.format(len(tweet_test_data)))
 
     mt_dnn_suffix = 'mt_dnn'
