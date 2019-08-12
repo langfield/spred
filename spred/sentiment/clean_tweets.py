@@ -2,6 +2,7 @@ import pandas as pd
 import glob
 import json
 import os
+import numpy as np
 
 DEBUG = False
 
@@ -24,10 +25,11 @@ def get_df(tweet_dir, sort=True):
 
     df = pd.DataFrame(dictlist)
 
+    # convert datetime column to datetime type
+    # format-- "datetime": "2019-08-09 20:00:00"
+    df['datetime'] = pd.to_datetime(df.datetime, format='%Y-%m-%d %H:%M:%S')
+    
     if sort:
-        # convert datetime column to datetime type
-        # format-- "datetime": "2019-08-09 20:00:00"
-        df['datetime'] = pd.to_datetime(df.datetime, format='%Y-%m-%d %H:%M:%S')
         # sort by datetime
         df = df.sort_values('datetime')
         if DEBUG:
@@ -57,7 +59,7 @@ def get_df(tweet_dir, sort=True):
     df = df.replace({' +': ' '}, regex=True)
 
     # index the tweets for mt-dnn
-    df['index'] = df.index
+    df['index'] = np.arange(0, df.shape[0])
 
     df = df.drop(labels=['ID', 'has_media', 'is_reply', 'is_retweet', 'medias', 'nbr_favorite', 'nbr_reply', 'nbr_retweet', 'url', 'user_id', 'usernameTweet'], axis=1)
     cols = df.columns.tolist()
