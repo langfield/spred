@@ -22,7 +22,7 @@ logger = create_logger(__name__, to_disk=True, log_file='bert_data_proc_512.log'
 def build_data_single(data, max_seq_len=MAX_SEQ_LEN, tokenizer=None):
     """Build data of single sentence tasks
     """
-    data = []
+    result = []
     for idx, sample in enumerate(data):
         ids = sample['uid']
         premise = tokenizer.tokenize(sample['premise'])
@@ -32,9 +32,9 @@ def build_data_single(data, max_seq_len=MAX_SEQ_LEN, tokenizer=None):
         input_ids =tokenizer.convert_tokens_to_ids(['[CLS]'] + premise + ['[SEP]'])
         type_ids = [0] * ( len(premise) + 2)
         features = {'uid': ids, 'label': label, 'token_id': input_ids, 'type_id': type_ids, 'factor': 1.0}
-        data.append(features)
+        result.append(features)
             # writer.write('{}\n'.format(json.dumps(features)))
-    return data
+    return result
 
 def prepro_config(parser):
     parser.add_argument('--model', type=str, default='bert-base-uncased')
