@@ -4,3 +4,4 @@ API_keys.txt
 __pycache__/
 *.py[cod]
 spred/sentiment/checkpoints/*
+spred/sentiment/data/*
