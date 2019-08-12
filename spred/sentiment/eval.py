@@ -9,7 +9,7 @@ import torch
 import sys
 sys.path.insert(1, '../../../mt-dnn/')
 from pytorch_pretrained_bert.modeling import BertConfig
-from data_utils.glue_utils import submit, eval_model
+from data_utils.glue_utils import eval_model
 from data_utils.label_map import DATA_META, GLOBAL_MAP, DATA_TYPE, DATA_SWAP, TASK_TYPE, generate_decoder_opt
 from data_utils.log_wrapper import create_logger
 from data_utils.utils import set_environment
@@ -47,6 +47,22 @@ def train_config(parser):
 def dump(path, data):
     with open(path ,'w') as f:
         json.dump(data, f)
+
+def submit(path, data):
+    header = 'index\ttime\tprediction'
+    with open(path ,'w') as writer:
+        predictions, uids = data['predictions'], data['uids']
+        writer.write('{}\n'.format(header))
+        assert len(predictions) == len(uids)
+        # sort label
+        paired = [(int(uid), predictions[idx]) for idx, uid in enumerate(uids)]
+        paired = sorted(paired, key=lambda item: item[0])
+        for uid, pred in paired:
+            if label_dict is None:
+                writer.write('{}\t{}\n'.format(uid, pred))
+            else:
+                assert type(pred) is int
+                writer.write('{}\t{}\n'.format(uid, label_dict[pred]))
 
 def run_eval(tweet_data):
     logger.info('Launching the MT-DNN evaluation')
@@ -103,8 +119,6 @@ def run_eval(tweet_data):
 
     if args.cuda:
         model.cuda()
-
-    label_dict = GLOBAL_MAP.get(prefix, None)
     
     # test eval
     if test_data is not None:
@@ -120,7 +134,7 @@ def run_eval(tweet_data):
                    'scores': scores}
         dump(score_file, results)
         official_score_file = os.path.join(output_dir, 'tweet_test_scores.tsv')
-        submit(official_score_file, results, label_dict)
+        submit(official_score_file, results)
         logger.info('[new test scores saved.]')
 
 
@@ -149,5 +163,4 @@ if __name__ == '__main__':
 
     # Run preprocessing script.
     data = get_prepro_data(args)
-    print(data[0])
-    run_eval(data)
+    run_eval(test)

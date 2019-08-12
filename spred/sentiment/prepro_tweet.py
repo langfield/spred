@@ -31,9 +31,8 @@ def build_data_single(data, max_seq_len=MAX_SEQ_LEN, tokenizer=None):
             premise = premise[:max_seq_len - 3] 
         input_ids =tokenizer.convert_tokens_to_ids(['[CLS]'] + premise + ['[SEP]'])
         type_ids = [0] * ( len(premise) + 2)
-        features = {'uid': ids, 'label': label, 'token_id': input_ids, 'type_id': type_ids, 'factor': 1.0}
+        features = {'uid': ids, 'label': label, 'token_id': input_ids, 'type_id': type_ids, 'factor': 1.0, 'timestamp': sample['timestamp']}
         result.append(features)
-            # writer.write('{}\n'.format(json.dumps(features)))
     return result
 
 def prepro_config(parser):
@@ -45,7 +44,7 @@ def prepro_config(parser):
 def load_sst(df):
     rows = []
     for index, row in df.iterrows():
-        sample = {'uid': int(row['index']), 'premise': row['sentence'], 'label': 0}
+        sample = {'uid': int(row['index']), 'premise': row['sentence'], 'timestamp': row['datetime'], 'label': 0}
 
         rows.append(sample)
     return rows
