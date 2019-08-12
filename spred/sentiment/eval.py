@@ -119,7 +119,12 @@ def run_eval(tweet_data):
 
     if args.cuda:
         model.cuda()
-    
+   
+    #===DEBUG===
+    print("test_data:", test_data)
+    print("test_data type:", test_data)
+    #===DEBUG===
+     
     # test eval
     if test_data is not None:
         test_metrics, test_predictions, scores, golds, test_ids= eval_model(model, 
