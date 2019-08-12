@@ -1,6 +1,8 @@
 # spred
 Stock prediction via blind internet trust.
 
+MT-DNN commit hash: 0096f0bff0a8f5c83ccb5562cfe96ddec4b04833
+
 ##	Web scraper
 * Go
     * [Go-Colly](http://go-colly.org) might be a useful library

@@ -41,6 +41,7 @@ from pytorch_transformers import AdamW, WarmupLinearSchedule, WEIGHTS_NAME, CONF
 # pylint: disable=wrong-import-order
 import torch
 from torch.utils.data import DataLoader
+
 if torch.__version__[:5] == "0.3.1":
     from torch.autograd import Variable
     from torch_addons.sampler import RandomSampler
@@ -70,16 +71,15 @@ def accuracy(out, labels):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model_name",
-                        type=str,
-                        default="openai-gpt",
-                        help="pretrained model name")
-    parser.add_argument("--do_train",
-                        action="store_true",
-                        help="Whether to run training.")
-    parser.add_argument("--do_eval",
-                        action="store_true",
-                        help="Whether to run eval on the dev set.")
+    parser.add_argument(
+        "--model_name", type=str, default="openai-gpt", help="pretrained model name"
+    )
+    parser.add_argument(
+        "--do_train", action="store_true", help="Whether to run training."
+    )
+    parser.add_argument(
+        "--do_eval", action="store_true", help="Whether to run eval on the dev set."
+    )
     parser.add_argument(
         "--output_dir",
         default=None,
@@ -101,14 +101,12 @@ def main():
     parser.add_argument("--weight_decay", type=float, default=0.01)
     parser.add_argument("--lm_coef", type=float, default=0.9)
     parser.add_argument("--n_valid", type=int, default=374)
-    parser.add_argument("--server_ip",
-                        type=str,
-                        default="",
-                        help="Can be used for distant debugging.")
-    parser.add_argument("--server_port",
-                        type=str,
-                        default="",
-                        help="Can be used for distant debugging.")
+    parser.add_argument(
+        "--server_ip", type=str, default="", help="Can be used for distant debugging."
+    )
+    parser.add_argument(
+        "--server_port", type=str, default="", help="Can be used for distant debugging."
+    )
 
     # Added.
     parser.add_argument(
@@ -125,8 +123,9 @@ def main():
         import ptvsd
 
         print("Waiting for debugger attach")
-        ptvsd.enable_attach(address=(args.server_ip, args.server_port),
-                            redirect_output=True)
+        ptvsd.enable_attach(
+            address=(args.server_ip, args.server_port), redirect_output=True
+        )
         ptvsd.wait_for_attach()
 
     random.seed(args.seed)
@@ -160,9 +159,9 @@ def main():
     train_data = GPSTDataset(args.train_dataset, max_length)
     print("Length of training dataset:", len(train_data))
     train_sampler = RandomSampler(train_data)
-    train_dataloader = DataLoader(train_data,
-                                  sampler=train_sampler,
-                                  batch_size=args.train_batch_size)
+    train_dataloader = DataLoader(
+        train_data, sampler=train_sampler, batch_size=args.train_batch_size
+    )
 
     # Prepare optimizer
     if args.do_train:
@@ -170,14 +169,15 @@ def main():
         no_decay = ["bias", "LayerNorm.bias", "LayerNorm.weight"]
         optimizer_grouped_parameters = [
             {
-                "params":
-                [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)],
-                "weight_decay":
-                0.01,
+                "params": [
+                    p for n, p in param_optimizer if not any(nd in n for nd in no_decay)
+                ],
+                "weight_decay": 0.01,
             },
             {
-                "params":
-                [p for n, p in param_optimizer if any(nd in n for nd in no_decay)],
+                "params": [
+                    p for n, p in param_optimizer if any(nd in n for nd in no_decay)
+                ],
                 "weight_decay": 0.0,
             },
         ]
@@ -238,8 +238,9 @@ def main():
                         print("Type of targets_raw data:", type(targets_raw.data))
 
                 # Forward call.
-                outputs = model(input_ids, position_ids, None, lm_labels, inputs_raw,
-                                targets_raw)
+                outputs = model(
+                    input_ids, position_ids, None, lm_labels, inputs_raw, targets_raw
+                )
                 loss = outputs[0]
                 loss.backward()
                 scheduler.step()
@@ -249,12 +250,18 @@ def main():
                 if torch.__version__[:5] == "0.3.1":
                     loss_data = float(loss.data)
                     tr_loss += loss_data
-                    exp_average_loss = (loss_data if exp_average_loss is None else
-                                        0.7 * exp_average_loss + 0.3 * loss_data)
+                    exp_average_loss = (
+                        loss_data
+                        if exp_average_loss is None
+                        else 0.7 * exp_average_loss + 0.3 * loss_data
+                    )
                 else:
                     tr_loss += loss.item()
-                    exp_average_loss = (loss.item() if exp_average_loss is None else
-                                        0.7 * exp_average_loss + 0.3 * loss.item())
+                    exp_average_loss = (
+                        loss.item()
+                        if exp_average_loss is None
+                        else 0.7 * exp_average_loss + 0.3 * loss.item()
+                    )
 
                 nb_tr_steps += 1
                 tqdm_bar.desc = "Training loss: {:.2e}".format(exp_average_loss)

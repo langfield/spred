@@ -115,6 +115,12 @@ def main():
                                   pairwise=None,
                                   data_type=data_type,
                                   task_type=task_type)
+        else:
+            logger.error('#' * 20)
+            logger.error('ERROR: The input test data path does not exist')
+            logger.error(test_path)
+            logger.error('#' * 20)
+            exit(1)
         test_data_list.append(test_data)
 
     model_path = os.path.abspath(args.init_checkpoint)

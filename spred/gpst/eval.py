@@ -36,8 +36,9 @@ def load_model(device=None) -> OpenAIGPTLMHeadModel:
     return model
 
 
-def create_sample_data(dim: int, max_seq_len: int, width: int,
-                       plot: int) -> torch.Tensor:
+def create_sample_data(
+    dim: int, max_seq_len: int, width: int, plot: int
+) -> torch.Tensor:
     """Construct sample time series."""
     # x vals.
     time = np.arange(0, width, 100 / max_seq_len)
