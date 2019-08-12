@@ -37,15 +37,12 @@ def build_data_single(data, dump_path, max_seq_len=MAX_SEQ_LEN, tokenizer=None):
             # writer.write('{}\n'.format(json.dumps(features)))
     return data
 
-def parse_args():
-    parser = argparse.ArgumentParser(description='Preprocessing GLUE/SNLI/SciTail dataset.')
-    parser.add_argument('--seed', type=int, default=13)
+def prepro_config(parser):
     parser.add_argument('--model', type=str, default='bert-base-uncased')
     parser.add_argument('--do_lower_case', action='store_true')
     parser.add_argument('--root_dir', type=str, default='data')
     parser.add_argument('--tweet_data_dir', type=str, default='../../../TweetScraper/Data/tweet/')
-    args = parser.parse_args()
-    return args
+    return parser
 
 def load_sst(df):
     rows = []
@@ -55,8 +52,7 @@ def load_sst(df):
         rows.append(sample)
     return rows
 
-def get_prepro_data():
-    args = parse_args()
+def get_prepro_data(args):
     ## hyper param
     do_lower_case = args.do_lower_case
     root = args.root_dir
@@ -91,4 +87,7 @@ def get_prepro_data():
     return data
 
 if __name__ == '__main__':
-    get_prepro_data()
+    parser = argparse.ArgumentParser()
+    parser = prepro_config(parser)
+    args = parser.parse_args()
+    get_prepro_data(args)
