@@ -3,16 +3,23 @@ from prepro_tweet import prepro_config
 import argparse
 import numpy as np
 
+
 def score(bucket):
-    '''
+    """
     Generate a score for a single bucket of data
-    '''
-    return np.average(bucket)
+    """
+    print("bucket:", bucket)
+    print("bucket type:", type(bucket))
+    if bucket == []:
+        return 0.5
+    else:
+        return np.average(bucket)
+
 
 def get_scores(data):
-    '''
+    """
     Return a list of score values--one per bucket of data
-    '''
+    """
     # Put the data into minute-scale buckets
     prev = 0
     cur = 0
@@ -20,21 +27,22 @@ def get_scores(data):
     bucket = []
     scores = []
 
-    for i in range(len(data['timestamps'])):
-        cur = data['timestamps'][i].minute
+    for i in range(len(data["timestamps"])):
+        cur = data["timestamps"][i].minute
         while cur > prev or (cur == 0 and prev == 59):
             scores.append(score(bucket))
             bucket = []
             prev += 1
             if prev == 60:
                 prev = 0
-        bucket.append(data['predictions'][i])
-    
+        bucket.append(data["predictions"][i])
+
     scores.append(score(np.asarray(bucket)))
 
     return scores
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser = data_config(parser)
     parser = model_config(parser)
@@ -43,6 +51,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     results = get_labels(args)
-    print('Generating scores...')
+    print("Generating scores...")
     scores = get_scores(results)
     print(scores)
