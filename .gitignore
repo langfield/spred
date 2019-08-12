@@ -5,3 +5,4 @@ __pycache__/
 *.py[cod]
 spred/sentiment/checkpoints/*
 spred/sentiment/data/*
+*.log
