@@ -40,6 +40,7 @@ def parse_args():
     parser.add_argument('--model', type=str, default='bert-base-uncased')
     parser.add_argument('--do_lower_case', action='store_true')
     parser.add_argument('--root_dir', type=str, default='data')
+    parser.add_argument('--tweet_data_dir', type=str, default='../../../TweetScraper/Data/tweet/')
     args = parser.parse_args()
     return args
 
@@ -62,9 +63,7 @@ def main(args):
 
     tokenizer = BertTokenizer.from_pretrained(args.model, do_lower_case=do_lower_case)
 
-    # tweet_test_path = os.path.join(root, 'tweet/test.tsv')
-
-    df = get_df()
+    df = get_df(args.tweet_data_dir)
 
     tweet_test_data = load_sst(df)
     logger.info('Loaded {} tweet test samples'.format(len(tweet_test_data)))
