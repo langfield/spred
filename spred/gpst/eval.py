@@ -3,9 +3,8 @@ import copy
 import torch
 import numpy as np
 import pandas as pd
-from modeling_openai import OpenAIGPTModel
+import matplotlib.pyplot as plt
 from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
-from dataset import GPSTEvalDataset
 from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME
 
 if torch.__version__[:5] == "0.3.1":
@@ -43,8 +42,8 @@ def create_sample_data(
     # x vals.
     time = np.arange(0, width, 100 / max_seq_len)
     # y vals.
-    price = np.sin(time) + 10
-    # price = np.array([0.5] * MAX_SEQ_LEN)
+    # price = np.sin(time) + 10
+    price = np.array([0] * max_seq_len)
 
     if plot:
         plt.plot(time, price)
@@ -53,7 +52,6 @@ def create_sample_data(
         plt.ylabel("Price")
         plt.show()
 
-    zeros = np.ones(max_seq_len)
     df = pd.DataFrame({"Price": price})
     df = df[[col for col in df.columns for i in range(dim)]]
     tensor_data = torch.Tensor(np.array(df))

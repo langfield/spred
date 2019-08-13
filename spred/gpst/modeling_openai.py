@@ -244,7 +244,7 @@ class Attention(nn.Module):
         super(Attention, self).__init__()
         n_state = nx  # in Attention: n_state=768 (nx=n_embd)
         # [switch nx => n_state from Block to Attention to keep identical to TF implem]
-        assert n_state % config.n_head == 0
+        assert n_state % config.n_head == 0 # ``n_heads`` | ``n_embd``.
         self.register_buffer("bias", torch.tril(torch.ones(n_ctx, n_ctx)).view(1, 1, n_ctx, n_ctx))
         self.n_head = config.n_head
         self.split_size = n_state
