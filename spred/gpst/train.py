@@ -145,7 +145,7 @@ def main():
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
-    config = OpenAIGPTConfig.from_pretrained(args.gptspred_model)
+    config = OpenAIGPTConfig.from_pretrained(args.gpst_model)
     model = OpenAIGPTLMHeadModel(config)
 
     if torch.__version__[:5] == "0.3.1":
@@ -212,6 +212,12 @@ def main():
                 targets_raw = targets_raw.float()
 
                 # Shape check.
+                #===HACK===
+                # Compensates for lack of batch size data truncation in 
+                # ``SAMPLE`` branch of ``GPSTDatatset`` class.
+                if input_ids.shape[0] < args.train_batch_size:
+                    continue
+                #===HACK===
                 assert input_ids.shape == (args.train_batch_size, max_length)
                 assert position_ids.shape == (args.train_batch_size, max_length)
                 assert lm_labels.shape == (args.train_batch_size, max_length)
@@ -234,8 +240,13 @@ def main():
                     print("Type of inputs_raw:", type(inputs_raw))
                     print("Type of targets_raw:", type(targets_raw))
                     if torch.__version__[:5] == "0.3.1":
-                        print("type of position_ids data:", type(position_ids.data))
+                        print("Type of position_ids data:", type(position_ids.data))
                         print("Type of targets_raw data:", type(targets_raw.data))
+                    print("Shape of input_ids:", input_ids.shape)
+                    print("Shape of position_ids:", position_ids.shape)
+                    print("Shape of lm_labels:", lm_labels.shape)
+                    print("Shape of inputs_raw:", inputs_raw.shape)
+                    print("Shape of targets_raw:", targets_raw.shape)
 
                 # Forward call.
                 outputs = model(
