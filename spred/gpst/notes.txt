@@ -11,6 +11,10 @@ Increasing ``train_batch_size`` and ``epochs`` on sin dataset makes loss stop th
 
 I think the extremely small hidden dimensionality is bottlenecking the model. We might need to embed the features in a higher dimensional (500-4000) space. 
 
-By running the same exact training but varying only the ``n_embd``, I have determined that at low dimensionalities (~10) increases in hidden dimensionality results in faster training. At ``n_embd == 10``, it took 10000 epochs to get to 5.5e-2 loss, but it only took 4000 epochs for the ``n_embd == 20`` model to get to 4.1e-2. 
+By running the same exact training but varying only the ``n_embd``, I have determined that at low dimensionalities (~10) increases in hidden dimensionality results in faster training. At ``n_embd == 10``, it took 10000 epochs to get to 5.5e-2 loss, but it only took 4000 epochs for the ``n_embd == 20`` model to get to 4.1e-2. In 4000 epochs, a model with ``n_embd == 40`` hit 2.3e-2. 
 
 If you get a runtime error about a sum operation not having the right sizes, check if you ran ``gen_time_series.py``. 
+
+I am using an xrange of 1000 for sin, and 10000 steps. This may not be fine enough granularity to get very low loss values. 
+
+Should add functionality to pause and restart training, and to save at any point via a keyboard command.
