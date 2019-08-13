@@ -1,0 +1,16 @@
+Hyperparameter constraints:
+    ``n_ctx == n_positions``
+    ``n_embd % n_head == 0``
+    ``n_ctx <= total_data_len``
+
+Increasing ``n_ctx`` speeds up the script, but drastically reduces train loss drop. 
+
+How does GPT train? When it goes over one sequence, does it predict the next word from only the first word at first, then the first 2, then the first 3, and so on? Or does it have memory?
+
+Increasing ``train_batch_size`` and ``epochs`` on sin dataset makes loss stop thrashing as it decreases, and improves training speed.
+
+I think the extremely small hidden dimensionality is bottlenecking the model. We might need to embed the features in a higher dimensional (500-4000) space. 
+
+By running the same exact training but varying only the ``n_embd``, I have determined that at low dimensionalities (~10) increases in hidden dimensionality results in faster training. At ``n_embd == 10``, it took 10000 epochs to get to 5.5e-2 loss, but it only took 4000 epochs for the ``n_embd == 20`` model to get to 4.1e-2. 
+
+If you get a runtime error about a sum operation not having the right sizes, check if you ran ``gen_time_series.py``. 

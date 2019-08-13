@@ -54,6 +54,8 @@ from dataset import GPSTDataset
 from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 
 DEBUG = False
+LOSS = 0
+WEIGHTS_NAME = "hidden_dim_20_model"
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
@@ -253,6 +255,7 @@ def main():
                     input_ids, position_ids, None, lm_labels, inputs_raw, targets_raw
                 )
                 loss = outputs[0]
+                LOSS = float(loss)
                 loss.backward()
                 scheduler.step()
                 optimizer.step()
@@ -284,7 +287,7 @@ def main():
         model_to_save = model.module if hasattr(model, "module") else model
 
         # If we save using the predefined names, we can load using ``from_pretrained``.
-        output_model_file = os.path.join(args.output_dir, WEIGHTS_NAME)
+        output_model_file = os.path.join(args.output_dir, WEIGHTS_NAME + "_" + str(LOSS))
         output_config_file = os.path.join(args.output_dir, CONFIG_NAME)
 
         torch.save(model_to_save.state_dict(), output_model_file)
@@ -299,6 +302,8 @@ def main():
         else:
             model = OpenAIGPTLMHeadModel.from_pretrained(args.output_dir)
             model.to(device)
+
+        print("Loss:", LOSS)
 
 
 if __name__ == "__main__":

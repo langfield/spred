@@ -5,11 +5,11 @@
   "finetuning_task": null,
   "initializer_range": 0.02,
   "layer_norm_epsilon": 1e-05,
-  "n_ctx": 32,
+  "n_ctx": 10,
   "n_embd": 10,
   "n_head": 5,
   "n_layer": 6,
-  "n_positions": 32,
+  "n_positions": 10,
   "num_labels": 1,
   "output_attentions": false,
   "output_hidden_states": false,
@@ -21,5 +21,5 @@
   "summary_type": "token_ids",
   "summary_use_proj": true,
   "torchscript": false,
-  "vocab_size": 50257
+  "vocab_size": 1
 }
