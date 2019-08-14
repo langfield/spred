@@ -74,6 +74,7 @@ def main() -> None:
     TOTAL_DATA_LEN = None
     PLOT = False
     WIDTH = 100
+    DATA_FILENAME = "sets/steps-10000_range-1000.csv"
     print("Data dimensionality:", DIM)
     print("Max sequence length :", MAX_SEQ_LEN)
     print("Eval batch size:", BATCH_SIZE)
@@ -85,12 +86,15 @@ def main() -> None:
     """
     
     # Grab training data.
-    raw_data = pd.read_csv("sets/steps-10000_range-1000.csv")
+    raw_data = pd.read_csv(DATA_FILENAME)
     assert len(raw_data) >= MAX_SEQ_LEN
     output_list = []
+    all_inputs = []
+    all_outputs = []
 
     # Iterate in step sizes of 1 over ``raw_data``.
-    for i in range(len(raw_data) - MAX_SEQ_LEN):
+    # HARDCODE
+    for i in range(100):
         assert i + MAX_SEQ_LEN <= len(raw_data)
         tensor_data = np.array(raw_data.iloc[i:i + MAX_SEQ_LEN, :].values)
         tensor_data = torch.Tensor(tensor_data)
@@ -151,6 +155,48 @@ def main() -> None:
         os.system("clear")
         out_array = np.concatenate([np.array([-1.5]), out_array, np.array([1.5])])
         plot_to_terminal(out_array)
+        
+        # Grab inputs and outputs for matplotlib plot.   
+        inputs_raw_array = np.array(inputs_raw[0, -1, :])
+        inputs_raw_array = np.sum(inputs_raw_array, -1) / DIM
+        all_outputs.append(pred)
+        all_inputs.append(inputs_raw_array)
 
+    # Stack and cast to ``pd.DataFrame``.
+    all_in = np.stack(all_inputs)
+    all_out = np.stack(all_outputs)
+    all_in = np.reshape(all_in, (all_in.shape[0], 1))
+    all_out = np.reshape(all_out, (all_out.shape[0], 1))
+    print("shape of all in:", all_in.shape) 
+    print("shape of all out:", all_out.shape) 
+    assert all_out.shape == all_in.shape
+    diff = np.concatenate((all_out, all_in), axis=1)
+    print("diff shape:", diff.shape)
+    df = pd.DataFrame(diff)
+    df.columns = ["pred", "actual"]
+    print(df)
+
+    # MATPLOT GOES HERE
+
+def matplot(args):
+    """ Do some path handling and call the ``graph()`` function. """
+    GRAPHS_PATH = args.graphs_path
+    assert os.path.isdir(GRAPHS_PATH)
+    filename = os.path.basename(args.filepath)
+    filename_no_ext = filename.split('.')[0]
+    if args.phase != "":
+        save_path = os.path.join(GRAPHS_PATH, filename_no_ext + "_" + args.phase + ".svg")
+    else:
+        save_path = os.path.join(GRAPHS_PATH, filename_no_ext + ".svg")
+    if args.format == 'csv':
+        dfs, ylabels, column_counts = preprocessing.read_csv(args.filepath)
+    elif args.format == 'json':
+        dfs, ylabels, column_counts = preprocessing.read_json(args.filepath, args.phase)
+    else:
+        raise ValueError("Invalid --format format.")
+    graph(dfs, ylabels, filename_no_ext, column_counts, args.phase, save_path)
+    print("Graph saved to:", save_path)
+    # Plot with matplotlib.
+ 
 if __name__ == "__main__":
     main()
