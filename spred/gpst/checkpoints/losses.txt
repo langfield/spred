@@ -1,0 +1,1 @@
+Loss for hidden_dim-20.pt: 0.0038821289781481028  
