@@ -96,7 +96,7 @@ def main() -> None:
 
     # Iterate in step sizes of 1 over ``raw_data``.
     # HARDCODE
-    for i in range(100):
+    for i in range(30):
         assert i + MAX_SEQ_LEN <= len(raw_data)
         tensor_data = np.array(raw_data.iloc[i:i + MAX_SEQ_LEN, :].values)
         tensor_data = torch.Tensor(tensor_data)
