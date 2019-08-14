@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME
 from termplt import plot_to_terminal
+from plot import graph
 
 if torch.__version__[:5] == "0.3.1":
     from torch.autograd import Variable
@@ -75,6 +76,7 @@ def main() -> None:
     PLOT = False
     WIDTH = 100
     DATA_FILENAME = "sets/steps-10000_range-1000.csv"
+    GRAPH_PATH = 'graphs/'
     print("Data dimensionality:", DIM)
     print("Max sequence length :", MAX_SEQ_LEN)
     print("Eval batch size:", BATCH_SIZE)
@@ -162,6 +164,17 @@ def main() -> None:
         all_outputs.append(pred)
         all_inputs.append(inputs_raw_array)
 
+
+    def matplot(graphs_path, data_filename, dfs, ylabels, column_counts):
+        """ Do some path handling and call the ``graph()`` function. """
+        assert os.path.isdir(graphs_path)
+        filename = os.path.basename(data_filename)
+        filename_no_ext = filename.split('.')[0]
+        save_path = os.path.join(graphs_path, filename_no_ext + ".svg")
+        graph(dfs, ylabels, filename_no_ext, column_counts, None, save_path)
+        print("Graph saved to:", save_path)
+        # Plot with matplotlib.
+
     # Stack and cast to ``pd.DataFrame``.
     all_in = np.stack(all_inputs)
     all_out = np.stack(all_outputs)
@@ -176,27 +189,11 @@ def main() -> None:
     df.columns = ["pred", "actual"]
     print(df)
 
+    dfs = [df]
+    y_label = 'Predictions vs Input'
+    column_counts = [2]
     # MATPLOT GOES HERE
-
-def matplot(args):
-    """ Do some path handling and call the ``graph()`` function. """
-    GRAPHS_PATH = args.graphs_path
-    assert os.path.isdir(GRAPHS_PATH)
-    filename = os.path.basename(args.filepath)
-    filename_no_ext = filename.split('.')[0]
-    if args.phase != "":
-        save_path = os.path.join(GRAPHS_PATH, filename_no_ext + "_" + args.phase + ".svg")
-    else:
-        save_path = os.path.join(GRAPHS_PATH, filename_no_ext + ".svg")
-    if args.format == 'csv':
-        dfs, ylabels, column_counts = preprocessing.read_csv(args.filepath)
-    elif args.format == 'json':
-        dfs, ylabels, column_counts = preprocessing.read_json(args.filepath, args.phase)
-    else:
-        raise ValueError("Invalid --format format.")
-    graph(dfs, ylabels, filename_no_ext, column_counts, args.phase, save_path)
-    print("Graph saved to:", save_path)
-    # Plot with matplotlib.
+    matplot(GRAPH_PATH, DATA_FILENAME, dfs, y_label, column_counts)
  
 if __name__ == "__main__":
     main()
