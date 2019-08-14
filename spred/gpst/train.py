@@ -121,15 +121,6 @@ def main():
     args = parser.parse_args()
     print(args)
 
-    if args.server_ip and args.server_port:
-        import ptvsd
-
-        print("Waiting for debugger attach")
-        ptvsd.enable_attach(
-            address=(args.server_ip, args.server_port), redirect_output=True
-        )
-        ptvsd.wait_for_attach()
-
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -158,7 +149,7 @@ def main():
     # Compute the max input length for the Transformer
     max_length = model.config.n_positions
 
-    train_data = GPSTDataset(args.train_dataset, max_length)
+    train_data = GPSTDataset(args.train_dataset, max_length, sample=True)
     print("Length of training dataset:", len(train_data))
     train_sampler = RandomSampler(train_data)
     train_dataloader = DataLoader(
