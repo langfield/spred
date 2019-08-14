@@ -205,12 +205,12 @@ def main():
                 targets_raw = targets_raw.float()
 
                 # Shape check.
-                #===HACK===
-                # Compensates for lack of batch size data truncation in 
+                # ===HACK===
+                # Compensates for lack of batch size data truncation in
                 # ``SAMPLE`` branch of ``GPSTDatatset`` class.
                 if input_ids.shape[0] < args.train_batch_size:
                     continue
-                #===HACK===
+                # ===HACK===
                 assert input_ids.shape == (args.train_batch_size, max_length)
                 assert position_ids.shape == (args.train_batch_size, max_length)
                 assert lm_labels.shape == (args.train_batch_size, max_length)
@@ -278,7 +278,9 @@ def main():
         model_to_save = model.module if hasattr(model, "module") else model
 
         # If we save using the predefined names, we can load using ``from_pretrained``.
-        output_model_file = os.path.join(args.output_dir, WEIGHTS_NAME + "_" + str(LOSS))
+        output_model_file = os.path.join(
+            args.output_dir, WEIGHTS_NAME + "_" + str(LOSS)
+        )
         output_config_file = os.path.join(args.output_dir, CONFIG_NAME)
 
         torch.save(model_to_save.state_dict(), output_model_file)
