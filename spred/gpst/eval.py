@@ -1,3 +1,4 @@
+import argparse
 import os
 import copy
 import torch
@@ -17,6 +18,14 @@ else:
 
 DEBUG = False
 
+def eval_config(parser):
+    parser.add_argument("--batch", type=int, default=1)
+    parser.add_argument("--width", type=int, default=100)
+    parser.add_argument("--input", type=str, default="sets/steps-10000_range-1000.csv")
+    parser.add_argument("--output_dir", type=str, default="graphs/")
+    parser.add_argument("--terminal_plot_width", type=int, default=50)
+
+    return parser
 
 def load_model(device=None, weights_name: str = WEIGHTS_NAME, config_name: str = CONFIG_NAME) -> OpenAIGPTLMHeadModel:
     """Load in our pretrained model."""
@@ -69,14 +78,15 @@ def main() -> None:
         model = load_model(device, weights_name="hidden_dim-20.bin")
 
     # Set hyperparameters.
+    parser = argparse.ArgumentParser()
+    parser = eval_config(parser)
+    args = parser.parse_args()
+
     DIM = model.config.n_embd
     MAX_SEQ_LEN = model.config.n_positions
-    BATCH_SIZE = 1
-    TOTAL_DATA_LEN = None
-    PLOT = False
-    WIDTH = 100
-    DATA_FILENAME = "sets/steps-10000_range-1000.csv"
-    GRAPH_PATH = 'graphs/'
+    BATCH_SIZE = args.batch
+    DATA_FILENAME = args.input
+    GRAPH_PATH = args.output_dir
     print("Data dimensionality:", DIM)
     print("Max sequence length :", MAX_SEQ_LEN)
     print("Eval batch size:", BATCH_SIZE)
@@ -146,7 +156,8 @@ def main() -> None:
         # Type: torch.autograd.Variable
         predictions = outputs[0]
         
-        GRAPH_WIDTH = 50
+        # how many time steps fit in terminal window
+        GRAPH_WIDTH = args.terminal_plot_width
         if len(output_list) >= GRAPH_WIDTH:
             output_list = output_list[1:]
         pred = np.array(predictions[0, -1, :].data)
