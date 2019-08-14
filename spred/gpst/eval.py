@@ -62,10 +62,10 @@ def create_sample_data(
 def main() -> None:
     """Make predictions on a single sequence."""
     if torch.__version__[:5] == "0.3.1":
-        model = load_model()
+        model = load_model(weights_name="hidden_dim-20.bin")
     else:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = load_model(device)
+        model = load_model(device, weights_name="hidden_dim-20.bin")
 
     # Set hyperparameters.
     DIM = model.config.n_embd
@@ -85,7 +85,7 @@ def main() -> None:
     """
     
     # Grab training data.
-    raw_data = pd.read_csv("sample_data.csv")
+    raw_data = pd.read_csv("sets/steps-10000_range-1000.csv")
     assert len(raw_data) >= MAX_SEQ_LEN
     output_list = []
 
