@@ -130,6 +130,13 @@ def main():
         help="Whether to treat input ``.csv`` as real price data or just sample data.",
     )
     parser.set_defaults(no_price_preprocess=False)
+    parser.add_argument(
+        "--save_freq",
+        default=1,
+        type=int,
+        required=False,
+        help="Model will be saved after every ``--save_freq`` epochs.",
+    )
     args = parser.parse_args()
     print(args)
 
@@ -208,6 +215,7 @@ def main():
     if args.do_train:
         nb_tr_steps, tr_loss, exp_average_loss = 0, 0, None
         model.train()
+        elapsed_epochs = 0
         for _ in trange(int(args.num_train_epochs), desc="Epoch"):
             tr_loss = 0
             nb_tr_steps = 0
@@ -290,6 +298,19 @@ def main():
 
                 nb_tr_steps += 1
                 tqdm_bar.desc = "Training loss: {:.2e}".format(exp_average_loss)
+
+            # Save every ``args.save_freq`` epochs.
+            elapsed_epochs += 1
+            if args.save_freq % elapsed_epochs == 0:
+                # Only save the model itself.
+                model_to_save = model.module if hasattr(model, "module") else model
+
+                # If we save using the predefined names, we can load using ``from_pretrained``.
+                output_model_file = os.path.join(args.output_dir, WEIGHTS_NAME)
+                output_config_file = os.path.join(args.output_dir, CONFIG_NAME)
+
+                torch.save(model_to_save.state_dict(), output_model_file)
+                model_to_save.config.to_json_file(output_config_file)
 
     # Save model and test loading functionality.
     if args.do_train:
