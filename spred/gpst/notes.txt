@@ -18,3 +18,16 @@ If you get a runtime error about a sum operation not having the right sizes, che
 I am using an xrange of 1000 for sin, and 10000 steps. This may not be fine enough granularity to get very low loss values. 
 
 Should add functionality to pause and restart training, and to save at any point via a keyboard command.
+
+Hyperparameter optimization tools:
+
+    Optuna
+    AutoML
+    Flair
+    Bayesian Optimization with skopt
+    Hyperopt
+    Microsoft NNI
+    DARTS?
+
+Boosting tools:
+    LightGBM
