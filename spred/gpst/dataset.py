@@ -2,8 +2,6 @@
 import copy
 import numpy as np
 import pandas as pd
-from ta import add_all_ta_features
-from ta.utils import dropna
 
 from torch.utils.data import Dataset
 
@@ -31,16 +29,6 @@ class GPSTDataset(Dataset):
 
         assert corpus_path[-4:] == ".csv"
         self.raw_data = pd.read_csv(corpus_path, sep="\t")
-        print("Generating technical indicators...")
-        self.raw_data = add_all_ta_features(self.raw_data, 
-                                            "Open", 
-                                            "High", 
-                                            "Low", 
-                                            "Close", 
-                                            "Volume", 
-                                            fillna=True)
-        self.raw_data = dropna(self.raw_data)
-        print("[done]")
 
         if not no_price_preprocess:
             # stationarize each of the columns
