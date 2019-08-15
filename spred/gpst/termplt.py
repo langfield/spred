@@ -12,7 +12,7 @@ def plot_to_terminal(series: np.ndarray) -> None:
     try:
         y = list(series[:, 0])  # Assumes 2-dimensional data.
     except IndexError:
-        y = list(series) # 1-dimensional data.
+        y = list(series)  # 1-dimensional data.
     x = [i for i in range(series.shape[0])]
     plot(x, y)
     print("Series shape:", series.shape)

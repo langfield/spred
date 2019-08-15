@@ -11,7 +11,10 @@ DEBUG = True
 
 class GPSTDataset(Dataset):
     """ Dataset class for GPST (training). """
-    def __init__(self, corpus_path, seq_len, encoding="utf-8", on_memory=True, sample=False):
+
+    def __init__(
+        self, corpus_path, seq_len, encoding="utf-8", on_memory=True, sample=False
+    ):
 
         self.seq_len = seq_len
 
@@ -84,6 +87,7 @@ class GPSTDataset(Dataset):
 
 class GPSTEvalDataset(Dataset):
     """ Dataset class for GPST (evaluation). """
+
     def __init__(self, tensor_data, seq_len, encoding="utf-8", on_memory=True):
 
         self.seq_len = seq_len
