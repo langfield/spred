@@ -118,6 +118,14 @@ def main():
         required=True,
         help="OpenAIGPT pre-trained model path",
     )
+    parser.add_argument(
+        "--data_is_example",
+        type=bool,
+        default=False,
+        help="Whether data is example/sample data or real price data.",
+    )
+    parser.add_argument('--no_price_preprocess', dest='no_price_preprocess', action='store_true', help="Whether to treat input ``.csv`` as real price data or just sample data.")
+    parser.set_defaults(no_price_preprocess=False)
     args = parser.parse_args()
     print(args)
 
@@ -149,7 +157,9 @@ def main():
     # Compute the max input length for the Transformer
     max_length = model.config.n_positions
 
-    train_data = GPSTDataset(args.train_dataset, max_length, sample=True)
+    train_data = GPSTDataset(
+        args.train_dataset, max_length, no_price_preprocess=args.no_price_preprocess
+    )
     print("Length of training dataset:", len(train_data))
     train_sampler = RandomSampler(train_data)
     train_dataloader = DataLoader(
