@@ -18,6 +18,7 @@ else:
 
 DEBUG = False
 
+
 def eval_config(parser):
     parser.add_argument("--batch", type=int, default=1)
     parser.add_argument("--width", type=int, default=100)
@@ -27,7 +28,10 @@ def eval_config(parser):
 
     return parser
 
-def load_model(device=None, weights_name: str = WEIGHTS_NAME, config_name: str = CONFIG_NAME) -> OpenAIGPTLMHeadModel:
+
+def load_model(
+    device=None, weights_name: str = WEIGHTS_NAME, config_name: str = CONFIG_NAME
+) -> OpenAIGPTLMHeadModel:
     """Load in our pretrained model."""
     output_dir = "checkpoints/"
     output_model_file = os.path.join(output_dir, weights_name)
@@ -96,7 +100,7 @@ def main() -> None:
     tensor_data = create_sample_data(DIM, MAX_SEQ_LEN, WIDTH, PLOT)
     inputs_raw = tensor_data.contiguous()
     """
-    
+
     # Grab training data.
     raw_data = pd.read_csv(DATA_FILENAME)
     assert len(raw_data) >= MAX_SEQ_LEN
@@ -108,7 +112,7 @@ def main() -> None:
     # HARDCODE
     for i in range(args.width):
         assert i + MAX_SEQ_LEN <= len(raw_data)
-        tensor_data = np.array(raw_data.iloc[i:i + MAX_SEQ_LEN, :].values)
+        tensor_data = np.array(raw_data.iloc[i : i + MAX_SEQ_LEN, :].values)
         tensor_data = torch.Tensor(tensor_data)
         inputs_raw = tensor_data.contiguous()
 
@@ -155,7 +159,7 @@ def main() -> None:
         # Shape: (BATCH_SIZE, MAX_SEQ_LEN, DIM)
         # Type: torch.autograd.Variable
         predictions = outputs[0]
-        
+
         # how many time steps fit in terminal window
         GRAPH_WIDTH = args.terminal_plot_width
         if len(output_list) >= GRAPH_WIDTH:
@@ -168,19 +172,18 @@ def main() -> None:
         os.system("clear")
         out_array = np.concatenate([np.array([-1.5]), out_array, np.array([1.5])])
         plot_to_terminal(out_array)
-        
-        # Grab inputs and outputs for matplotlib plot.   
+
+        # Grab inputs and outputs for matplotlib plot.
         inputs_raw_array = np.array(inputs_raw[0, -1, :])
         inputs_raw_array = np.sum(inputs_raw_array, -1) / DIM
         all_outputs.append(pred)
         all_inputs.append(inputs_raw_array)
 
-
     def matplot(graphs_path, data_filename, dfs, ylabels, column_counts):
         """ Do some path handling and call the ``graph()`` function. """
         assert os.path.isdir(graphs_path)
         filename = os.path.basename(data_filename)
-        filename_no_ext = filename.split('.')[0]
+        filename_no_ext = filename.split(".")[0]
         save_path = os.path.join(graphs_path, filename_no_ext + ".svg")
         graph(dfs, ylabels, filename_no_ext, column_counts, None, save_path)
         print("Graph saved to:", save_path)
@@ -191,8 +194,8 @@ def main() -> None:
     all_out = np.stack(all_outputs)
     all_in = np.reshape(all_in, (all_in.shape[0], 1))
     all_out = np.reshape(all_out, (all_out.shape[0], 1))
-    print("shape of all in:", all_in.shape) 
-    print("shape of all out:", all_out.shape) 
+    print("shape of all in:", all_in.shape)
+    print("shape of all out:", all_out.shape)
     assert all_out.shape == all_in.shape
     diff = np.concatenate((all_out, all_in), axis=1)
     print("diff shape:", diff.shape)
@@ -201,10 +204,11 @@ def main() -> None:
     print(df)
 
     dfs = [df]
-    y_label = 'Predictions vs Input'
+    y_label = "Predictions vs Input"
     column_counts = [2]
     # MATPLOT GOES HERE
     matplot(GRAPH_PATH, DATA_FILENAME, dfs, y_label, column_counts)
- 
+
+
 if __name__ == "__main__":
     main()
