@@ -23,7 +23,7 @@ class GPSTDataset(Dataset):
         self.encoding = encoding
 
         assert corpus_path[-4:] == ".csv"
-        self.raw_data = pd.read_csv(corpus_path)
+        self.raw_data = pd.read_csv(corpus_path, sep='\t')
 
         if not no_price_preprocess:
             # Add and adjust columns.
@@ -38,8 +38,8 @@ class GPSTDataset(Dataset):
             #     self.raw_data["Volume"]
             # ).shift(1)
             # self.raw_data = self.raw_data[1:]
-            columns = self.raw_data.columns[0]
-            columns = [x.strip() for x in columns.split('\t')]
+            columns = self.raw_data.columns
+            # columns = [x.strip() for x in columns.split('\t')]
             print("columns", columns)
             for col in columns:
                 if col == "":
