@@ -22,31 +22,37 @@ class GPSTDataset(Dataset):
         self.corpus_path = corpus_path
         self.encoding = encoding
 
-        if no_price_preprocess:
-            assert corpus_path[-4:] == ".csv"
-            self.raw_data = pd.read_csv(corpus_path)
-            self.tensor_data = np.array(self.raw_data.iloc[:, :].values)
-        else:
-            # Load samples into memory from file.
-            self.raw_data = pd.read_csv(corpus_path)
+        assert corpus_path[-4:] == ".csv"
+        self.raw_data = pd.read_csv(corpus_path)
 
+        if not no_price_preprocess:
             # Add and adjust columns.
-            self.raw_data["Average"] = (
-                self.raw_data["High"] + self.raw_data["Low"]
-            ) / 2
-            self.raw_data["Volume"] = self.raw_data["Volume"] + 0.000001  # Avoid NaNs
-            self.raw_data["Average_ld"] = np.log(self.raw_data["Average"]) - np.log(
-                self.raw_data["Average"]
-            ).shift(1)
-            self.raw_data["Volume_ld"] = np.log(self.raw_data["Volume"]) - np.log(
-                self.raw_data["Volume"]
-            ).shift(1)
-            self.raw_data = self.raw_data[1:]
+            # self.raw_data["Average"] = (
+            #     self.raw_data["High"] + self.raw_data["Low"]
+            # ) / 2
+            # self.raw_data["Volume"] = self.raw_data["Volume"] + 0.000001  # Avoid NaNs
+            # self.raw_data["Average_ld"] = np.log(self.raw_data["Average"]) - np.log(
+            #     self.raw_data["Average"]
+            # ).shift(1)
+            # self.raw_data["Volume_ld"] = np.log(self.raw_data["Volume"]) - np.log(
+            #     self.raw_data["Volume"]
+            # ).shift(1)
+            # self.raw_data = self.raw_data[1:]
+            columns = self.raw_data.columns[0]
+            columns = [x.strip() for x in columns.split('\t')]
+            print("columns", columns)
+            for col in columns:
+                if col == "":
+                    continue
+                self.raw_data[col] = np.log(self.raw_data[col]) - np.log(
+                    self.raw_data[col]
+                ).shift(1)
 
+            print(self.raw_data.head())
             # Convert data to tensor of shape(rows, features).
             # pylint: disable=not-callable
-            self.tensor_data = torch.tensor(self.raw_data.iloc[:, [7, 8]].values)
 
+        self.tensor_data = np.array(self.raw_data.iloc[:, :].values)
         self.features = self.create_features(self.tensor_data)
         print("len of features:", len(self.features))
 
