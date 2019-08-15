@@ -26,31 +26,20 @@ class GPSTDataset(Dataset):
         self.raw_data = pd.read_csv(corpus_path, sep='\t')
 
         if not no_price_preprocess:
-            # Add and adjust columns.
-            # self.raw_data["Average"] = (
-            #     self.raw_data["High"] + self.raw_data["Low"]
-            # ) / 2
-            # self.raw_data["Volume"] = self.raw_data["Volume"] + 0.000001  # Avoid NaNs
-            # self.raw_data["Average_ld"] = np.log(self.raw_data["Average"]) - np.log(
-            #     self.raw_data["Average"]
-            # ).shift(1)
-            # self.raw_data["Volume_ld"] = np.log(self.raw_data["Volume"]) - np.log(
-            #     self.raw_data["Volume"]
-            # ).shift(1)
-            # self.raw_data = self.raw_data[1:]
+            # stationarize each of the columns
             columns = self.raw_data.columns
-            # columns = [x.strip() for x in columns.split('\t')]
             print("columns", columns)
             for col in columns:
                 if col == "":
                     continue
+                # add a small value to avoid dividing by zero
+                self.raw_data[col] = self.raw_data[col] + 0.000001
                 self.raw_data[col] = np.log(self.raw_data[col]) - np.log(
                     self.raw_data[col]
                 ).shift(1)
 
-            print(self.raw_data.head())
-            # Convert data to tensor of shape(rows, features).
-            # pylint: disable=not-callable
+            # remove the first row values as they will be NaN
+            self.raw_data = self.raw_data[1:]
 
         self.tensor_data = np.array(self.raw_data.iloc[:, :].values)
         self.features = self.create_features(self.tensor_data)
