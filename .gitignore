@@ -9,4 +9,4 @@ spred/sentiment/data/*
 spred/gpst/data/*
 *.zip
 spred/exchange/concatenated_price_data/*
-
+spred/gpst/checkpoints/*
