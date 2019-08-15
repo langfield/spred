@@ -124,7 +124,12 @@ def main():
         default=False,
         help="Whether data is example/sample data or real price data.",
     )
-    parser.add_argument('--no_price_preprocess', dest='no_price_preprocess', action='store_true', help="Whether to treat input ``.csv`` as real price data or just sample data.")
+    parser.add_argument(
+        "--no_price_preprocess",
+        dest="no_price_preprocess",
+        action="store_true",
+        help="Whether to treat input ``.csv`` as real price data or just sample data.",
+    )
     parser.set_defaults(no_price_preprocess=False)
     args = parser.parse_args()
     print(args)
@@ -158,7 +163,10 @@ def main():
     max_length = model.config.n_positions
 
     train_data = GPSTDataset(
-        args.train_dataset, max_length, no_price_preprocess=args.no_price_preprocess
+        args.train_dataset,
+        max_length,
+        no_price_preprocess=args.no_price_preprocess,
+        train_batch_size=args.train_batch_size,
     )
     print("Length of training dataset:", len(train_data))
     train_sampler = RandomSampler(train_data)
@@ -218,7 +226,10 @@ def main():
                 # ===HACK===
                 # Compensates for lack of batch size data truncation in
                 # ``SAMPLE`` branch of ``GPSTDatatset`` class.
-                if input_ids.shape[0] < args.train_batch_size:
+                if (
+                    args.no_price_preprocess
+                    and input_ids.shape[0] < args.train_batch_size
+                ):
                     continue
                 # ===HACK===
                 assert input_ids.shape == (args.train_batch_size, max_length)
@@ -256,6 +267,7 @@ def main():
                     input_ids, position_ids, None, lm_labels, inputs_raw, targets_raw
                 )
                 loss = outputs[0]
+                print("Test.")
                 LOSS = float(loss)
                 loss.backward()
                 scheduler.step()
