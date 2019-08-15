@@ -13,7 +13,7 @@ def constant(time: np.ndarray) -> np.ndarray:
 if __name__ == "__main__":
 
     x_min = 0
-    x_max = 1000
+    x_max = 100
     num_steps = 10000
     dim = 40
 
