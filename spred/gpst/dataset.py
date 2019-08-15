@@ -14,7 +14,7 @@ class GPSTDataset(Dataset):
     """ Dataset class for GPST (training). """
 
     def __init__(
-        self, corpus_path, seq_len, encoding="utf-8", on_memory=True, sample=False
+        self, corpus_path, seq_len, encoding="utf-8", on_memory=True, no_price_preprocess=False
     ):
 
         self.seq_len = seq_len
@@ -23,7 +23,7 @@ class GPSTDataset(Dataset):
         self.corpus_path = corpus_path
         self.encoding = encoding
 
-        if sample:
+        if no_price_preprocess:
             assert corpus_path[-4:] == ".csv"
             self.raw_data = pd.read_csv(corpus_path)
             self.tensor_data = np.array(self.raw_data.iloc[:, :].values)
