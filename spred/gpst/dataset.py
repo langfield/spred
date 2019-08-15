@@ -3,7 +3,6 @@ import copy
 import numpy as np
 import pandas as pd
 
-import torch
 from torch.utils.data import Dataset
 
 DEBUG = True
@@ -13,8 +12,14 @@ class GPSTDataset(Dataset):
     """ Dataset class for GPST (training). """
 
     def __init__(
-        self, corpus_path, seq_len, encoding="utf-8", on_memory=True, no_price_preprocess=False
-    ):
+        self,
+        corpus_path: str,
+        seq_len: int,
+        encoding: str = "utf-8",
+        on_memory: bool = True,
+        no_price_preprocess: bool = False,
+        train_batch_size: int = 1,
+    ) -> None:
 
         self.seq_len = seq_len
 
@@ -23,7 +28,7 @@ class GPSTDataset(Dataset):
         self.encoding = encoding
 
         assert corpus_path[-4:] == ".csv"
-        self.raw_data = pd.read_csv(corpus_path, sep='\t')
+        self.raw_data = pd.read_csv(corpus_path, sep="\t")
 
         if not no_price_preprocess:
             # stationarize each of the columns
@@ -41,7 +46,9 @@ class GPSTDataset(Dataset):
             # remove the first row values as they will be NaN
             self.raw_data = self.raw_data[1:]
 
-        self.tensor_data = np.array(self.raw_data.iloc[:, :].values)
+        num_batches = len(self.raw_data) // (train_batch_size * seq_len)
+        rows_to_keep = train_batch_size * seq_len * num_batches
+        self.tensor_data = np.array(self.raw_data.iloc[:rows_to_keep, :].values)
         self.features = self.create_features(self.tensor_data)
         print("len of features:", len(self.features))
 
@@ -62,6 +69,15 @@ class GPSTDataset(Dataset):
         if DEBUG:
             print("original_data_len", original_data_len)
             print("seq_len", seq_len)
+
+        # Make sure we didn't truncate away all the data when
+        # making sure ``batch_size * seq_len`` evenly divides the number of rows.
+        if original_data_len <= 0:
+            print("========================================")
+            print("Is ``args.train_batch_size`` larger than")
+            print("``<total_data_len> // seq_len ``?")
+            print("========================================")
+            assert original_data_len > 0
 
         num_seqs = original_data_len // seq_len
         input_ids_all = np.arange(0, num_seqs * seq_len)
