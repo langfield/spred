@@ -7,7 +7,6 @@ import torch
 from torch.utils.data import Dataset
 
 DEBUG = True
-SAMPLE = True
 
 
 class GPSTDataset(Dataset):
