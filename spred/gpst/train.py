@@ -71,9 +71,7 @@ def accuracy(out, labels):
     outputs = np.argmax(out, axis=1)
     return np.sum(outputs == labels)
 
-
-def main():
-    parser = argparse.ArgumentParser()
+def train_args(parser):
     parser.add_argument(
         "--model_name", type=str, default="openai-gpt", help="pretrained model name"
     )
@@ -139,8 +137,38 @@ def main():
         required=False,
         help="Model will be saved after every ``--save_freq`` epochs.",
     )
-    args = parser.parse_args()
-    print(args)
+
+    return parser
+
+#TODO: this function is broken--need to pass in necessary parameters
+def test_save():
+    # Only save the model itself.
+    model_to_save = model.module if hasattr(model, "module") else model
+
+    # If we save using the predefined names, we can load using ``from_pretrained``.
+    output_model_file = os.path.join(args.output_dir, WEIGHTS_NAME)
+    output_config_file = os.path.join(args.output_dir, CONFIG_NAME)
+
+    torch.save(model_to_save.state_dict(), output_model_file)
+    model_to_save.config.to_json_file(output_config_file)
+
+    # Load a trained model.
+    if torch.__version__[:5] == "0.3.1":
+        loaded_config = OpenAIGPTConfig.from_json_file(output_config_file)
+        model = OpenAIGPTLMHeadModel(loaded_config)
+        model.load_state_dict(torch.load(output_model_file))
+        model.cuda()
+    else:
+        model = OpenAIGPTLMHeadModel.from_pretrained(args.output_dir)
+        model.to(device)
+
+    print("Loss:", LOSS)
+
+def train(args=None):
+    if args == None:
+        parser = argparse.ArgumentParser()
+        parser = train_args(parser)
+        args = parser.parse_args()
 
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -314,31 +342,8 @@ def main():
                 torch.save(model_to_save.state_dict(), output_model_file)
                 model_to_save.config.to_json_file(output_config_file)
 
-    # Save model and test loading functionality.
-    if args.do_train:
-
-        # Only save the model itself.
-        model_to_save = model.module if hasattr(model, "module") else model
-
-        # If we save using the predefined names, we can load using ``from_pretrained``.
-        output_model_file = os.path.join(args.output_dir, WEIGHTS_NAME)
-        output_config_file = os.path.join(args.output_dir, CONFIG_NAME)
-
-        torch.save(model_to_save.state_dict(), output_model_file)
-        model_to_save.config.to_json_file(output_config_file)
-
-        # Load a trained model.
-        if torch.__version__[:5] == "0.3.1":
-            loaded_config = OpenAIGPTConfig.from_json_file(output_config_file)
-            model = OpenAIGPTLMHeadModel(loaded_config)
-            model.load_state_dict(torch.load(output_model_file))
-            model.cuda()
-        else:
-            model = OpenAIGPTLMHeadModel.from_pretrained(args.output_dir)
-            model.to(device)
-
-        print("Loss:", LOSS)
+    return LOSS
 
 
 if __name__ == "__main__":
-    main()
+    train()
