@@ -167,7 +167,7 @@ def test_save():
 
     print("Loss:", LOSS)
 
-def train(args=None, config_filepath: str) -> float:
+def train(config_filepath: str, args=None) -> float:
     if args == None:
         parser = argparse.ArgumentParser()
         parser = train_args(parser)
@@ -356,4 +356,4 @@ def train(args=None, config_filepath: str) -> float:
 
 
 if __name__ == "__main__":
-    train()
+    train('config.json')
