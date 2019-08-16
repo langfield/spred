@@ -51,11 +51,13 @@ else:
 
 # pylint: disable=wrong-import-position
 from dataset import GPSTDataset
-from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
+# HARDCODE
+from modeling_openai_10 import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 
 DEBUG = False
 LOSS = 0
-
+# HARDCODE
+WEIGHTS_NAME = "10lookahead.bin"
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
     datefmt="%m/%d/%Y %H:%M:%S",

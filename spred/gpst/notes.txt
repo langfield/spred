@@ -22,10 +22,11 @@ Should add functionality to pause and restart training, and to save at any point
 Hyperparameter optimization tools:
 
     Optuna
-    AutoML
-    Flair
+    AutoML NO
+    Flair NO
+    Ray Tune
     Bayesian Optimization with skopt
-    Hyperopt
+    Hyperopt NO
     Microsoft NNI
     DARTS?
 

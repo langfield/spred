@@ -1,10 +1,10 @@
 {
   "initializer_range": 0.02,
   "layer_norm_epsilon": 1e-05,
-  "n_ctx": 60,
+  "n_ctx": 120,
   "n_embd": 5,
   "n_head": 5,
   "n_layer": 8,
-  "n_positions": 60,
+  "n_positions": 120,
   "vocab_size": 1
 }
