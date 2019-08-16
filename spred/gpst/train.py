@@ -90,24 +90,27 @@ def train_args(parser):
         predictions and checkpoints will be written.",
     )
     parser.add_argument("--train_dataset", type=str, default="")
+
+    # Unused args.
     parser.add_argument("--eval_dataset", type=str, default="")
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--num_train_epochs", type=int, default=3)
-    parser.add_argument("--train_batch_size", type=int, default=8)
     parser.add_argument("--eval_batch_size", type=int, default=16)
+    
+    # ?
+    parser.add_argument("--num_train_epochs", type=int, default=3)
+
+    # Optuna args.
+    parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--train_batch_size", type=int, default=8)
     parser.add_argument("--max_grad_norm", type=int, default=1)
     parser.add_argument("--learning_rate", type=float, default=6.25e-5)
     parser.add_argument("--warmup_proportion", type=float, default=0.002)
+    parser.add_argument("--warmup_steps", 
+                        default=0, 
+                        type=int,
+                        help="Linear warmup over warmup_steps.")
     parser.add_argument("--lr_schedule", type=str, default="warmup_linear")
     parser.add_argument("--weight_decay", type=float, default=0.01)
-    parser.add_argument("--lm_coef", type=float, default=0.9)
-    parser.add_argument("--n_valid", type=int, default=374)
-    parser.add_argument(
-        "--server_ip", type=str, default="", help="Can be used for distant debugging."
-    )
-    parser.add_argument(
-        "--server_port", type=str, default="", help="Can be used for distant debugging."
-    )
+    parser.add_argument("--adam_epsilon", type=float, default=1e-8)
 
     # Added.
     parser.add_argument(
@@ -164,7 +167,7 @@ def test_save():
 
     print("Loss:", LOSS)
 
-def train(args=None):
+def train(args=None, config_filepath: str) -> int:
     if args == None:
         parser = argparse.ArgumentParser()
         parser = train_args(parser)
@@ -187,7 +190,8 @@ def train(args=None):
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
-    config = OpenAIGPTConfig.from_pretrained(args.gpst_model)
+    # MOD: from_pretrained(args.gpst_model) -> from_pretrained(config_filepath)
+    config = OpenAIGPTConfig.from_pretrained(config_filepath)
     model = OpenAIGPTLMHeadModel(config)
 
     if torch.__version__[:5] == "0.3.1":
@@ -232,13 +236,13 @@ def train(args=None):
         optimizer = AdamW(
             optimizer_grouped_parameters,
             lr=args.learning_rate,
-            # warmup=args.warmup_proportion,
-            # max_grad_norm=args.max_grad_norm,
             weight_decay=args.weight_decay,
+            eps=args.adam_epsilon,
         )
         scheduler = WarmupLinearSchedule(
             optimizer,
-            warmup_steps=(args.warmup_proportion * num_train_optimization_steps),
+            # warmup_steps=(args.warmup_proportion * num_train_optimization_steps),
+            warmup_steps=args.warmup_steps,
             t_total=num_train_optimization_steps,
         )
 
@@ -306,6 +310,7 @@ def train(args=None):
                 loss = outputs[0]
                 LOSS = float(loss)
                 loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
                 scheduler.step()
                 optimizer.step()
                 optimizer.zero_grad()
