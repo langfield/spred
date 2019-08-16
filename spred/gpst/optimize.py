@@ -10,14 +10,15 @@ import time
 from train import train, train_args
 
 def main():
+    study = optuna.create_study()
+    study.optimize(objective, n_trials=100)
+    loss = objective(trial, args)
+
+def objective(trial: optuna.Trial) -> float:
     parser = argparse.ArgumentParser()
     parser = train_args(parser)
     args = parser.parse_args()
 
-    loss = objective(trial, args)
-
-def objective(trial: optuna.Trial, args: argparse.ArgumentParser) -> int:
-    
     args.seed = trial.suggest_int('seed', 40, 43)
     args.train_batch_size = trial.suggest_discrete_uniform('train_batch_size', 512, 4096, 512)
     args.max_grad_norm = trial.suggest_int('max_grad_norm', 1, 5)
