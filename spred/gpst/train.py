@@ -53,12 +53,10 @@ else:
 # pylint: disable=wrong-import-position
 from dataset import GPSTDataset
 # HARDCODE
-from modeling_openai_10 import OpenAIGPTLMHeadModel, OpenAIGPTConfig
+from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 
 DEBUG = False
 LOSS = 0
-# HARDCODE
-WEIGHTS_NAME = "10lookahead.bin"
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
     datefmt="%m/%d/%Y %H:%M:%S",
@@ -169,7 +167,7 @@ def test_save():
 
     print("Loss:", LOSS)
 
-def train(args=None, config_filepath: str) -> int:
+def train(args=None, config_filepath: str) -> float:
     if args == None:
         parser = argparse.ArgumentParser()
         parser = train_args(parser)
