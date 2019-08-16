@@ -5,7 +5,6 @@
   "finetuning_task": null,
   "initializer_range": 0.02,
   "layer_norm_epsilon": 1e-05,
-  "mckade": 1,
   "n_ctx": 60,
   "n_embd": 5,
   "n_head": 5,
