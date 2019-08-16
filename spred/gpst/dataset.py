@@ -31,15 +31,15 @@ class GPSTDataset(Dataset):
         self.raw_data = pd.read_csv(corpus_path, sep="\t")
 
         if not no_price_preprocess:
-            # stationarize each of the columns
             columns = self.raw_data.columns
+            
+            # stationarize each of the columns
             print("columns", columns)
             for col in columns:
                 if col == "":
                     continue
                 # add a small value to avoid dividing by zero
-                self.raw_data[col] = self.raw_data[col] + 0.000001
-                self.raw_data[col] = np.log(self.raw_data[col]) - np.log(
+                self.raw_data[col] = np.cbrt(self.raw_data[col]) - np.cbrt(
                     self.raw_data[col]
                 ).shift(1)
 
