@@ -52,6 +52,7 @@ else:
 
 # pylint: disable=wrong-import-position
 from dataset import GPSTDataset
+
 # HARDCODE
 from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 
@@ -69,6 +70,7 @@ logger = logging.getLogger(__name__)
 def accuracy(out, labels):
     outputs = np.argmax(out, axis=1)
     return np.sum(outputs == labels)
+
 
 def train_args(parser):
     parser.add_argument(
@@ -93,7 +95,7 @@ def train_args(parser):
     # Unused args.
     parser.add_argument("--eval_dataset", type=str, default="")
     parser.add_argument("--eval_batch_size", type=int, default=16)
-    
+
     # ?
     parser.add_argument("--num_train_epochs", type=int, default=3)
 
@@ -103,10 +105,9 @@ def train_args(parser):
     parser.add_argument("--max_grad_norm", type=int, default=1)
     parser.add_argument("--learning_rate", type=float, default=6.25e-5)
     parser.add_argument("--warmup_proportion", type=float, default=0.002)
-    parser.add_argument("--warmup_steps", 
-                        default=0, 
-                        type=int,
-                        help="Linear warmup over warmup_steps.")
+    parser.add_argument(
+        "--warmup_steps", default=0, type=int, help="Linear warmup over warmup_steps."
+    )
     parser.add_argument("--lr_schedule", type=str, default="warmup_linear")
     parser.add_argument("--weight_decay", type=float, default=0.01)
     parser.add_argument("--adam_epsilon", type=float, default=1e-8)
@@ -143,7 +144,8 @@ def train_args(parser):
 
     return parser
 
-#TODO: this function is broken--need to pass in necessary parameters
+
+# TODO: this function is broken--need to pass in necessary parameters
 def test_save():
     # Only save the model itself.
     model_to_save = model.module if hasattr(model, "module") else model
@@ -166,6 +168,7 @@ def test_save():
         model.to(device)
 
     print("Loss:", LOSS)
+
 
 def train(config_filepath: str, args=None) -> float:
     if args == None:
@@ -215,7 +218,7 @@ def train(config_filepath: str, args=None) -> float:
     )
 
     # Prepare optimizer
-    if args.do_train:        
+    if args.do_train:
         param_optimizer = list(model.named_parameters())
         no_decay = ["bias", "LayerNorm.bias", "LayerNorm.weight"]
         optimizer_grouped_parameters = [
@@ -312,7 +315,8 @@ def train(config_filepath: str, args=None) -> float:
                 loss = outputs[0]
                 LOSS = float(loss)
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+                if torch.__version__[:5] != "0.3.1":
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
                 scheduler.step()
                 optimizer.step()
                 optimizer.zero_grad()
@@ -356,4 +360,4 @@ def train(config_filepath: str, args=None) -> float:
 
 
 if __name__ == "__main__":
-    train('config.json')
+    train("config.json")
