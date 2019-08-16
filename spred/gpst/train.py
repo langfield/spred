@@ -356,4 +356,5 @@ def train(args=None, config_filepath: str) -> float:
 
 
 if __name__ == "__main__":
-    train()
+    print("test.")
+    # train()
