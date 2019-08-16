@@ -32,6 +32,7 @@ import os
 import random
 import logging
 import argparse
+import time
 
 import numpy as np
 
@@ -102,6 +103,7 @@ def train_args(parser):
     parser.add_argument("--weight_decay", type=float, default=0.01)
     parser.add_argument("--lm_coef", type=float, default=0.9)
     parser.add_argument("--n_valid", type=int, default=374)
+    parser.add_argument("--timeout", type=float, default=0)
     parser.add_argument(
         "--server_ip", type=str, default="", help="Can be used for distant debugging."
     )
@@ -211,7 +213,7 @@ def train(args=None):
     )
 
     # Prepare optimizer
-    if args.do_train:
+    if args.do_train:        
         param_optimizer = list(model.named_parameters())
         no_decay = ["bias", "LayerNorm.bias", "LayerNorm.weight"]
         optimizer_grouped_parameters = [
@@ -243,6 +245,8 @@ def train(args=None):
         )
 
     if args.do_train:
+        start = time.time()
+
         nb_tr_steps, tr_loss, exp_average_loss = 0, 0, None
         model.train()
         elapsed_epochs = 0
@@ -341,6 +345,9 @@ def train(args=None):
 
                 torch.save(model_to_save.state_dict(), output_model_file)
                 model_to_save.config.to_json_file(output_config_file)
+
+            if args.timeout > 0 and time.time() - start >= args.timeout:
+                break
 
     return LOSS
 
