@@ -284,7 +284,12 @@ def train(config_filepath: str, args=None) -> float:
                 assert inputs_raw.shape == (
                     args.train_batch_size,
                     max_length,
-                    inputs_raw.shape[2],
+                    model.config.vocab_size,
+                )
+                assert targets_raw.shape == (
+                    args.train_batch_size,
+                    max_length,
+                    model.config.vocab_size,
                 )
 
                 # torch_0.3.1 casting.
