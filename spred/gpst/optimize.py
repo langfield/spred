@@ -19,6 +19,7 @@ def objective(trial: optuna.Trial) -> float:
     parser = train_args(parser)
     args = parser.parse_args()
 
+    # Must cast args which are supposed to be ints to ints.
     args.seed = trial.suggest_int("seed", 40, 43)
     args.train_batch_size = int(trial.suggest_discrete_uniform(
         "train_batch_size", 512, 1024, 256
