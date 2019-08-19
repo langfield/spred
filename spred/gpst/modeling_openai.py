@@ -689,7 +689,7 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
     def __init__(self, config):
         super(OpenAIGPTLMHeadModel, self).__init__(config)
         self.transformer = OpenAIGPTModel(config)
-        self.target = nn.Linear(config.n_vocab_size, 1, bias=True)
+        self.target = nn.Linear(config.vocab_size, 1, bias=True)
 
         self.apply(self.init_weights)
 
