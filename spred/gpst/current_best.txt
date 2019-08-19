@@ -1,0 +1,2 @@
+Current best value is 0.989925742149353 with parameters: {'seed': 42, 'train_batch_size': 512.0, 'max_grad_norm': 1, 'learning_rate': 0.04974253508762439, 'warmup_steps': 10000.0, 'weight_decay': 0.0039976567141832, 'adam_epsilon': 1.5650621630559375e-08, 'initializer_range': 0.02672930131822099, 'layer_norm_epsilon': 1.1356774802077312e-11, 'n_ctx': 30.0, 'resid_pdrop': 0.14995835188216253, 'attn_pdrop': 0.1042379955768498}.
+
