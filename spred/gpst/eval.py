@@ -178,8 +178,6 @@ def main() -> None:
         pred = np.array(predictions[0, -1].data)
         # Average over ``DIM`` (last) dimension.
         print("``pred`` shape:", pred.shape)
-        pred = pred[...,0]
-        print("``pred`` shape:", pred.shape)
         output_list.append(pred)
         out_array = np.stack(output_list)
         print("``out_array`` shape:", out_array.shape)
@@ -193,10 +191,9 @@ def main() -> None:
             inputs_raw = inputs_raw.data
         inputs_raw_array = np.array(inputs_raw[0, -1, :])
         print("``inputs_raw_array`` shape:", inputs_raw_array.shape)
-        inputs_raw_array = inputs_raw_array[...,0]
-        print("``inputs_raw_array`` shape:", inputs_raw_array.shape)
+        input_actual = inputs_raw_array[...,0]
         all_outputs.append(pred)
-        all_inputs.append(inputs_raw_array)
+        all_inputs.append(input_actual)
 
 
     def matplot(graphs_path, data_filename, dfs, ylabels, column_counts):
