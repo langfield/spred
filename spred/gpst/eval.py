@@ -189,11 +189,9 @@ def main() -> None:
         plot_to_terminal(out_array)
         
         # Grab inputs and outputs for matplotlib plot.
-        print("inputs_raw shape:", inputs_raw.shape)
         if torch.__version__[:5] == "0.3.1":
             inputs_raw = inputs_raw.data
         inputs_raw_array = np.array(inputs_raw[0, -1, :])
-        print("``inputs_raw_array`` shape:", inputs_raw_array.shape)
         input_actual = inputs_raw_array[...,0]
         all_outputs.append(pred)
         all_inputs.append(input_actual)
