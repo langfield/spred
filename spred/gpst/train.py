@@ -296,6 +296,7 @@ def train(config_filepath: str, args=None) -> float:
                 if torch.__version__[:5] == "0.3.1":
                     position_ids = Variable(position_ids).contiguous()
                     targets_raw = Variable(targets_raw.contiguous())
+                    inputs_raw = Variable(inputs_raw.contiguous())
 
                 # Get only first column.
                 targets_raw = targets_raw[:, :, 0]
