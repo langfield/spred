@@ -175,15 +175,18 @@ def main() -> None:
         # outputs from the forward call.
         if len(output_list) >= GRAPH_WIDTH:
             output_list = output_list[1:]
-        pred = np.array(predictions[0, -1].data)
-        # Average over ``DIM`` (last) dimension.
-        print("``pred`` shape:", pred.shape)
+        # ``pred`` is the last prediction in the first (and only) batch.
+        # Shape: <scalar>.
+        pred = np.array(predictions[0, -1].data)[0]
+
+        # Create ``out_array`` to print graph as it is populated.
         output_list.append(pred)
+        # Shape is the number of iterations we've made, up until we hit
+        # ``width`` iterations, after which the shape is ``(width,)``. 
         out_array = np.stack(output_list)
-        print("``out_array`` shape:", out_array.shape)
-        # os.system("clear")
+        os.system("clear")
         out_array = np.concatenate([np.array([-1.5]), out_array, np.array([1.5])])
-        # plot_to_terminal(out_array)
+        plot_to_terminal(out_array)
         
         # Grab inputs and outputs for matplotlib plot.
         print("inputs_raw shape:", inputs_raw.shape)
