@@ -244,8 +244,8 @@ def train(config_filepath: str, args=None) -> float:
         )
         scheduler = WarmupLinearSchedule(
             optimizer,
-            # warmup_steps=(args.warmup_proportion * num_train_optimization_steps),
-            warmup_steps=args.warmup_steps,
+            warmup_steps=(args.warmup_proportion * num_train_optimization_steps),
+            # warmup_steps=args.warmup_steps,
             t_total=num_train_optimization_steps,
         )
 

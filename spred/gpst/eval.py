@@ -84,7 +84,7 @@ def main() -> None:
     parser = eval_config(parser)
     args = parser.parse_args()
 
-    DIM = model.config.n_embd
+    DIM = model.config.vocab_size
     MAX_SEQ_LEN = model.config.n_positions
     BATCH_SIZE = args.batch
     DATA_FILENAME = args.input
@@ -140,7 +140,7 @@ def main() -> None:
         if torch.__version__[:5] == "0.3.1":
             input_ids = input_ids.long().cuda()
             position_ids = Variable(position_ids.long().cuda()).contiguous()
-            inputs_raw = inputs_raw.cuda()
+            inputs_raw = Variable(inputs_raw.cuda()).contiguous()
         else:
             input_ids = input_ids.to(device)
             position_ids = position_ids.to(device)
