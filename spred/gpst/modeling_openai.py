@@ -643,7 +643,7 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
             outputs = outputs + (all_attentions,)
 
         # Map dimensionality back to ``vocab_size``.
-        outputs[0] = self.post_decoding(outputs[0])
+        outputs = self.post_decoding(outputs[0]) + outputs[1:]
         return outputs  # last hidden state, (all hidden states), (all attentions)
 
 
