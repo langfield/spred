@@ -53,9 +53,11 @@ else:
 # pylint: disable=wrong-import-position
 from dataset import GPSTDataset
 
-# HARDCODE
 from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 
+# HARDCODE
+WEIGHTS_NAME = "optuna.bin"
+CONFIG_NAME = "optuna.json"
 DEBUG = False
 LOSS = 0
 logging.basicConfig(
