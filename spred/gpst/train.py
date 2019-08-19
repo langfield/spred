@@ -144,7 +144,7 @@ def train_args(parser):
 
     return parser
 
-
+"""
 # TODO: this function is broken--need to pass in necessary parameters
 def test_save():
     # Only save the model itself.
@@ -168,7 +168,7 @@ def test_save():
         model.to(device)
 
     print("Loss:", LOSS)
-
+"""
 
 def train(config_filepath: str, args=None) -> float:
     if args == None:
@@ -293,7 +293,7 @@ def train(config_filepath: str, args=None) -> float:
                     targets_raw = Variable(targets_raw.contiguous())
 
                 # Get only first column.
-                targets_raw = targets_raw[:,:,0]
+                targets_raw = targets_raw[:, :, 0]
 
                 if DEBUG:
                     print("=======================================")
@@ -319,7 +319,9 @@ def train(config_filepath: str, args=None) -> float:
                 LOSS = float(loss)
                 loss.backward()
                 if torch.__version__[:5] != "0.3.1":
-                    torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+                    torch.nn.utils.clip_grad_norm_(
+                        model.parameters(), args.max_grad_norm
+                    )
                 scheduler.step()
                 optimizer.step()
                 optimizer.zero_grad()

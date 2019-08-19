@@ -30,22 +30,40 @@ import torch.nn as nn
 from torch.nn import CrossEntropyLoss
 from torch.nn.parameter import Parameter
 
-#===MOD===
+# ===MOD===
 if torch.__version__[:5] == "0.3.1":
-    from pytorch_transformers_addons.modeling_utils import (Conv1D, CONFIG_NAME, WEIGHTS_NAME, PretrainedConfig,
-                                 PreTrainedModel, prune_conv1d_layer, SequenceSummary,
-                                 add_start_docstrings)
+    from pytorch_transformers_addons.modeling_utils import (
+        Conv1D,
+        CONFIG_NAME,
+        WEIGHTS_NAME,
+        PretrainedConfig,
+        PreTrainedModel,
+        prune_conv1d_layer,
+        SequenceSummary,
+        add_start_docstrings,
+    )
 else:
-    from pytorch_transformers.modeling_utils import (Conv1D, CONFIG_NAME, WEIGHTS_NAME, PretrainedConfig,
-                                 PreTrainedModel, prune_conv1d_layer, SequenceSummary,
-                                 add_start_docstrings)
-#===MOD===
+    from pytorch_transformers.modeling_utils import (
+        Conv1D,
+        CONFIG_NAME,
+        WEIGHTS_NAME,
+        PretrainedConfig,
+        PreTrainedModel,
+        prune_conv1d_layer,
+        SequenceSummary,
+        add_start_docstrings,
+    )
+# ===MOD===
 from pytorch_transformers.modeling_bert import BertLayerNorm as LayerNorm
 
 logger = logging.getLogger(__name__)
 
-OPENAI_GPT_PRETRAINED_MODEL_ARCHIVE_MAP = {"openai-gpt": "https://s3.amazonaws.com/models.huggingface.co/bert/openai-gpt-pytorch_model.bin"}
-OPENAI_GPT_PRETRAINED_CONFIG_ARCHIVE_MAP = {"openai-gpt": "https://s3.amazonaws.com/models.huggingface.co/bert/openai-gpt-config.json"}
+OPENAI_GPT_PRETRAINED_MODEL_ARCHIVE_MAP = {
+    "openai-gpt": "https://s3.amazonaws.com/models.huggingface.co/bert/openai-gpt-pytorch_model.bin"
+}
+OPENAI_GPT_PRETRAINED_CONFIG_ARCHIVE_MAP = {
+    "openai-gpt": "https://s3.amazonaws.com/models.huggingface.co/bert/openai-gpt-config.json"
+}
 
 
 def load_tf_weights_in_openai_gpt(model, config, openai_checkpoint_folder_path):
@@ -54,15 +72,28 @@ def load_tf_weights_in_openai_gpt(model, config, openai_checkpoint_folder_path):
     import re
     import numpy as np
 
-    if '.ckpt' in openai_checkpoint_folder_path:
+    if ".ckpt" in openai_checkpoint_folder_path:
         openai_checkpoint_folder_path = os.path.dirname(openai_checkpoint_folder_path)
 
     logger.info("Loading weights from {}".format(openai_checkpoint_folder_path))
 
-    names = json.load(open(openai_checkpoint_folder_path + '/parameters_names.json', "r", encoding='utf-8'))
-    shapes = json.load(open(openai_checkpoint_folder_path + '/params_shapes.json', "r", encoding='utf-8'))
+    names = json.load(
+        open(
+            openai_checkpoint_folder_path + "/parameters_names.json",
+            "r",
+            encoding="utf-8",
+        )
+    )
+    shapes = json.load(
+        open(
+            openai_checkpoint_folder_path + "/params_shapes.json", "r", encoding="utf-8"
+        )
+    )
     offsets = np.cumsum([np.prod(shape) for shape in shapes])
-    init_params = [np.load(openai_checkpoint_folder_path + '/params_{}.npy'.format(n)) for n in range(10)]
+    init_params = [
+        np.load(openai_checkpoint_folder_path + "/params_{}.npy".format(n))
+        for n in range(10)
+    ]
     init_params = np.split(np.concatenate(init_params, 0), offsets)[:-1]
     init_params = [param.reshape(shape) for param, shape in zip(init_params, shapes)]
 
@@ -86,23 +117,25 @@ def load_tf_weights_in_openai_gpt(model, config, openai_checkpoint_folder_path):
     init_params.pop(0)
     init_params.pop(0)
 
-    for name, array in zip(names, init_params): # names[1:n_transfer], init_params[1:n_transfer]):
+    for name, array in zip(
+        names, init_params
+    ):  # names[1:n_transfer], init_params[1:n_transfer]):
         name = name[6:]  # skip "model/"
         assert name[-2:] == ":0"
         name = name[:-2]
-        name = name.split('/')
+        name = name.split("/")
         pointer = model
         for m_name in name:
-            if re.fullmatch(r'[A-Za-z]+\d+', m_name):
-                l = re.split(r'(\d+)', m_name)
+            if re.fullmatch(r"[A-Za-z]+\d+", m_name):
+                l = re.split(r"(\d+)", m_name)
             else:
                 l = [m_name]
-            if l[0] == 'g':
-                pointer = getattr(pointer, 'weight')
-            elif l[0] == 'b':
-                pointer = getattr(pointer, 'bias')
-            elif l[0] == 'w':
-                pointer = getattr(pointer, 'weight')
+            if l[0] == "g":
+                pointer = getattr(pointer, "weight")
+            elif l[0] == "b":
+                pointer = getattr(pointer, "bias")
+            elif l[0] == "w":
+                pointer = getattr(pointer, "weight")
             else:
                 pointer = getattr(pointer, l[0])
             if len(l) >= 2:
@@ -124,7 +157,11 @@ def load_tf_weights_in_openai_gpt(model, config, openai_checkpoint_folder_path):
 
 
 def gelu(x):
-    return 0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * torch.pow(x, 3))))
+    return (
+        0.5
+        * x
+        * (1 + torch.tanh(math.sqrt(2 / math.pi) * (x + 0.044715 * torch.pow(x, 3))))
+    )
 
 
 def swish(x):
@@ -159,6 +196,7 @@ class OpenAIGPTConfig(PretrainedConfig):
             initializing all weight matrices.
         predict_special_tokens: should we predict special tokens (when the model has a LM head)
     """
+
     pretrained_config_archive_map = OPENAI_GPT_PRETRAINED_CONFIG_ARCHIVE_MAP
 
     def __init__(
@@ -176,9 +214,8 @@ class OpenAIGPTConfig(PretrainedConfig):
         layer_norm_epsilon=1e-5,
         initializer_range=0.02,
         predict_special_tokens=True,
-
         num_labels=1,
-        summary_type='token_ids',
+        summary_type="token_ids",
         summary_use_proj=True,
         summary_activation=None,
         summary_proj_to_labels=True,
@@ -189,8 +226,10 @@ class OpenAIGPTConfig(PretrainedConfig):
         """
         super(OpenAIGPTConfig, self).__init__(**kwargs)
 
-        if isinstance(vocab_size_or_config_json_file, str) or (sys.version_info[0] == 2
-                        and isinstance(vocab_size_or_config_json_file, unicode)):
+        if isinstance(vocab_size_or_config_json_file, str) or (
+            sys.version_info[0] == 2
+            and isinstance(vocab_size_or_config_json_file, unicode)
+        ):
             with open(vocab_size_or_config_json_file, "r", encoding="utf-8") as reader:
                 json_config = json.loads(reader.read())
             for key, value in json_config.items():
@@ -244,8 +283,10 @@ class Attention(nn.Module):
         super(Attention, self).__init__()
         n_state = nx  # in Attention: n_state=768 (nx=n_embd)
         # [switch nx => n_state from Block to Attention to keep identical to TF implem]
-        assert n_state % config.n_head == 0 # ``n_heads`` | ``n_embd``.
-        self.register_buffer("bias", torch.tril(torch.ones(n_ctx, n_ctx)).view(1, 1, n_ctx, n_ctx))
+        assert n_state % config.n_head == 0  # ``n_heads`` | ``n_embd``.
+        self.register_buffer(
+            "bias", torch.tril(torch.ones(n_ctx, n_ctx)).view(1, 1, n_ctx, n_ctx)
+        )
         self.n_head = config.n_head
         self.split_size = n_state
         self.scale = scale
@@ -265,7 +306,9 @@ class Attention(nn.Module):
             mask[head] = 0
         mask = mask.view(-1).contiguous().eq(1)
         index = torch.arange(len(mask))[mask].long()
-        index_attn = torch.cat([index, index + self.split_size, index + (2*self.split_size)])
+        index_attn = torch.cat(
+            [index, index + self.split_size, index + (2 * self.split_size)]
+        )
         # Prune conv1d layers
         self.c_attn = prune_conv1d_layer(self.c_attn, index_attn, dim=1)
         self.c_proj = prune_conv1d_layer(self.c_proj, index, dim=0)
@@ -280,10 +323,10 @@ class Attention(nn.Module):
         # w = w * self.bias + -1e9 * (1 - self.bias)  # TF implem method: mask_attn_weights
         # XD: self.b may be larger than w, so we need to crop it
         b = self.bias[:, :, : w.size(-2), : w.size(-1)]
-        #===MOD===
+        # ===MOD===
         if torch.__version__[:5] == "0.3.1":
             w = torch.cuda.FloatTensor(w.data)
-        #===MOD===
+        # ===MOD===
         w = w * b + -1e9 * (1 - b)
 
         w = nn.Softmax(dim=-1)(torch.autograd.Variable(w))
@@ -370,6 +413,7 @@ class OpenAIGPTPreTrainedModel(PreTrainedModel):
     """ An abstract class to handle weights initialization and
         a simple interface for dowloading and loading pretrained models.
     """
+
     config_class = OpenAIGPTConfig
     pretrained_model_archive_map = OPENAI_GPT_PRETRAINED_MODEL_ARCHIVE_MAP
     load_tf_weights = load_tf_weights_in_openai_gpt
@@ -434,8 +478,12 @@ OPENAI_GPT_INPUTS_DOCSTRING = r"""    Inputs:
             ``1`` indicates the head is **not masked**, ``0`` indicates the head is **masked**.
 """
 
-@add_start_docstrings("The bare OpenAI GPT transformer model outputing raw hidden-states without any specific head on top.",
-                      OPENAI_GPT_START_DOCSTRING, OPENAI_GPT_INPUTS_DOCSTRING)
+
+@add_start_docstrings(
+    "The bare OpenAI GPT transformer model outputing raw hidden-states without any specific head on top.",
+    OPENAI_GPT_START_DOCSTRING,
+    OPENAI_GPT_INPUTS_DOCSTRING,
+)
 class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
     r"""
     Outputs: `Tuple` comprising various elements depending on the configuration (config) and inputs:
@@ -459,6 +507,7 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         >>> last_hidden_states = outputs[0]  # The last hidden-state is the first element of the output tuple
 
     """
+
     def __init__(self, config):
         super(OpenAIGPTModel, self).__init__(config)
         self.output_attentions = config.output_attentions
@@ -467,12 +516,16 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         self.tokens_embed = nn.Embedding(config.vocab_size, config.n_embd)
         self.positions_embed = nn.Embedding(config.n_positions, config.n_embd)
         self.drop = nn.Dropout(config.embd_pdrop)
-        self.h = nn.ModuleList([Block(config.n_ctx, config, scale=True) for _ in range(config.n_layer)])
+        self.h = nn.ModuleList(
+            [Block(config.n_ctx, config, scale=True) for _ in range(config.n_layer)]
+        )
 
         self.apply(self.init_weights)
 
     def _resize_token_embeddings(self, new_num_tokens):
-        self.tokens_embed = self._get_resized_embeddings(self.tokens_embed, new_num_tokens)
+        self.tokens_embed = self._get_resized_embeddings(
+            self.tokens_embed, new_num_tokens
+        )
         return self.tokens_embed
 
     def _prune_heads(self, heads_to_prune):
@@ -489,13 +542,24 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
                                                inputs_raw=inputs_raw,
                                                head_mask=head_mask)
         """
-    def forward(self, input_ids, position_ids=None, token_type_ids=None, labels=None, inputs_raw=None, head_mask=None):
+
+    def forward(
+        self,
+        input_ids,
+        position_ids=None,
+        token_type_ids=None,
+        labels=None,
+        inputs_raw=None,
+        head_mask=None,
+    ):
         if position_ids is None:
             # This was used when we had a single embedding matrice from position and token embeddings
             # start = self.config.vocab_size + self.config.n_special
             # end = start + input_ids.size(-1)
             # position_ids = torch.arange(start, end, dtype=torch.long, device=input_ids.device)
-            position_ids = torch.arange(input_ids.size(-1), dtype=torch.long, device=input_ids.device)
+            position_ids = torch.arange(
+                input_ids.size(-1), dtype=torch.long, device=input_ids.device
+            )
             position_ids = position_ids.unsqueeze(0).expand_as(input_ids)
 
         # Prepare head mask if needed
@@ -504,11 +568,17 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         # head_mask has shape n_layer x batch x n_heads x N x N
         if head_mask is not None:
             if head_mask.dim() == 1:
-                head_mask = head_mask.unsqueeze(0).unsqueeze(0).unsqueeze(-1).unsqueeze(-1)
+                head_mask = (
+                    head_mask.unsqueeze(0).unsqueeze(0).unsqueeze(-1).unsqueeze(-1)
+                )
                 head_mask = head_mask.expand(self.config.n_layer, -1, -1, -1, -1)
             elif head_mask.dim() == 2:
-                head_mask = head_mask.unsqueeze(1).unsqueeze(-1).unsqueeze(-1)  # We can specify head_mask for each layer
-            head_mask = head_mask.to(dtype=next(self.parameters()).dtype) # switch to fload if need + fp16 compatibility
+                head_mask = (
+                    head_mask.unsqueeze(1).unsqueeze(-1).unsqueeze(-1)
+                )  # We can specify head_mask for each layer
+            head_mask = head_mask.to(
+                dtype=next(self.parameters()).dtype
+            )  # switch to fload if need + fp16 compatibility
         else:
             head_mask = [None] * self.config.n_layer
 
@@ -523,10 +593,10 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
             token_type_embeds = self.tokens_embed(token_type_ids)
         else:
             token_type_embeds = 0
-        #===MOD===
+        # ===MOD===
         if torch.__version__[:5] == "0.3.1":
             position_embeds = torch.cuda.FloatTensor(position_embeds.data)
-        #===MOD===
+        # ===MOD===
         hidden_states = inputs_embeds + position_embeds + token_type_embeds
         hidden_states = self.drop(hidden_states)
 
@@ -536,7 +606,9 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         all_hidden_states = ()
         for i, block in enumerate(self.h):
             if self.output_hidden_states:
-                all_hidden_states = all_hidden_states + (hidden_states.view(*output_shape),)
+                all_hidden_states = all_hidden_states + (
+                    hidden_states.view(*output_shape),
+                )
 
             outputs = block(hidden_states, head_mask[i])
             hidden_states = outputs[0]
@@ -555,8 +627,12 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         return outputs  # last hidden state, (all hidden states), (all attentions)
 
 
-@add_start_docstrings("""OpenAI GPT Model transformer with a language modeling head on top
-(linear layer with weights tied to the input embeddings). """, OPENAI_GPT_START_DOCSTRING, OPENAI_GPT_INPUTS_DOCSTRING)
+@add_start_docstrings(
+    """OpenAI GPT Model transformer with a language modeling head on top
+(linear layer with weights tied to the input embeddings). """,
+    OPENAI_GPT_START_DOCSTRING,
+    OPENAI_GPT_INPUTS_DOCSTRING,
+)
 class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
     r"""
         **labels**: (`optional`) ``torch.LongTensor`` of shape ``(batch_size, sequence_length)``:
@@ -589,6 +665,7 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         >>> loss, logits = outputs[:2]
 
     """
+
     def __init__(self, config):
         super(OpenAIGPTLMHeadModel, self).__init__(config)
         self.transformer = OpenAIGPTModel(config)
@@ -602,16 +679,26 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         """ Make sure we are sharing the input and output embeddings.
             Export to TorchScript can't handle parameter sharing so we are cloning them instead.
         """
-        self._tie_or_clone_weights(self.lm_head,
-                                   self.transformer.tokens_embed)
+        self._tie_or_clone_weights(self.lm_head, self.transformer.tokens_embed)
 
-    def forward(self, input_ids, position_ids=None, token_type_ids=None, labels=None, inputs_raw=None, targets_raw=None, head_mask=None):
-        transformer_outputs = self.transformer(input_ids, 
-                                               position_ids=position_ids, 
-                                               token_type_ids=token_type_ids, 
-                                               labels=labels, 
-                                               inputs_raw=inputs_raw,
-                                               head_mask=head_mask)
+    def forward(
+        self,
+        input_ids,
+        position_ids=None,
+        token_type_ids=None,
+        labels=None,
+        inputs_raw=None,
+        targets_raw=None,
+        head_mask=None,
+    ):
+        transformer_outputs = self.transformer(
+            input_ids,
+            position_ids=position_ids,
+            token_type_ids=token_type_ids,
+            labels=labels,
+            inputs_raw=inputs_raw,
+            head_mask=head_mask,
+        )
         hidden_states = transformer_outputs[0]
         assert hidden_states.shape == inputs_raw.shape
         lm_logits = self.target(hidden_states)
@@ -621,11 +708,11 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
             # Shift so that tokens < n predict n
             print("lm_logits shape:", lm_logits.shape)
             print("targets_raw shape:", targets_raw.shape)
-            print("lm_logits[:, :-1, :] shape:", lm_logits[:,:-1].shape)
+            print("lm_logits[:, :-1, :] shape:", lm_logits[:, :-1].shape)
             print("targets_raw[:, 1:] shape:", targets_raw[:, 1:].shape)
             shift_logits = lm_logits[:, :-1].contiguous()
             shift_labels = targets_raw[:, 1:].contiguous()
-            
+
             # Flatten the tokens
             loss = self.regression_loss(shift_logits, shift_labels)
             # loss_fct = CrossEntropyLoss(ignore_index=-1)
@@ -640,8 +727,7 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         diff = logits - labels
         loss = torch.mul(diff, diff)
 
-        # Make a scalar. 
+        # Make a scalar.
         loss = torch.mean(loss)
-        
-        return loss
 
+        return loss
