@@ -701,7 +701,7 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         )
         hidden_states = transformer_outputs[0]
         assert hidden_states.shape == inputs_raw.shape
-        lm_logits = self.target(hidden_states)
+        lm_logits = self.target(hidden_states)[:,:,0]
 
         outputs = (lm_logits,) + transformer_outputs[1:]
         if targets_raw is not None:
