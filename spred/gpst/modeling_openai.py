@@ -527,7 +527,7 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         self.post_decoding = nn.Linear(config.n_embd, config.vocab_size, bias=True)
 
         self.apply(self.init_weights)
-        self.tie_weights()
+        # self.tie_weights()
 
     def _resize_token_embeddings(self, new_num_tokens):
         self.tokens_embed = self._get_resized_embeddings(
@@ -576,7 +576,6 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
 
         # Expand to hidden dimension (``vocab_size`` -> ``n_embd``).
         print("``inputs_raw`` shape:", inputs_raw.shape)
-        inputs_raw = inputs_raw[0]
         inputs_raw = self.pre_encoding(inputs_raw)
 
         # Prepare head mask if needed
@@ -613,6 +612,7 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         # ===MOD===
         if torch.__version__[:5] == "0.3.1":
             position_embeds = torch.cuda.FloatTensor(position_embeds.data)
+            inputs_embeds = torch.cuda.FloatTensor(inputs_embeds.data)
         # ===MOD===
         hidden_states = inputs_embeds + position_embeds + token_type_embeds
         hidden_states = self.drop(hidden_states)
@@ -643,7 +643,7 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
             outputs = outputs + (all_attentions,)
 
         # Map dimensionality back to ``vocab_size``.
-        outputs = self.post_decoding(outputs)
+        outputs[0] = self.post_decoding(outputs[0])
         return outputs  # last hidden state, (all hidden states), (all attentions)
 
 
