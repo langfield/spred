@@ -520,7 +520,12 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
             [Block(config.n_ctx, config, scale=True) for _ in range(config.n_layer)]
         )
 
+        # Pre-encoding layer performs a dense encoding from ``vocab_size`` -> ``n_embd``.
+        self.pre_encoding = nn.Linear(config.vocab_size, config.n_embd, bias=True)
+        self.post_decoding = nn.Linear(config.n_embd, config.vocab_size, bias=True)
+
         self.apply(self.init_weights)
+        self.tie_weights()
 
     def _resize_token_embeddings(self, new_num_tokens):
         self.tokens_embed = self._get_resized_embeddings(
@@ -542,6 +547,11 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
                                                inputs_raw=inputs_raw,
                                                head_mask=head_mask)
         """
+    def tie_weights(self):
+        """ Make sure we are sharing the input and output embeddings.
+            Export to TorchScript can't handle parameter sharing so we are cloning them instead.
+        """
+        self._tie_or_clone_weights(self.pre_encoding, self.post_decoding)
 
     def forward(
         self,
@@ -561,6 +571,9 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
                 input_ids.size(-1), dtype=torch.long, device=input_ids.device
             )
             position_ids = position_ids.unsqueeze(0).expand_as(input_ids)
+
+        # Expand to hidden dimension (``vocab_size`` -> ``n_embd``).
+        inputs_raw = self.pre_encoding(inputs_raw)
 
         # Prepare head mask if needed
         # 1.0 in head_mask indicate we keep the head
@@ -624,6 +637,9 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
             outputs = outputs + (all_hidden_states,)
         if self.output_attentions:
             outputs = outputs + (all_attentions,)
+
+        # Map dimensionality back to ``vocab_size``.
+        outputs = self.post_decoding(outputs)
         return outputs  # last hidden state, (all hidden states), (all attentions)
 
 
@@ -669,17 +685,9 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
     def __init__(self, config):
         super(OpenAIGPTLMHeadModel, self).__init__(config)
         self.transformer = OpenAIGPTModel(config)
-        self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
         self.target = nn.Linear(config.n_embd, 1, bias=True)
 
         self.apply(self.init_weights)
-        self.tie_weights()
-
-    def tie_weights(self):
-        """ Make sure we are sharing the input and output embeddings.
-            Export to TorchScript can't handle parameter sharing so we are cloning them instead.
-        """
-        self._tie_or_clone_weights(self.lm_head, self.transformer.tokens_embed)
 
     def forward(
         self,

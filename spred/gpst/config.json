@@ -7,6 +7,6 @@
   "n_layer": 8,
   "n_positions": 30,
   "vocab_size": 1,
-  "resid_pdrop": 0.136574,
-  "attn_pdrop": 0.12975
+  "resid_pdrop": 0.02,
+  "attn_pdrop": 0.02
 }
