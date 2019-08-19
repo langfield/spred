@@ -184,9 +184,9 @@ def main() -> None:
         # Shape is the number of iterations we've made, up until we hit
         # ``width`` iterations, after which the shape is ``(width,)``. 
         out_array = np.stack(output_list)
-        os.system("clear")
         out_array = np.concatenate([np.array([-1.5]), out_array, np.array([1.5])])
-        plot_to_terminal(out_array)
+        # os.system("clear")
+        # plot_to_terminal(out_array)
         
         # Grab inputs and outputs for matplotlib plot.
         if torch.__version__[:5] == "0.3.1":
