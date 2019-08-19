@@ -84,7 +84,7 @@ def main() -> None:
     parser = eval_config(parser)
     args = parser.parse_args()
 
-    DIM = model.config.n_embd
+    DIM = model.config.vocab_size
     MAX_SEQ_LEN = model.config.n_positions
     BATCH_SIZE = args.batch
     DATA_FILENAME = args.input
