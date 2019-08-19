@@ -23,6 +23,9 @@ def eval_config(parser):
     parser.add_argument("--input", type=str, default="../exchange/concatenated_price_data/ETHUSDT_drop.csv")
     parser.add_argument("--output_dir", type=str, default="graphs/")
     parser.add_argument("--terminal_plot_width", type=int, default=50)
+    parser.add_argument(
+        "--stationarize", action="store_true", help="Whether to stationarize the raw data"
+    )
 
     return parser
 
@@ -98,6 +101,16 @@ def main() -> None:
     
     # Grab training data.
     raw_data = pd.read_csv(DATA_FILENAME, sep="\t")
+    if args.stationarize:
+        columns = raw_data.columns
+        # stationarize each of the columns
+        for col in columns:
+            raw_data[col] = np.cbrt(raw_data[col]) - np.cbrt(
+                raw_data[col]
+            ).shift(1)
+        print(raw_data.head())
+        raw_data = raw_data[1:]
+
     assert len(raw_data) >= MAX_SEQ_LEN
     output_list = []
     all_inputs = []
