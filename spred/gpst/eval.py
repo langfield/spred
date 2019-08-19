@@ -168,13 +168,16 @@ def main() -> None:
         # Type: torch.autograd.Variable
         predictions = outputs[0]
         
-        # how many time steps fit in terminal window
+        # How many time steps fit in terminal window.
         GRAPH_WIDTH = args.terminal_plot_width
+
+        # ``output_list`` is a running list of the ``GRAPH_WIDTH`` most recent
+        # outputs from the forward call.
         if len(output_list) >= GRAPH_WIDTH:
             output_list = output_list[1:]
         pred = np.array(predictions[0, -1].data)
         # Average over ``DIM`` (last) dimension.
-        pred = np.sum(pred, -1) / DIM
+        pred = pred[...,0]
         output_list.append(pred)
         out_array = np.stack(output_list)
         os.system("clear")
@@ -183,7 +186,7 @@ def main() -> None:
         
         # Grab inputs and outputs for matplotlib plot.   
         inputs_raw_array = np.array(inputs_raw[0, -1, :])
-        inputs_raw_array = np.sum(inputs_raw_array, -1) / DIM
+        inputs_raw_array = inputs_raw_array[...,0]
         all_outputs.append(pred)
         all_inputs.append(inputs_raw_array)
 
