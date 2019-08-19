@@ -292,6 +292,9 @@ def train(config_filepath: str, args=None) -> float:
                     position_ids = Variable(position_ids).contiguous()
                     targets_raw = Variable(targets_raw.contiguous())
 
+                # Get only first column.
+                targets_raw = targets_raw[:,:,0]
+
                 if DEBUG:
                     print("=======================================")
                     print("Type of input_ids:", type(input_ids))

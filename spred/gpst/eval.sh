@@ -1,1 +1,0 @@
-python3 eval.py --batch 1 --width 240 --input "sets/steps-10000_range-1000.csv" --output_dir "graphs/" --terminal_plot_width 50
