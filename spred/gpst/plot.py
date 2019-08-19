@@ -4,6 +4,7 @@ import math
 import argparse
 
 import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.style as style
 import matplotlib.font_manager as fm

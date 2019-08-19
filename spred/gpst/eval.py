@@ -177,16 +177,24 @@ def main() -> None:
             output_list = output_list[1:]
         pred = np.array(predictions[0, -1].data)
         # Average over ``DIM`` (last) dimension.
+        print("``pred`` shape:", pred.shape)
         pred = pred[...,0]
+        print("``pred`` shape:", pred.shape)
         output_list.append(pred)
         out_array = np.stack(output_list)
-        os.system("clear")
+        print("``out_array`` shape:", out_array.shape)
+        # os.system("clear")
         out_array = np.concatenate([np.array([-1.5]), out_array, np.array([1.5])])
-        plot_to_terminal(out_array)
+        # plot_to_terminal(out_array)
         
-        # Grab inputs and outputs for matplotlib plot.   
+        # Grab inputs and outputs for matplotlib plot.
+        print("inputs_raw shape:", inputs_raw.shape)
+        if torch.__version__[:5] == "0.3.1":
+            inputs_raw = inputs_raw.data
         inputs_raw_array = np.array(inputs_raw[0, -1, :])
+        print("``inputs_raw_array`` shape:", inputs_raw_array.shape)
         inputs_raw_array = inputs_raw_array[...,0]
+        print("``inputs_raw_array`` shape:", inputs_raw_array.shape)
         all_outputs.append(pred)
         all_inputs.append(inputs_raw_array)
 
@@ -204,6 +212,8 @@ def main() -> None:
     # Stack and cast to ``pd.DataFrame``.
     all_in = np.stack(all_inputs)
     all_out = np.stack(all_outputs)
+    print("``all_in`` shape:", all_in.shape)
+    print("``all_out`` shape:", all_out.shape)
     all_in = np.reshape(all_in, (all_in.shape[0], 1))
     all_out = np.reshape(all_out, (all_out.shape[0], 1))
     print("shape of all in:", all_in.shape) 
