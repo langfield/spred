@@ -521,6 +521,8 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         )
 
         # Pre-encoding layer performs a dense encoding from ``vocab_size`` -> ``n_embd``.
+        print("\n")
+        print("Vocab size:", config.vocab_size)
         self.pre_encoding = nn.Linear(config.vocab_size, config.n_embd, bias=True)
         self.post_decoding = nn.Linear(config.n_embd, config.vocab_size, bias=True)
 
@@ -574,6 +576,7 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
 
         # Expand to hidden dimension (``vocab_size`` -> ``n_embd``).
         print("``inputs_raw`` shape:", inputs_raw.shape)
+        inputs_raw = inputs_raw[0]
         inputs_raw = self.pre_encoding(inputs_raw)
 
         # Prepare head mask if needed
