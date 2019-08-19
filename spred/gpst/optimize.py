@@ -21,7 +21,7 @@ def objective(trial: optuna.Trial) -> float:
 
     args.seed = trial.suggest_int("seed", 40, 43)
     args.train_batch_size = int(trial.suggest_discrete_uniform(
-        "train_batch_size", 512, 4096, 512
+        "train_batch_size", 512, 1024, 256
     ))
     args.max_grad_norm = trial.suggest_int("max_grad_norm", 1, 5)
     args.learning_rate = trial.suggest_loguniform("learning_rate", 2.5e-4, 5e-2)
