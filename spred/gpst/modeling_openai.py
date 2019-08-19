@@ -593,6 +593,7 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         super(OpenAIGPTLMHeadModel, self).__init__(config)
         self.transformer = OpenAIGPTModel(config)
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
+        self.target = nn.Linear(config.n_embd, 1, bias=True)
 
         self.apply(self.init_weights)
         self.tie_weights()
@@ -613,19 +614,17 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
                                                head_mask=head_mask)
         hidden_states = transformer_outputs[0]
         assert hidden_states.shape == inputs_raw.shape
-        lm_logits = hidden_states
+        lm_logits = self.target(hidden_states)
 
         outputs = (lm_logits,) + transformer_outputs[1:]
         if targets_raw is not None:
             # Shift so that tokens < n predict n
-            """
             print("lm_logits shape:", lm_logits.shape)
             print("targets_raw shape:", targets_raw.shape)
-            print("lm_logits[:, :-1, :] shape:", lm_logits[:,:-1,:].shape)
+            print("lm_logits[:, :-1, :] shape:", lm_logits[:,:-1].shape)
             print("targets_raw[:, 1:] shape:", targets_raw[:, 1:].shape)
-            """
-            shift_logits = lm_logits[..., :-1, :].contiguous()
-            shift_labels = targets_raw[..., 1:, :].contiguous()
+            shift_logits = lm_logits[:, :-1].contiguous()
+            shift_labels = targets_raw[:, 1:].contiguous()
             
             # Flatten the tokens
             loss = self.regression_loss(shift_logits, shift_labels)
@@ -637,13 +636,6 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         return outputs  # (loss), lm_logits, (all hidden states), (all attentions)
 
     def regression_loss(self, hidden, labels):
-        """
-        logit_shape = list(hidden.shape)
-        logit_shape[-1] = 1
-        logit_layer = nn.Linear(hidden.shape[-1], tuple(logit_shape))
-        logits = logit_layer(hidden)
-        logits = torch.squeeze(logits, dim=-1)
-        """
         logits = hidden
         diff = logits - labels
         loss = torch.mul(diff, diff)
