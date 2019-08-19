@@ -29,6 +29,9 @@ def objective(trial: optuna.Trial) -> float:
     args.warmup_steps = int(trial.suggest_discrete_uniform(
         "warmup_steps", 10000, 60000, 10000
     ))
+    args.warmup_proportion = trial.suggest_uniform(
+        "warmup_proportion", 0.05, 0.4
+    )
     args.weight_decay = trial.suggest_loguniform("weight_decay", 1e-3, 3e-2)
     args.adam_epsilon = trial.suggest_loguniform("adam_epsilon", 1e-8, 1e-7)
 
@@ -41,9 +44,9 @@ def objective(trial: optuna.Trial) -> float:
     config["n_positions"] = config["n_ctx"]
     config["resid_pdrop"] = trial.suggest_uniform("resid_pdrop", 0.05, 0.15)
     config["attn_pdrop"] = trial.suggest_uniform("attn_pdrop", 0.05, 0.15)
-    config["n_embd"] = 5
-    config["n_head"] = 5
-    config["vocab_size"] = 1  # Dummy value.
+    config["n_embd"] = int(trial.suggest_discrete_uniform("n_embd", 128, 768, 128))
+    config["n_head"] = 16
+    config["vocab_size"] = 5  # Input data dim.
 
     dirpath = tempfile.mkdtemp()
 
