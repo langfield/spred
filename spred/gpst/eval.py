@@ -172,7 +172,7 @@ def main() -> None:
         GRAPH_WIDTH = args.terminal_plot_width
         if len(output_list) >= GRAPH_WIDTH:
             output_list = output_list[1:]
-        pred = np.array(predictions[0, -1, :].data)
+        pred = np.array(predictions[0, -1].data)
         # Average over ``DIM`` (last) dimension.
         pred = np.sum(pred, -1) / DIM
         output_list.append(pred)
