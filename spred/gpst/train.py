@@ -363,7 +363,6 @@ def train(config_filepath: str, args=None) -> float:
 
             # Save every ``args.save_freq`` epochs.
             elapsed_epochs += 1
-            print("Save frequency:", args.save_freq)
             sys.stdout.flush()
             if elapsed_epochs % args.save_freq == 0:
                 print("Saving model to:", WEIGHTS_NAME)
