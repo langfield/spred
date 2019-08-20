@@ -1,2 +1,20 @@
 Current best value is 0.989925742149353 with parameters: {'seed': 42, 'train_batch_size': 512.0, 'max_grad_norm': 1, 'learning_rate': 0.04974253508762439, 'warmup_steps': 10000.0, 'weight_decay': 0.0039976567141832, 'adam_epsilon': 1.5650621630559375e-08, 'initializer_range': 0.02672930131822099, 'layer_norm_epsilon': 1.1356774802077312e-11, 'n_ctx': 30.0, 'resid_pdrop': 0.14995835188216253, 'attn_pdrop': 0.1042379955768498}.
 
+# With new hidden dimension and scalar training objective.
+Training loss: 2.25e-05: 100%|██████████| 432/432 [00:20<00:00, 21.55it/s][I 2019-08-20 08:53:27,597] Finished trial#99 resulted in value: 2.0867522835033014e-05. Current best value is 7.632943379576318e-06 with parameters: {'seed': 42, 'train_batch_size': 32.0, 'max_grad_norm': 3, 'learning_rate': 4.1611368011568754e-05, 'warmup_steps': 10000.0, 'warmup_proportion': 0.31677440430367065, 'weight_decay': 0.006368695147754081, 'adam_epsilon': 1.03286922292212e-08, 'initializer_range': 0.023581137558402448, 'layer_norm_epsilon': 7.126849963035725e-11, 'n_ctx': 30.0, 'resid_pdrop': 0.09549734260318804, 'attn_pdrop': 0.0520418691858098, 'n_embd': 128.0}.
+{  
+    'seed':42,
+    'train_batch_size':32.0,
+    'max_grad_norm':3,
+    'learning_rate':4.1611368011568754e-05,
+    'warmup_steps':10000.0,
+    'warmup_proportion':0.31677440430367065,
+    'weight_decay':0.006368695147754081,
+    'adam_epsilon':1.03286922292212e-08,
+    'initializer_range':0.023581137558402448,
+    'layer_norm_epsilon':7.126849963035725e-11,
+    'n_ctx':30.0,
+    'resid_pdrop':0.09549734260318804,
+    'attn_pdrop':0.0520418691858098,
+    'n_embd':128.0
+}
