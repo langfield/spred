@@ -39,6 +39,11 @@ def eval_config(parser):
         action="store_true",
         help="Whether to stationarize the raw data",
     )
+    parser.add_argument(
+        "--normalize",
+        action="store_true",
+        help="Whether to stationarize the raw data",
+    )
 
     return parser
 
@@ -112,12 +117,15 @@ def main() -> None:
     # Grab training data.
     raw_data = pd.read_csv(DATA_FILENAME, sep="\t")
     if args.stationarize:
+        print('raw')
         print(raw_data.head(30))
-        # raw_data = stationarize(raw_data)
+        raw_data = stationarize(raw_data)
 
+        print('stationary')
+        print(raw_data.head(30))
         # aggregate the price data to reduce volatility
         raw_data = aggregate(raw_data, 30)
-
+        print('aggregate')
         print(raw_data.head(30))
         raw_data = raw_data[1:]
 
@@ -132,10 +140,11 @@ def main() -> None:
         assert i + MAX_SEQ_LEN <= len(raw_data)
         tensor_data = np.array(raw_data.iloc[i : i + MAX_SEQ_LEN, :].values)
 
-        # Normalize ``inputs_raw`` and ``targets_raw``.
-        scaler = StandardScaler()
-        scaler.fit(tensor_data)
-        tensor_data = scaler.transform(tensor_data)
+        if args.normalize:
+            # Normalize ``inputs_raw`` and ``targets_raw``.
+            scaler = StandardScaler()
+            scaler.fit(tensor_data)
+            tensor_data = scaler.transform(tensor_data)
 
         tensor_data = torch.Tensor(tensor_data)
         inputs_raw = tensor_data.contiguous()
