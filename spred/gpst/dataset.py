@@ -15,11 +15,8 @@ def stationarize(input_data: pd.DataFrame) -> pd.DataFrame:
     columns = raw_data.columns
     print("columns", columns)
     for col in columns:
-        if col == "":
-            continue
-        raw_data[col] = np.cbrt(raw_data[col]) - np.cbrt(
-            raw_data[col]
-        ).shift(1)
+        raw_data[col] = raw_data[col] - raw_data[col].shift(1)
+    
     return raw_data
 
 def aggregate(input_data: pd.DataFrame, k: int) -> pd.DataFrame:
@@ -45,6 +42,7 @@ class GPSTDataset(Dataset):
         encoding: str = "utf-8",
         on_memory: bool = True,
         no_price_preprocess: bool = False,
+        normalize: bool = False,
         train_batch_size: int = 1,
     ) -> None:
 
@@ -53,11 +51,13 @@ class GPSTDataset(Dataset):
         self.on_memory = on_memory
         self.corpus_path = corpus_path
         self.encoding = encoding
+        self.normalize = normalize
 
         assert corpus_path[-4:] == ".csv"
         self.raw_data = pd.read_csv(corpus_path, sep="\t")
 
         if not no_price_preprocess:
+            print('Preprocessing data...')
             # Stationarize each of the columns.
             self.raw_data = stationarize(self.raw_data)
 
@@ -111,11 +111,13 @@ class GPSTDataset(Dataset):
             lm_labels = copy.deepcopy(input_ids)
             targets_raw = copy.deepcopy(inputs_raw)
 
-            # Normalize ``inputs_raw`` and ``targets_raw``.
-            scaler = StandardScaler()
-            scaler.fit(inputs_raw)
-            inputs_raw = scaler.transform(inputs_raw)
-            targets_raw = scaler.transform(targets_raw)
+            if self.normalize:
+                # Normalize ``inputs_raw`` and ``targets_raw``.
+                print('Normalizing data...')
+                scaler = StandardScaler()
+                scaler.fit(inputs_raw)
+                inputs_raw = scaler.transform(inputs_raw)
+                targets_raw = scaler.transform(targets_raw)
 
             features.append(
                 (input_ids, position_ids, lm_labels, inputs_raw, targets_raw)
