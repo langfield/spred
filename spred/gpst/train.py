@@ -320,9 +320,7 @@ def train(config_filepath: str, args=None) -> float:
                     print("Shape of targets_raw:", targets_raw.shape)
 
                 # Forward call.
-                outputs = model(
-                    input_ids, position_ids, None, lm_labels, inputs_raw, targets_raw
-                )
+                outputs = model(input_ids, position_ids, lm_labels, inputs_raw, targets_raw)
                 loss = outputs[0]
                 LOSS = float(loss)
                 loss.backward()

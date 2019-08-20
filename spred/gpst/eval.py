@@ -163,7 +163,7 @@ def main() -> None:
         assert position_ids.shape == (BATCH_SIZE, MAX_SEQ_LEN)
         assert inputs_raw.shape == (BATCH_SIZE, MAX_SEQ_LEN, DIM)
 
-        outputs = model(input_ids, position_ids, None, None, inputs_raw)
+        outputs = model(input_ids, position_ids, None, inputs_raw)
         # Shape: (BATCH_SIZE, MAX_SEQ_LEN, DIM)
         # Type: torch.autograd.Variable
         predictions = outputs[0]
