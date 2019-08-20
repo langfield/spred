@@ -56,6 +56,8 @@ else:
 # ===MOD===
 from pytorch_transformers.modeling_bert import BertLayerNorm as LayerNorm
 
+DEBUG = False
+
 logger = logging.getLogger(__name__)
 
 OPENAI_GPT_PRETRAINED_MODEL_ARCHIVE_MAP = {
@@ -709,21 +711,16 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
 
         outputs = (lm_logits,) + transformer_outputs[1:]
         if targets_raw is not None:
+            if DEBUG:
+                print("lm_logits shape:", lm_logits.shape)
+                print("targets_raw shape:", targets_raw.shape)
+                print("lm_logits[:, :-1, :] shape:", lm_logits[:, :-1].shape)
+                print("targets_raw[:, 1:] shape:", targets_raw[:, 1:].shape)
             # Shift so that tokens < n predict n
-            """
-            print("lm_logits shape:", lm_logits.shape)
-            print("targets_raw shape:", targets_raw.shape)
-            print("lm_logits[:, :-1, :] shape:", lm_logits[:, :-1].shape)
-            print("targets_raw[:, 1:] shape:", targets_raw[:, 1:].shape)
-            """
             shift_logits = lm_logits[:, :-1].contiguous()
             shift_labels = targets_raw[:, 1:].contiguous()
 
-            # Flatten the tokens
             loss = self.regression_loss(shift_logits, shift_labels)
-            # loss_fct = CrossEntropyLoss(ignore_index=-1)
-            # loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)),
-            #                 shift_labels.view(-1))
             outputs = (loss,) + outputs
 
         return outputs  # (loss), lm_logits, (all hidden states), (all attentions)

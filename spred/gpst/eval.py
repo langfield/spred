@@ -8,6 +8,7 @@ from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME
 from termplt import plot_to_terminal
 from plot import graph
+from dataset import stationarize
 
 if torch.__version__[:5] == "0.3.1":
     from torch.autograd import Variable
@@ -107,10 +108,9 @@ def main() -> None:
     # Grab training data.
     raw_data = pd.read_csv(DATA_FILENAME, sep="\t")
     if args.stationarize:
-        columns = raw_data.columns
-        # stationarize each of the columns
-        for col in columns:
-            raw_data[col] = np.cbrt(raw_data[col]) - np.cbrt(raw_data[col]).shift(1)
+        print(raw_data.head())
+        raw_data = stationarize(raw_data)
+
         print(raw_data.head())
         raw_data = raw_data[1:]
 
