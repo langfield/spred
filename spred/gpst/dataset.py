@@ -12,7 +12,6 @@ DEBUG = True
 def stationarize(input_data: pd.DataFrame) -> pd.DataFrame:
     """ Returns a stationarized version of ``input_data``. """
     raw_data = copy.deepcopy(input_data)
-    
     columns = raw_data.columns
     print("columns", columns)
     for col in columns:
