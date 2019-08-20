@@ -29,6 +29,7 @@
           --train_batch_size 16
 """
 import os
+import sys
 import random
 import logging
 import argparse
@@ -355,7 +356,11 @@ def train(config_filepath: str, args=None) -> float:
 
             # Save every ``args.save_freq`` epochs.
             elapsed_epochs += 1
-            if args.save_freq % elapsed_epochs == 0:
+            print("Save frequency:", args.save_freq)
+            sys.stdout.flush()
+            if elapsed_epochs % args.save_freq == 0:
+                print("Saving model to:", WEIGHTS_NAME)
+                sys.stdout.flush()
                 # Only save the model itself.
                 model_to_save = model.module if hasattr(model, "module") else model
 

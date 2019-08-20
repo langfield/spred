@@ -20,6 +20,8 @@ else:
 
 DEBUG = False
 TERM_PRINT = False
+WEIGHTS_NAME = "optuna.bin"
+CONFIG_NAME = "optuna.json"
 
 
 def eval_config(parser):
@@ -111,7 +113,7 @@ def main() -> None:
     raw_data = pd.read_csv(DATA_FILENAME, sep="\t")
     if args.stationarize:
         print(raw_data.head(30))
-        raw_data = stationarize(raw_data)
+        # raw_data = stationarize(raw_data)
 
         # aggregate the price data to reduce volatility
         raw_data = aggregate(raw_data, 30)
