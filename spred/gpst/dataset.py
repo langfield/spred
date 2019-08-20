@@ -8,6 +8,23 @@ from torch.utils.data import Dataset
 DEBUG = True
 
 
+def stationarize(input_data: pd.DataFrame) -> pd.DataFrame:
+    """ Returns a stationarized version of ``input_data``. """
+    raw_data = copy.deepcopy(input_data)
+    columns = raw_data.columns
+    print("columns", columns)
+    for col in columns:
+        if col == "":
+            continue
+        """
+        raw_data[col] = np.cbrt(raw_data[col]) - np.cbrt(
+            raw_data[col]
+        ).shift(1)
+        """
+        raw_data[col] = (raw_data[col] - raw_data[col]).shift(1)
+    return raw_data
+
+
 class GPSTDataset(Dataset):
     """ Dataset class for GPST (training). """
 
@@ -30,18 +47,9 @@ class GPSTDataset(Dataset):
         assert corpus_path[-4:] == ".csv"
         self.raw_data = pd.read_csv(corpus_path, sep="\t")
 
+        # Stationarize each of the columns.
         if not no_price_preprocess:
-            columns = self.raw_data.columns
-            
-            # stationarize each of the columns
-            print("columns", columns)
-            for col in columns:
-                if col == "":
-                    continue
-                # add a small value to avoid dividing by zero
-                self.raw_data[col] = np.cbrt(self.raw_data[col]) - np.cbrt(
-                    self.raw_data[col]
-                ).shift(1)
+            self.raw_data = stationarize(self.raw_data)
 
             # remove the first row values as they will be NaN
             self.raw_data = self.raw_data[1:]
@@ -52,7 +60,7 @@ class GPSTDataset(Dataset):
         self.features = self.create_features(self.tensor_data)
         print("len of features:", len(self.features))
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.features)
 
     def __getitem__(self, item):
