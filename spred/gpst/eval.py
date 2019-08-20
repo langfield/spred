@@ -4,6 +4,7 @@ import pandas as pd
 import argparse
 import os
 import torch
+from sklearn.preprocessing import StandardScaler
 from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME
 from termplt import plot_to_terminal
@@ -128,6 +129,12 @@ def main() -> None:
     for i in range(args.width):
         assert i + MAX_SEQ_LEN <= len(raw_data)
         tensor_data = np.array(raw_data.iloc[i : i + MAX_SEQ_LEN, :].values)
+
+        # Normalize ``inputs_raw`` and ``targets_raw``.
+        scaler = StandardScaler()
+        scaler.fit(tensor_data)
+        tensor_data = scaler.transform(tensor_data)
+
         tensor_data = torch.Tensor(tensor_data)
         inputs_raw = tensor_data.contiguous()
 
