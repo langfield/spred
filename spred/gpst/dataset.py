@@ -2,6 +2,7 @@
 import copy
 import numpy as np
 import pandas as pd
+from sklearn.preprocessing import StandardScaler
 
 from torch.utils.data import Dataset
 
@@ -111,6 +112,13 @@ class GPSTDataset(Dataset):
             position_ids = np.arange(0, seq_len)
             lm_labels = copy.deepcopy(input_ids)
             targets_raw = copy.deepcopy(inputs_raw)
+
+            # Normalize ``inputs_raw`` and ``targets_raw``.
+            scaler = StandardScaler()
+            scaler.fit(inputs_raw)
+            inputs_raw = scaler.transform(inputs_raw)
+            targets_raw = scaler.transform(targets_raw)
+
             features.append(
                 (input_ids, position_ids, lm_labels, inputs_raw, targets_raw)
             )
