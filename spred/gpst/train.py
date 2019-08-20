@@ -35,6 +35,7 @@ import argparse
 import time
 
 import numpy as np
+from sklearn.preprocessing import StandardScaler
 
 from tqdm import tqdm, trange
 from pytorch_transformers import AdamW, WarmupLinearSchedule, WEIGHTS_NAME, CONFIG_NAME
@@ -262,6 +263,7 @@ def train(config_filepath: str, args=None) -> float:
             nb_tr_steps = 0
             tqdm_bar = tqdm(train_dataloader, desc="Training")
             for _, batch in enumerate(tqdm_bar):
+
                 if torch.__version__[:5] == "0.3.1":
                     batch = tuple(t.cuda() for t in batch)
                 else:
