@@ -10,3 +10,4 @@ spred/gpst/data/*
 *.zip
 spred/exchange/concatenated_price_data/*
 spred/gpst/checkpoints/*
+spred/gpst/graphs*
