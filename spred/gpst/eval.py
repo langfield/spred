@@ -20,6 +20,8 @@ else:
 
 DEBUG = False
 TERM_PRINT = False
+WEIGHTS_NAME = "optuna.bin"
+CONFIG_NAME = "optuna.json"
 
 
 def eval_config(parser):
