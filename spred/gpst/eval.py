@@ -8,6 +8,7 @@ from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME
 from termplt import plot_to_terminal
 from plot import graph
+
 if torch.__version__[:5] == "0.3.1":
     from torch.autograd import Variable
     from torch_addons.sampler import SequentialSampler
@@ -15,21 +16,31 @@ else:
     from torch.utils.data import SequentialSampler
 
 DEBUG = False
+TERM_PRINT = False
 
 
 def eval_config(parser):
     parser.add_argument("--batch", type=int, default=1)
     parser.add_argument("--width", type=int, default=100)
-    parser.add_argument("--input", type=str, default="../exchange/concatenated_price_data/ETHUSDT_drop.csv")
+    parser.add_argument(
+        "--input",
+        type=str,
+        default="../exchange/concatenated_price_data/ETHUSDT_drop.csv",
+    )
     parser.add_argument("--output_dir", type=str, default="graphs/")
     parser.add_argument("--terminal_plot_width", type=int, default=50)
     parser.add_argument(
-        "--stationarize", action="store_true", help="Whether to stationarize the raw data"
+        "--stationarize",
+        action="store_true",
+        help="Whether to stationarize the raw data",
     )
 
     return parser
 
-def load_model(device=None, weights_name: str = WEIGHTS_NAME, config_name: str = CONFIG_NAME) -> OpenAIGPTLMHeadModel:
+
+def load_model(
+    device=None, weights_name: str = WEIGHTS_NAME, config_name: str = CONFIG_NAME
+) -> OpenAIGPTLMHeadModel:
     """Load in our pretrained model."""
     output_dir = "checkpoints/"
     output_model_file = os.path.join(output_dir, weights_name)
@@ -93,21 +104,13 @@ def main() -> None:
     print("Max sequence length :", MAX_SEQ_LEN)
     print("Eval batch size:", BATCH_SIZE)
 
-    """
-    # Get sample data.
-    tensor_data = create_sample_data(DIM, MAX_SEQ_LEN, WIDTH, PLOT)
-    inputs_raw = tensor_data.contiguous()
-    """
-    
     # Grab training data.
     raw_data = pd.read_csv(DATA_FILENAME, sep="\t")
     if args.stationarize:
         columns = raw_data.columns
         # stationarize each of the columns
         for col in columns:
-            raw_data[col] = np.cbrt(raw_data[col]) - np.cbrt(
-                raw_data[col]
-            ).shift(1)
+            raw_data[col] = np.cbrt(raw_data[col]) - np.cbrt(raw_data[col]).shift(1)
         print(raw_data.head())
         raw_data = raw_data[1:]
 
@@ -120,7 +123,7 @@ def main() -> None:
     # HARDCODE
     for i in range(args.width):
         assert i + MAX_SEQ_LEN <= len(raw_data)
-        tensor_data = np.array(raw_data.iloc[i:i + MAX_SEQ_LEN, :].values)
+        tensor_data = np.array(raw_data.iloc[i : i + MAX_SEQ_LEN, :].values)
         tensor_data = torch.Tensor(tensor_data)
         inputs_raw = tensor_data.contiguous()
 
@@ -163,71 +166,72 @@ def main() -> None:
         assert position_ids.shape == (BATCH_SIZE, MAX_SEQ_LEN)
         assert inputs_raw.shape == (BATCH_SIZE, MAX_SEQ_LEN, DIM)
 
+        # ``predictions`` shape: (BATCH_SIZE, MAX_SEQ_LEN, DIM).
+        # ``pred`` shape: <scalar>.
+        # ``pred`` is the last prediction in the first (and only) batch.
         outputs = model(input_ids, position_ids, None, inputs_raw)
-        # Shape: (BATCH_SIZE, MAX_SEQ_LEN, DIM)
-        # Type: torch.autograd.Variable
         predictions = outputs[0]
-        
-        # How many time steps fit in terminal window.
-        GRAPH_WIDTH = args.terminal_plot_width
+        pred = np.array(predictions[0, -1].data)[0]
 
         # ``output_list`` is a running list of the ``GRAPH_WIDTH`` most recent
         # outputs from the forward call.
+        # How many time steps fit in terminal window.
+        GRAPH_WIDTH = args.terminal_plot_width
         if len(output_list) >= GRAPH_WIDTH:
             output_list = output_list[1:]
-        # ``pred`` is the last prediction in the first (and only) batch.
-        # Shape: <scalar>.
-        pred = np.array(predictions[0, -1].data)[0]
 
         # Create ``out_array`` to print graph as it is populated.
-        output_list.append(pred)
         # Shape is the number of iterations we've made, up until we hit
-        # ``width`` iterations, after which the shape is ``(width,)``. 
+        # ``width`` iterations, after which the shape is ``(width,)``.
+        output_list.append(pred)
         out_array = np.stack(output_list)
         out_array = np.concatenate([np.array([-1.5]), out_array, np.array([1.5])])
-        # os.system("clear")
-        # plot_to_terminal(out_array)
-        
+        if TERM_PRINT:
+            os.system("clear")
+            plot_to_terminal(out_array)
+
         # Grab inputs and outputs for matplotlib plot.
+        # ``inputs_raw_array`` shape: (DIM,)
         if torch.__version__[:5] == "0.3.1":
             inputs_raw = inputs_raw.data
         inputs_raw_array = np.array(inputs_raw[0, -1, :])
-        input_actual = inputs_raw_array[...,0]
-        all_outputs.append(pred)
-        all_inputs.append(input_actual)
+        actual = inputs_raw_array[..., 0]
 
+        # Append scalar arrays to lists.
+        all_outputs.append(pred)
+        all_inputs.append(actual)
 
     def matplot(graphs_path, data_filename, dfs, ylabels, column_counts):
         """ Do some path handling and call the ``graph()`` function. """
         assert os.path.isdir(graphs_path)
         filename = os.path.basename(data_filename)
-        filename_no_ext = filename.split('.')[0]
+        filename_no_ext = filename.split(".")[0]
         save_path = os.path.join(graphs_path, filename_no_ext + ".svg")
         graph(dfs, ylabels, filename_no_ext, column_counts, None, save_path)
         print("Graph saved to:", save_path)
-        # Plot with matplotlib.
 
     # Stack and cast to ``pd.DataFrame``.
+    # ``all_in`` and ``all_out`` shape: (args.width,)
     all_in = np.stack(all_inputs)
     all_out = np.stack(all_outputs)
-    print("``all_in`` shape:", all_in.shape)
-    print("``all_out`` shape:", all_out.shape)
+
+    # Add a second dimension so we can concatenate along it.
     all_in = np.reshape(all_in, (all_in.shape[0], 1))
     all_out = np.reshape(all_out, (all_out.shape[0], 1))
-    print("shape of all in:", all_in.shape) 
-    print("shape of all out:", all_out.shape) 
     assert all_out.shape == all_in.shape
     diff = np.concatenate((all_out, all_in), axis=1)
-    print("diff shape:", diff.shape)
+
+    # ``diff`` shape: (args.width, 2).
     df = pd.DataFrame(diff)
     df.columns = ["pred", "actual"]
     print(df)
 
+    # Format input for ``plot.graph`` function.
     dfs = [df]
-    y_label = 'Predictions vs Input'
+    y_label = "Predictions vs Input"
     column_counts = [2]
-    # MATPLOT GOES HERE
     matplot(GRAPH_PATH, DATA_FILENAME, dfs, y_label, column_counts)
- 
+
+
 if __name__ == "__main__":
     main()
