@@ -559,7 +559,6 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         self,
         input_ids,
         position_ids=None,
-        token_type_ids=None,
         labels=None,
         inputs_raw=None,
         head_mask=None,
@@ -603,11 +602,7 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
 
         inputs_embeds = inputs_raw
         position_embeds = self.positions_embed(position_ids)
-        if token_type_ids is not None:
-            token_type_ids = token_type_ids.view(-1, token_type_ids.size(-1))
-            token_type_embeds = self.tokens_embed(token_type_ids)
-        else:
-            token_type_embeds = 0
+        token_type_embeds = 0
         # ===MOD===
         if torch.__version__[:5] == "0.3.1":
             position_embeds = torch.cuda.FloatTensor(position_embeds.data)
@@ -696,7 +691,6 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         self,
         input_ids,
         position_ids=None,
-        token_type_ids=None,
         labels=None,
         inputs_raw=None,
         targets_raw=None,
@@ -705,7 +699,6 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         transformer_outputs = self.transformer(
             input_ids,
             position_ids=position_ids,
-            token_type_ids=token_type_ids,
             labels=labels,
             inputs_raw=inputs_raw,
             head_mask=head_mask,
