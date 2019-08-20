@@ -24,6 +24,18 @@ def stationarize(input_data: pd.DataFrame) -> pd.DataFrame:
         raw_data[col] = raw_data[col] - raw_data[col].shift(1)
     return raw_data
 
+def aggregate(input_data: pd.DataFrame, k: int) -> pd.DataFrame:
+    """ Returns an aggregated version of ``input_data`` with bucket size ``k`` """
+    raw_data = pd.DataFrame()
+    columns = input_data.columns
+    for col in columns:
+        agg = []
+        for i in range(len(input_data[col]) // k):
+            agg.append(input_data[col].iloc[i:i+k].values.sum())
+        raw_data[col] = agg
+
+    return raw_data
+
 
 class GPSTDataset(Dataset):
     """ Dataset class for GPST (training). """
@@ -47,12 +59,15 @@ class GPSTDataset(Dataset):
         assert corpus_path[-4:] == ".csv"
         self.raw_data = pd.read_csv(corpus_path, sep="\t")
 
-        # Stationarize each of the columns.
         if not no_price_preprocess:
+            # Stationarize each of the columns.
             self.raw_data = stationarize(self.raw_data)
 
             # remove the first row values as they will be NaN
             self.raw_data = self.raw_data[1:]
+
+            # aggregate the price data to reduce volatility
+            self.raw_data = aggregate(self.raw_data, 30)
 
         num_batches = len(self.raw_data) // (train_batch_size * seq_len)
         rows_to_keep = train_batch_size * seq_len * num_batches

@@ -43,20 +43,29 @@ class StationarityTests:
 
 
 data = pd.read_csv("../../../ETHUSDT_ta_drop.csv", sep="\t")
-n = 100
+n = 1
 data = data.iloc[::n, :]
 print(data.head())
 
-PLOT = False
+PLOT = True
 for col in data.columns:
-    data[col] = np.cbrt(data[col]) - np.cbrt(data[col]).shift(1)
+    data[col] = data[col] - data[col].shift(1)
     sTest = StationarityTests()
     series = pd.Series(data[col][1:], n * np.arange(1, len(data[col])))
+    series_agg = []
+    k = 30
+    for i in range(series.shape[0] // k):
+        # print(series.iloc[i:i+k].values.sum())
+        series_agg.append(series.iloc[i:i+k].values.sum())
+    
     if PLOT:
-        print(series)
-        series.plot()
+        # print(series_agg)
+        plt_series = series_agg[:100]
+        #plt_series = pd.Series(plt_series, n * k * np.arange(0, len(plt_series)))
+        sTest.ADF_Stationarity_Test(series_agg, True)
         pyplot.show()
         PLOT = False
+        break
     sTest.ADF_Stationarity_Test(series, False)
     if sTest.isStationary:
         print("Column stationary:", col, "with p-value:", sTest.pValue)
