@@ -21,7 +21,7 @@ def stationarize(input_data: pd.DataFrame) -> pd.DataFrame:
             raw_data[col]
         ).shift(1)
         """
-        raw_data[col] = (raw_data[col] - raw_data[col]).shift(1)
+        raw_data[col] = raw_data[col] - raw_data[col].shift(1)
     return raw_data
 
 
