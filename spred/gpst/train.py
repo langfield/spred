@@ -137,6 +137,12 @@ def train_args(parser):
         action="store_true",
         help="Whether to treat input ``.csv`` as real price data or just sample data.",
     )
+    parser.add_argument(
+        "--normalize",
+        dest="normalize",
+        action="store_true",
+        help="Whether to normalize input data.",
+    )
     parser.set_defaults(no_price_preprocess=False)
     parser.add_argument(
         "--save_freq",
@@ -213,6 +219,7 @@ def train(config_filepath: str, args=None) -> float:
         args.train_dataset,
         max_length,
         no_price_preprocess=args.no_price_preprocess,
+        normalize=args.normalize,
         train_batch_size=args.train_batch_size,
     )
     print("Length of training dataset:", len(train_data))
