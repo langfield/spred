@@ -108,10 +108,10 @@ def main() -> None:
     # Grab training data.
     raw_data = pd.read_csv(DATA_FILENAME, sep="\t")
     if args.stationarize:
-        print(raw_data.head())
+        print(raw_data.head(30))
         raw_data = stationarize(raw_data)
 
-        print(raw_data.head())
+        print(raw_data.head(30))
         raw_data = raw_data[1:]
 
     assert len(raw_data) >= MAX_SEQ_LEN
