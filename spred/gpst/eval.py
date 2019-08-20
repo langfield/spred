@@ -9,6 +9,7 @@ from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME
 from termplt import plot_to_terminal
 from plot import graph
 from dataset import stationarize
+from dataset import aggregate
 
 if torch.__version__[:5] == "0.3.1":
     from torch.autograd import Variable
@@ -110,6 +111,9 @@ def main() -> None:
     if args.stationarize:
         print(raw_data.head(30))
         raw_data = stationarize(raw_data)
+
+        # aggregate the price data to reduce volatility
+        self.raw_data = aggregate(self.raw_data, 30)
 
         print(raw_data.head(30))
         raw_data = raw_data[1:]
