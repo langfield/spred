@@ -264,25 +264,6 @@ def train(config_filepath: str, args=None) -> float:
             tqdm_bar = tqdm(train_dataloader, desc="Training")
             for _, batch in enumerate(tqdm_bar):
 
-                # Normalize ``inputs_raw`` and ``targets_raw``.
-                input_ids, position_ids, lm_labels, inputs_raw, targets_raw = batch
-                scalers = []
-                input_batches = []
-                target_batches = []
-                for input_batch, target_batch in zip(inputs_raw, targets_raw):
-                    scaler = StandardScaler()
-                    scaler.fit(input_batch)
-                    input_batch = scaler.transform(input_batch)
-                    target_batch = scaler.transform(target_batch)
-                    scalers.append(scaler)
-                    input_batches.append(input_batch)
-                    target_batches.append(target_batch)
-                inputs_raw = np.stack(input_batches) 
-                targets_raw = np.stack(target_batches)
-                inputs_raw = torch.Tensor(inputs_raw)
-                targets_raw = torch.Tensor(targets_raw)
-                batch = (input_ids, position_ids, lm_labels, inputs_raw, targets_raw)
-
                 if torch.__version__[:5] == "0.3.1":
                     batch = tuple(t.cuda() for t in batch)
                 else:
@@ -290,7 +271,6 @@ def train(config_filepath: str, args=None) -> float:
                 input_ids, position_ids, lm_labels, inputs_raw, targets_raw = batch
                 inputs_raw = inputs_raw.float()
                 targets_raw = targets_raw.float()
-
 
                 # Shape check.
                 # ===HACK===
