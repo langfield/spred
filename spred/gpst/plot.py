@@ -27,7 +27,7 @@ def graph(dfs, ylabels, filename, column_counts, phase, save_path):
     # =================vvvvvv=================
 
     # Size of ENTIRE PLOT.
-    plot_height = 7  # 7.25
+    plot_height = 20  # 7.25
     plot_width = 90
 
     # x-axis.

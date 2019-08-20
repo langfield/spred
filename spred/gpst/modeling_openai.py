@@ -741,6 +741,7 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         loss = torch.mul(diff, diff)
 
         # Make a scalar.
-        loss = torch.mean(loss)
+        # loss = torch.mean(loss)
+        loss = torch.max(loss)
 
         return loss
