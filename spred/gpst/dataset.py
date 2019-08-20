@@ -11,17 +11,16 @@ DEBUG = True
 def stationarize(input_data: pd.DataFrame) -> pd.DataFrame:
     """ Returns a stationarized version of ``input_data``. """
     raw_data = copy.deepcopy(input_data)
+    """
     columns = raw_data.columns
     print("columns", columns)
     for col in columns:
         if col == "":
             continue
-        """
         raw_data[col] = np.cbrt(raw_data[col]) - np.cbrt(
             raw_data[col]
         ).shift(1)
-        """
-        raw_data[col] = raw_data[col] - raw_data[col].shift(1)
+    """
     return raw_data
 
 def aggregate(input_data: pd.DataFrame, k: int) -> pd.DataFrame:
