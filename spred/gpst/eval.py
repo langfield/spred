@@ -171,7 +171,11 @@ def main() -> None:
         # ``pred`` is the last prediction in the first (and only) batch.
         outputs = model(input_ids, position_ids, None, inputs_raw)
         predictions = outputs[0]
-        pred = np.array(predictions[0, -1].data)[0]
+        # Casting to correct ``torch.Tensor`` type.
+        if torch.__version__[:5] == "0.3.1":
+            pred = np.array(predictions[0, -1].data)[0]
+        else:
+            pred = np.array(predictions[0, -1].data)
 
         # ``output_list`` is a running list of the ``GRAPH_WIDTH`` most recent
         # outputs from the forward call.
