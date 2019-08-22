@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DATASET="../exchange/concatenated_price_data/ETHUSDT_drop.csv"
+DATASET="../exchange/concatenated_price_data/ETHBTC_drop.csv"
 GPST_MODEL="config.json"
 MODEL_NAME="pytorch_model"
 OUTPUT_DIR="checkpoints"
