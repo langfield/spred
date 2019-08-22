@@ -7,7 +7,8 @@ import tempfile
 
 import optuna
 
-from train import train, train_args
+from train import train
+from args import train_args
 
 
 def main():
@@ -59,8 +60,9 @@ def objective(trial: optuna.Trial) -> float:
     config_filepath = os.path.join(dirpath, config_filename)
     with open(config_filepath, "w") as fp:
         json.dump(config, fp)
+    args.gpst_model = config_filepath
 
-    loss = train(config_filepath, args)
+    loss = train(args)
 
     shutil.rmtree(dirpath)
     return loss
