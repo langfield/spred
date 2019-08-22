@@ -61,6 +61,7 @@ def objective(trial: optuna.Trial) -> float:
     with open(config_filepath, "w") as fp:
         json.dump(config, fp)
     args.gpst_model = config_filepath
+    args.model_name = "optuna"
 
     loss = train(args)
 
