@@ -41,7 +41,8 @@ class GPSTDataset(Dataset):
         seq_len: int,
         encoding: str = "utf-8",
         on_memory: bool = True,
-        no_price_preprocess: bool = False,
+        stationarize: bool = False,
+        aggregation_size: int = 1,
         normalize: bool = False,
         train_batch_size: int = 1,
     ) -> None:
@@ -56,7 +57,7 @@ class GPSTDataset(Dataset):
         assert corpus_path[-4:] == ".csv"
         self.raw_data = pd.read_csv(corpus_path, sep="\t")
 
-        if not no_price_preprocess:
+        if stationarize:
             print('Preprocessing data...')
             # Stationarize each of the columns.
             self.raw_data = stationarize(self.raw_data)
@@ -64,8 +65,8 @@ class GPSTDataset(Dataset):
             # remove the first row values as they will be NaN
             self.raw_data = self.raw_data[1:]
 
-            # aggregate the price data to reduce volatility
-            self.raw_data = aggregate(self.raw_data, 30)
+        # aggregate the price data to reduce volatility
+        self.raw_data = aggregate(self.raw_data, aggregation_size)
 
         num_batches = len(self.raw_data) // (train_batch_size * seq_len)
         rows_to_keep = train_batch_size * seq_len * num_batches
