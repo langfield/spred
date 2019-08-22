@@ -54,12 +54,10 @@ else:
 
 # pylint: disable=wrong-import-position
 from dataset import GPSTDataset
+from args import train_args
 
 from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 
-# HARDCODE
-WEIGHTS_NAME = "optuna.bin"
-CONFIG_NAME = "optuna.json"
 DEBUG = False
 LOSS = 0
 logging.basicConfig(
@@ -74,111 +72,6 @@ logger = logging.getLogger(__name__)
 def accuracy(out, labels):
     outputs = np.argmax(out, axis=1)
     return np.sum(outputs == labels)
-
-
-def train_args(parser):
-    parser.add_argument(
-        "--model_name", type=str, default="openai-gpt", help="pretrained model name"
-    )
-    parser.add_argument(
-        "--do_train", action="store_true", help="Whether to run training."
-    )
-    parser.add_argument(
-        "--do_eval", action="store_true", help="Whether to run eval on the dev set."
-    )
-    parser.add_argument(
-        "--output_dir",
-        default=None,
-        type=str,
-        required=True,
-        help="The output directory where the model \
-        predictions and checkpoints will be written.",
-    )
-    parser.add_argument("--train_dataset", type=str, default="")
-
-    # Unused args.
-    parser.add_argument("--eval_dataset", type=str, default="")
-    parser.add_argument("--eval_batch_size", type=int, default=16)
-
-    # ?
-    parser.add_argument("--num_train_epochs", type=int, default=3)
-
-    # Optuna args.
-    parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--train_batch_size", type=int, default=8)
-    parser.add_argument("--max_grad_norm", type=int, default=1)
-    parser.add_argument("--learning_rate", type=float, default=6.25e-5)
-    parser.add_argument("--warmup_proportion", type=float, default=0.002)
-    parser.add_argument(
-        "--warmup_steps", default=0, type=int, help="Linear warmup over warmup_steps."
-    )
-    parser.add_argument("--lr_schedule", type=str, default="warmup_linear")
-    parser.add_argument("--weight_decay", type=float, default=0.01)
-    parser.add_argument("--adam_epsilon", type=float, default=1e-8)
-    parser.add_argument("--timeout", type=float, default=0)
-
-    # Added.
-    parser.add_argument(
-        "--gpst_model",
-        default=None,
-        type=str,
-        required=True,
-        help="OpenAIGPT pre-trained model path",
-    )
-    parser.add_argument(
-        "--data_is_example",
-        type=bool,
-        default=False,
-        help="Whether data is example/sample data or real price data.",
-    )
-    parser.add_argument(
-        "--no_price_preprocess",
-        dest="no_price_preprocess",
-        action="store_true",
-        help="Whether to treat input ``.csv`` as real price data or just sample data.",
-    )
-    parser.add_argument(
-        "--normalize",
-        dest="normalize",
-        action="store_true",
-        help="Whether to normalize input data.",
-    )
-    parser.set_defaults(no_price_preprocess=False)
-    parser.add_argument(
-        "--save_freq",
-        default=1,
-        type=int,
-        required=False,
-        help="Model will be saved after every ``--save_freq`` epochs.",
-    )
-
-    return parser
-
-"""
-# TODO: this function is broken--need to pass in necessary parameters
-def test_save():
-    # Only save the model itself.
-    model_to_save = model.module if hasattr(model, "module") else model
-
-    # If we save using the predefined names, we can load using ``from_pretrained``.
-    output_model_file = os.path.join(args.output_dir, WEIGHTS_NAME)
-    output_config_file = os.path.join(args.output_dir, CONFIG_NAME)
-
-    torch.save(model_to_save.state_dict(), output_model_file)
-    model_to_save.config.to_json_file(output_config_file)
-
-    # Load a trained model.
-    if torch.__version__[:5] == "0.3.1":
-        loaded_config = OpenAIGPTConfig.from_json_file(output_config_file)
-        model = OpenAIGPTLMHeadModel(loaded_config)
-        model.load_state_dict(torch.load(output_model_file))
-        model.cuda()
-    else:
-        model = OpenAIGPTLMHeadModel.from_pretrained(args.output_dir)
-        model.to(device)
-
-    print("Loss:", LOSS)
-"""
 
 def train(config_filepath: str, args=None) -> float:
     if args == None:
@@ -218,7 +111,8 @@ def train(config_filepath: str, args=None) -> float:
     train_data = GPSTDataset(
         args.train_dataset,
         max_length,
-        no_price_preprocess=args.no_price_preprocess,
+        stationarize=args.stationarize,
+        aggregation_size=args.aggregation_size,
         normalize=args.normalize,
         train_batch_size=args.train_batch_size,
     )
@@ -284,10 +178,7 @@ def train(config_filepath: str, args=None) -> float:
                 # ===HACK===
                 # Compensates for lack of batch size data truncation in
                 # ``SAMPLE`` branch of ``GPSTDatatset`` class.
-                if (
-                    args.no_price_preprocess
-                    and input_ids.shape[0] < args.train_batch_size
-                ):
+                if not args.stationarize and input_ids.shape[0] < args.train_batch_size:
                     continue
                 # ===HACK===
                 assert input_ids.shape == (args.train_batch_size, max_length)
@@ -330,7 +221,9 @@ def train(config_filepath: str, args=None) -> float:
                     print("Shape of targets_raw:", targets_raw.shape)
 
                 # Forward call.
-                outputs = model(input_ids, position_ids, lm_labels, inputs_raw, targets_raw)
+                outputs = model(
+                    input_ids, position_ids, lm_labels, inputs_raw, targets_raw
+                )
                 loss = outputs[0]
                 LOSS = float(loss)
                 loss.backward()
@@ -365,14 +258,14 @@ def train(config_filepath: str, args=None) -> float:
             elapsed_epochs += 1
             sys.stdout.flush()
             if elapsed_epochs % args.save_freq == 0:
-                print("Saving model to:", WEIGHTS_NAME)
+                print("Saving model to:", args.weights_name)
                 sys.stdout.flush()
                 # Only save the model itself.
                 model_to_save = model.module if hasattr(model, "module") else model
 
                 # If we save using the predefined names, we can load using ``from_pretrained``.
-                output_model_file = os.path.join(args.output_dir, WEIGHTS_NAME)
-                output_config_file = os.path.join(args.output_dir, CONFIG_NAME)
+                output_model_file = os.path.join(args.output_dir, args.weights_name)
+                output_config_file = os.path.join(args.output_dir, args.config_name)
 
                 torch.save(model_to_save.state_dict(), output_model_file)
                 model_to_save.config.to_json_file(output_config_file)
