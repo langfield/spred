@@ -1,57 +1,36 @@
+""" Evaluate a trained GPST model and graph its predictions. """
+import os
 import copy
+import argparse
 import numpy as np
 import pandas as pd
-import argparse
-import os
-import torch
-from sklearn.preprocessing import StandardScaler
-from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
-from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME
-from termplt import plot_to_terminal
-from plot import graph
-from dataset import stationarize
-from dataset import aggregate
 
-if torch.__version__[:5] == "0.3.1":
+import torch
+
+try:
     from torch.autograd import Variable
-    from torch_addons.sampler import SequentialSampler
-else:
-    from torch.utils.data import SequentialSampler
+except ImportError:
+    pass
+
+from sklearn.preprocessing import StandardScaler
+from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME
+
+from plot import graph
+from arguments import get_args
+from termplt import plot_to_terminal
+from dataset import aggregate, stationarize
+from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
+
 
 DEBUG = False
 TERM_PRINT = False
-WEIGHTS_NAME = "optuna.bin"
-CONFIG_NAME = "optuna.json"
-
-
-def eval_config(parser):
-    parser.add_argument("--batch", type=int, default=1)
-    parser.add_argument("--width", type=int, default=100)
-    parser.add_argument(
-        "--input",
-        type=str,
-        default="../exchange/concatenated_price_data/ETHUSDT_drop.csv",
-    )
-    parser.add_argument("--output_dir", type=str, default="graphs/")
-    parser.add_argument("--terminal_plot_width", type=int, default=50)
-    parser.add_argument(
-        "--stationarize",
-        action="store_true",
-        help="Whether to stationarize the raw data",
-    )
-    parser.add_argument(
-        "--normalize",
-        action="store_true",
-        help="Whether to stationarize the raw data",
-    )
-
-    return parser
 
 
 def load_model(
     device=None, weights_name: str = WEIGHTS_NAME, config_name: str = CONFIG_NAME
 ) -> OpenAIGPTLMHeadModel:
     """Load in our pretrained model."""
+    # HARDCODE
     output_dir = "checkpoints/"
     output_model_file = os.path.join(output_dir, weights_name)
     output_config_file = os.path.join(output_dir, config_name)
@@ -69,23 +48,14 @@ def load_model(
     return model
 
 
-def create_sample_data(
-    dim: int, max_seq_len: int, width: int, plot: int
-) -> torch.Tensor:
+def create_sample_data(dim: int, max_seq_len: int, width: int) -> torch.Tensor:
     """Construct sample time series."""
+    print("Width:", width)
     # x vals.
-    time = np.arange(0, width, 100 / max_seq_len)
+    # time = np.arange(0, width, 100 / max_seq_len)
     # y vals.
     # price = np.sin(time) + 10
     price = np.array([0] * max_seq_len)
-
-    if plot:
-        plt.plot(time, price)
-        plt.title("Sample Time Series")
-        plt.xlabel("Time (min)")
-        plt.ylabel("Price")
-        plt.show()
-
     df = pd.DataFrame({"Price": price})
     df = df[[col for col in df.columns for i in range(dim)]]
     tensor_data = torch.Tensor(np.array(df))
@@ -94,42 +64,46 @@ def create_sample_data(
 
 def main() -> None:
     """Make predictions on a single sequence."""
-    if torch.__version__[:5] == "0.3.1":
-        model = load_model(weights_name=WEIGHTS_NAME)
-    else:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = load_model(device, weights_name=WEIGHTS_NAME)
 
     # Set hyperparameters.
     parser = argparse.ArgumentParser()
-    parser = eval_config(parser)
+    parser = get_args(parser)
     args = parser.parse_args()
 
-    DIM = model.config.vocab_size
-    MAX_SEQ_LEN = model.config.n_positions
-    BATCH_SIZE = args.batch
-    DATA_FILENAME = args.input
-    GRAPH_PATH = args.output_dir
-    print("Data dimensionality:", DIM)
-    print("Max sequence length :", MAX_SEQ_LEN)
-    print("Eval batch size:", BATCH_SIZE)
+    if torch.__version__[:5] == "0.3.1":
+        model = load_model(weights_name=args.weights_name, config_name=args.config_name)
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = load_model(
+            device, weights_name=args.weights_name, config_name=args.config_name
+        )
+
+    dim = model.config.vocab_size
+    max_seq_len = model.config.n_positions
+    batch_size = args.eval_batch_size
+    data_filename = args.eval_dataset
+    graph_path = args.graph_dir
+    print("Data dimensionality:", dim)
+    print("Max sequence length :", max_seq_len)
+    print("Eval batch size:", batch_size)
 
     # Grab training data.
-    raw_data = pd.read_csv(DATA_FILENAME, sep="\t")
+    raw_data = pd.read_csv(data_filename, sep="\t")
     if args.stationarize:
-        print('raw')
+        print("raw")
         print(raw_data.head(30))
         raw_data = stationarize(raw_data)
 
-        print('stationary')
+        print("stationary")
         print(raw_data.head(30))
-        # aggregate the price data to reduce volatility
-        raw_data = aggregate(raw_data, 30)
-        print('aggregate')
-        print(raw_data.head(30))
-        raw_data = raw_data[1:]
 
-    assert len(raw_data) >= MAX_SEQ_LEN
+    # aggregate the price data to reduce volatility
+    raw_data = aggregate(raw_data, args.aggregation_size)
+    print("aggregate")
+    print(raw_data.head(30))
+    raw_data = raw_data[1:]
+
+    assert len(raw_data) >= max_seq_len
     output_list = []
     all_inputs = []
     all_outputs = []
@@ -137,8 +111,8 @@ def main() -> None:
     # Iterate in step sizes of 1 over ``raw_data``.
     # HARDCODE
     for i in range(args.width):
-        assert i + MAX_SEQ_LEN <= len(raw_data)
-        tensor_data = np.array(raw_data.iloc[i : i + MAX_SEQ_LEN, :].values)
+        assert i + max_seq_len <= len(raw_data)
+        tensor_data = np.array(raw_data.iloc[i : i + max_seq_len, :].values)
 
         if args.normalize:
             # Normalize ``inputs_raw`` and ``targets_raw``.
@@ -157,9 +131,9 @@ def main() -> None:
         input_ids = copy.deepcopy(position_ids)
 
         # Reshape.
-        inputs_raw = inputs_raw.view(BATCH_SIZE, MAX_SEQ_LEN, DIM)
-        input_ids = input_ids.view(BATCH_SIZE, MAX_SEQ_LEN)
-        position_ids = position_ids.view(BATCH_SIZE, MAX_SEQ_LEN)
+        inputs_raw = inputs_raw.view(batch_size, max_seq_len, dim)
+        input_ids = input_ids.view(batch_size, max_seq_len)
+        position_ids = position_ids.view(batch_size, max_seq_len)
 
         # Casting to correct ``torch.Tensor`` type.
         if torch.__version__[:5] == "0.3.1":
@@ -184,11 +158,11 @@ def main() -> None:
             print("inputs_raw shape:", inputs_raw.shape)
 
         # Shape check.
-        assert input_ids.shape == (BATCH_SIZE, MAX_SEQ_LEN)
-        assert position_ids.shape == (BATCH_SIZE, MAX_SEQ_LEN)
-        assert inputs_raw.shape == (BATCH_SIZE, MAX_SEQ_LEN, DIM)
+        assert input_ids.shape == (batch_size, max_seq_len)
+        assert position_ids.shape == (batch_size, max_seq_len)
+        assert inputs_raw.shape == (batch_size, max_seq_len, dim)
 
-        # ``predictions`` shape: (BATCH_SIZE, MAX_SEQ_LEN, DIM).
+        # ``predictions`` shape: (batch_size, max_seq_len, dim).
         # ``pred`` shape: <scalar>.
         # ``pred`` is the last prediction in the first (and only) batch.
         outputs = model(input_ids, position_ids, None, inputs_raw)
@@ -199,11 +173,11 @@ def main() -> None:
         else:
             pred = np.array(predictions[0, -1].data)
 
-        # ``output_list`` is a running list of the ``GRAPH_WIDTH`` most recent
+        # ``output_list`` is a running list of the ``graph_width`` most recent
         # outputs from the forward call.
         # How many time steps fit in terminal window.
-        GRAPH_WIDTH = args.terminal_plot_width
-        if len(output_list) >= GRAPH_WIDTH:
+        graph_width = args.terminal_plot_width
+        if len(output_list) >= graph_width:
             output_list = output_list[1:]
 
         # Create ``out_array`` to print graph as it is populated.
@@ -217,7 +191,7 @@ def main() -> None:
             plot_to_terminal(out_array)
 
         # Grab inputs and outputs for matplotlib plot.
-        # ``inputs_raw_array`` shape: (DIM,)
+        # ``inputs_raw_array`` shape: (dim,)
         if torch.__version__[:5] == "0.3.1":
             inputs_raw = inputs_raw.data
         inputs_raw_array = np.array(inputs_raw[0, -1, :])
@@ -256,7 +230,7 @@ def main() -> None:
     dfs = [df]
     y_label = "Predictions vs Input"
     column_counts = [2]
-    matplot(GRAPH_PATH, DATA_FILENAME, dfs, y_label, column_counts)
+    matplot(graph_path, data_filename, dfs, y_label, column_counts)
 
 
 if __name__ == "__main__":

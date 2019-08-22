@@ -11,10 +11,9 @@ import argparse
 import time
 
 import numpy as np
-from sklearn.preprocessing import StandardScaler
 
 from tqdm import tqdm, trange
-from pytorch_transformers import AdamW, WarmupLinearSchedule, WEIGHTS_NAME, CONFIG_NAME
+from pytorch_transformers import AdamW, WarmupLinearSchedule
 
 # pylint: disable=wrong-import-order
 import torch
@@ -29,7 +28,7 @@ else:
 
 # pylint: disable=wrong-import-position
 from dataset import GPSTDataset
-from args import train_args
+from arguments import get_args
 
 from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 
@@ -44,14 +43,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def accuracy(out, labels):
-    outputs = np.argmax(out, axis=1)
-    return np.sum(outputs == labels)
-
 def train(args=None) -> float:
-    if args == None:
+    """ Train a GPST Model with the arguments parsed via ``arguments.py``.
+        Should be run via ``rain.sh``.
+    """
+    if args is None:
         parser = argparse.ArgumentParser()
-        parser = train_args(parser)
+        parser = get_args(parser)
         args = parser.parse_args()
 
     random.seed(args.seed)
@@ -71,8 +69,8 @@ def train(args=None) -> float:
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
-    # MOD: from_pretrained(args.gpst_model) -> from_pretrained(config_filepath)
-    config = OpenAIGPTConfig.from_pretrained(config_filepath)
+    # MOD: from_pretrained(args.gpst_model)
+    config = OpenAIGPTConfig.from_pretrained(args.gpst_model)
     model = OpenAIGPTLMHeadModel(config)
 
     if torch.__version__[:5] == "0.3.1":
