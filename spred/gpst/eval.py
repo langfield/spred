@@ -70,18 +70,19 @@ def main() -> None:
     parser = get_args(parser)
     args = parser.parse_args()
 
+    weights_name = args.model_name + ".bin"
+    config_name = args.model_name + ".json"
+
     if torch.__version__[:5] == "0.3.1":
-        model = load_model(weights_name=args.weights_name, config_name=args.config_name)
+        model = load_model(weights_name=weights_name, config_name=config_name)
     else:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = load_model(
-            device, weights_name=args.weights_name, config_name=args.config_name
-        )
+        model = load_model(device, weights_name=weights_name, config_name=config_name)
 
     dim = model.config.vocab_size
     max_seq_len = model.config.n_positions
     batch_size = args.eval_batch_size
-    data_filename = args.eval_dataset
+    data_filename = args.dataset
     graph_path = args.graph_dir
     print("Data dimensionality:", dim)
     print("Max sequence length :", max_seq_len)

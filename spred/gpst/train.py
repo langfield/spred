@@ -52,6 +52,9 @@ def train(args=None) -> float:
         parser = get_args(parser)
         args = parser.parse_args()
 
+    weights_name = args.model_name + ".bin"
+    config_name = args.model_name + ".json"
+
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -63,13 +66,9 @@ def train(args=None) -> float:
     if torch.__version__[:5] != "0.3.1":
         logger.info("device: {}, n_gpu {}".format(device, n_gpu))
 
-    if not args.do_train and not args.do_eval:
-        raise ValueError("At least one of `do_train` or `do_eval` must be True.")
-
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
-    # MOD: from_pretrained(args.gpst_model)
     config = OpenAIGPTConfig.from_pretrained(args.gpst_model)
     model = OpenAIGPTLMHeadModel(config)
 
@@ -82,7 +81,7 @@ def train(args=None) -> float:
     max_length = model.config.n_positions
 
     train_data = GPSTDataset(
-        args.train_dataset,
+        args.dataset,
         max_length,
         stationarize=args.stationarize,
         aggregation_size=args.aggregation_size,
@@ -231,14 +230,14 @@ def train(args=None) -> float:
             elapsed_epochs += 1
             sys.stdout.flush()
             if elapsed_epochs % args.save_freq == 0:
-                print("Saving model to:", args.weights_name)
+                print("Saving model to:", weights_name)
                 sys.stdout.flush()
                 # Only save the model itself.
                 model_to_save = model.module if hasattr(model, "module") else model
 
                 # If we save using the predefined names, we can load using ``from_pretrained``.
-                output_model_file = os.path.join(args.output_dir, args.weights_name)
-                output_config_file = os.path.join(args.output_dir, args.config_name)
+                output_model_file = os.path.join(args.output_dir, weights_name)
+                output_config_file = os.path.join(args.output_dir, config_name)
 
                 torch.save(model_to_save.state_dict(), output_model_file)
                 model_to_save.config.to_json_file(output_config_file)

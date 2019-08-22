@@ -1,10 +1,9 @@
 #!/bin/bash
 
-TRAIN_DATASET="../exchange/concatenated_price_data/ETHUSDT_drop.csv"
+DATASET="../exchange/concatenated_price_data/ETHUSDT_drop.csv"
 GPST_MODEL="config.json"
+MODEL_NAME="pytorch_model"
 MODEL_ROOT="checkpoints"
-WEIGHTS_NAME="pytorch_model.bin"
-CONFIG_NAME="config.json"
 
 # Hyperparameters:
 SEED="42"
@@ -21,10 +20,10 @@ STATIONARIZE="--stationarize"
 NORMALIZE="--normalize"
 
 if [ "$(whoami)" != "mckade" ]; then
-    # srun -J gpst -w vibranium --mem 10000 -c 4 python3 train.py --train_dataset ${TRAIN_DATASET} --gpst_model ${GPST_MODEL} --output_dir ${MODEL_ROOT} --do_train --train_batch_size 128 --num_train_epochs 1000 --save_freq 1
-    srun -J gpst -w adamantium --mem 10000 -c 4 python3 train.py --train_dataset ${TRAIN_DATASET} --gpst_model ${GPST_MODEL} --output_dir ${MODEL_ROOT} --weights_name ${WEIGHTS_NAME} --config_name ${CONFIG_NAME} --do_train --seed ${SEED} --train_batch_size ${BATCH_SIZE} --num_train_epochs ${NUM_TRAIN_EPOCHS} --save_freq ${SAVE_FREQ} --max_grad_norm ${MAX_GRAD_NORM} --learning_rate ${LEARNING_RATE} --warmup_proportion ${WARMUP_PROPORTION} --weight_decay ${WEIGHT_DECAY} --adam_epsilon ${ADAM_EPSILON} --aggregation_size ${AGGREGATION_SIZE} ${STATIONARIZE} ${NORMALIZE}
+    # srun -J gpst -w vibranium --mem 10000 -c 4 python3 train.py --dataset ${DATASET} --gpst_model ${GPST_MODEL} --output_dir ${MODEL_ROOT} --do_train --train_batch_size 128 --num_train_epochs 1000 --save_freq 1
+    srun -J gpst -w adamantium --mem 10000 -c 4 python3 train.py --dataset ${DATASET} --gpst_model ${GPST_MODEL} --output_dir ${MODEL_ROOT} --model_name ${MODEL_NAME} --do_train --seed ${SEED} --train_batch_size ${BATCH_SIZE} --num_train_epochs ${NUM_TRAIN_EPOCHS} --save_freq ${SAVE_FREQ} --max_grad_norm ${MAX_GRAD_NORM} --learning_rate ${LEARNING_RATE} --warmup_proportion ${WARMUP_PROPORTION} --weight_decay ${WEIGHT_DECAY} --adam_epsilon ${ADAM_EPSILON} --aggregation_size ${AGGREGATION_SIZE} ${STATIONARIZE} ${NORMALIZE}
 else
-    #python3 train.py --train_dataset ../../../ETHUSDT_ta_drop.csv --gpst_model ${GPST_MODEL} --output_dir ${MODEL_ROOT} --do_train --train_batch_size 512 --num_train_epochs 10000 --save_freq 20
-    python3 train.py --train_dataset ../../../ETHUSDT_drop.csv --gpst_model ${GPST_MODEL} --output_dir ${MODEL_ROOT} --do_train --train_batch_size ${TRAIN_BATCH_SIZE}  --num_train_epochs ${NUM_TRAIN_EPOCHS} --save_freq ${SAVE_FREQ} #--timeout 30
+    #python3 train.py --dataset ../../../ETHUSDT_ta_drop.csv --gpst_model ${GPST_MODEL} --output_dir ${MODEL_ROOT} --do_train --train_batch_size 512 --num_train_epochs 10000 --save_freq 20
+    python3 train.py --dataset ../../../ETHUSDT_drop.csv --gpst_model ${GPST_MODEL} --output_dir ${MODEL_ROOT} --do_train --train_batch_size ${TRAIN_BATCH_SIZE}  --num_train_epochs ${NUM_TRAIN_EPOCHS} --save_freq ${SAVE_FREQ} #--timeout 30
 fi
 
