@@ -22,6 +22,7 @@ def objective(trial: optuna.Trial) -> float:
     # Must cast args which are supposed to be ints to ints.
     # args.seed = trial.suggest_int("seed", 40, 43)
     args.seed = 42
+    args.num_train_epochs = 100000
     args.train_batch_size = int(trial.suggest_discrete_uniform(
         "train_batch_size", 16, 64, 8
     ))
