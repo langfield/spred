@@ -8,7 +8,7 @@ import tempfile
 import optuna
 
 from train import train
-from args import train_args
+from arguments import get_args
 
 
 def main():
@@ -18,7 +18,7 @@ def main():
 
 def objective(trial: optuna.Trial) -> float:
     parser = argparse.ArgumentParser()
-    parser = train_args(parser)
+    parser = get_args(parser)
     args = parser.parse_args()
 
     # Hyperparams to manually set.
