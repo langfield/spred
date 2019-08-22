@@ -165,6 +165,13 @@ def main() -> None:
         # ``pred`` is the last prediction in the first (and only) batch.
         outputs = model(input_ids, position_ids, None, inputs_raw)
         predictions = outputs[0]
+        # HARDCODE
+        # DEBUG
+        #========================================
+        # SHADOWTEST
+        # predictions = copy.deepcopy(inputs_raw)
+        # SHADOWTEST
+        #========================================
         # Casting to correct ``torch.Tensor`` type.
         if torch.__version__[:5] == "0.3.1":
             pred = np.array(predictions[0, -1].data)[0]
