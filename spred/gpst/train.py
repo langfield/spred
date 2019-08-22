@@ -1,32 +1,7 @@
 # coding=utf-8
-# Copyright 2018 Google AI, Google Brain and Carnegie Mellon
-# University Authors and the HuggingFace Inc. team.
-# Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """ OpenAI GPT model fine-tuning script.
     Adapted from https://github.com/huggingface/pytorch-openai-transformer-lm/blob/master/train.py
     Itself adapted from https://github.com/openai/finetune-transformer-lm/blob/master/train.py
-
-    This script with default values pretrains an OpenAI GPT model on a test dataset:
-        python train.py
-          --model_name openai-gpt
-          --do_train
-          --do_eval
-          --train_dataset
-          --eval_dataset
-          --output_dir ../log
-          --train_batch_size 16
 """
 import os
 import sys
@@ -73,7 +48,7 @@ def accuracy(out, labels):
     outputs = np.argmax(out, axis=1)
     return np.sum(outputs == labels)
 
-def train(config_filepath: str, args=None) -> float:
+def train(args=None) -> float:
     if args == None:
         parser = argparse.ArgumentParser()
         parser = train_args(parser)
@@ -277,4 +252,4 @@ def train(config_filepath: str, args=None) -> float:
 
 
 if __name__ == "__main__":
-    train("config.json")
+    train()
