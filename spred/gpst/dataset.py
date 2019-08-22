@@ -16,8 +16,9 @@ def stationarize(input_data: pd.DataFrame) -> pd.DataFrame:
     print("columns", columns)
     for col in columns:
         raw_data[col] = raw_data[col] - raw_data[col].shift(1)
-    
+
     return raw_data
+
 
 def aggregate(input_data: pd.DataFrame, k: int) -> pd.DataFrame:
     """ Returns an aggregated version of ``input_data`` with bucket size ``k`` """
@@ -26,7 +27,7 @@ def aggregate(input_data: pd.DataFrame, k: int) -> pd.DataFrame:
     for col in columns:
         agg = []
         for i in range(len(input_data[col]) // k):
-            agg.append(input_data[col].iloc[i:i+k].values.sum())
+            agg.append(input_data[col].iloc[i : i + k].values.sum())
         raw_data[col] = agg
 
     return raw_data
@@ -41,7 +42,7 @@ class GPSTDataset(Dataset):
         seq_len: int,
         encoding: str = "utf-8",
         on_memory: bool = True,
-        stationarize: bool = False,
+        tationarization: bool = False,
         aggregation_size: int = 1,
         normalize: bool = False,
         train_batch_size: int = 1,
@@ -57,8 +58,8 @@ class GPSTDataset(Dataset):
         assert corpus_path[-4:] == ".csv"
         self.raw_data = pd.read_csv(corpus_path, sep="\t")
 
-        if stationarize:
-            print('Preprocessing data...')
+        if tationarization:
+            print("Preprocessing data...")
             # Stationarize each of the columns.
             self.raw_data = stationarize(self.raw_data)
 
@@ -114,7 +115,7 @@ class GPSTDataset(Dataset):
 
             if self.normalize:
                 # Normalize ``inputs_raw`` and ``targets_raw``.
-                print('Normalizing data...')
+                print("Normalizing data...")
                 scaler = StandardScaler()
                 scaler.fit(inputs_raw)
                 inputs_raw = scaler.transform(inputs_raw)
