@@ -4,8 +4,10 @@ import os
 import time
 import json
 import shutil
+import logging
 import argparse
 import tempfile
+import datetime
 
 import optuna
 
@@ -15,7 +17,15 @@ from arguments import get_args
 
 def main():
     """ Run an Optuna study. """
+    datestring = str(datetime.datetime.now())
+    datestring = datestring.replace(" ", "_")
+    logging.getLogger().setLevel(logging.INFO)  # Setup the root logger.
+    logging.getLogger().addHandler(logging.FileHandler("optuna_" + datestring + ".log"))
+    optuna.logging.enable_propagation()  # Propagate logs to the root logger.
+    optuna.logging.disable_default_handler()  # Stop showing logs in stderr.
+
     study = optuna.create_study()
+    logging.getLogger().info("Start optimization.")
     study.optimize(objective, n_trials=100)
 
 

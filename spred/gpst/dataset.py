@@ -42,7 +42,7 @@ def normalize(inputs_raw: np.ndarray, targets_raw: np.ndarray = None) -> Tuple[n
     scaler = StandardScaler()
     scaler.fit(inputs_raw)
     inputs_raw = scaler.transform(inputs_raw)
-    if targets_raw:
+    if targets_raw is not None:
         targets_raw = scaler.transform(targets_raw)
     return inputs_raw, targets_raw
 
