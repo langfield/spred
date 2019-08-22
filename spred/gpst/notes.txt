@@ -19,6 +19,9 @@ I am using an xrange of 1000 for sin, and 10000 steps. This may not be fine enou
 
 Should add functionality to pause and restart training, and to save at any point via a keyboard command.
 
+8-22-19
+Loss starts diverging with too large of a learning rate (1e-3).
+
 Hyperparameter optimization tools:
 
     Optuna

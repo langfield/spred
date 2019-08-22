@@ -85,7 +85,7 @@ def train(args=None) -> float:
         max_length,
         stationarization=args.stationarize,
         aggregation_size=args.aggregation_size,
-        normalize=args.normalize,
+        normalization=args.normalize,
         train_batch_size=args.train_batch_size,
     )
     print("Length of training dataset:", len(train_data))

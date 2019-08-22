@@ -12,13 +12,12 @@ try:
 except ImportError:
     pass
 
-from sklearn.preprocessing import StandardScaler
 from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME
 
 from plot import graph
 from arguments import get_args
 from termplt import plot_to_terminal
-from dataset import aggregate, stationarize
+from dataset import aggregate, stationarize, normalize
 from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 
 
@@ -117,9 +116,7 @@ def main() -> None:
 
         if args.normalize:
             # Normalize ``inputs_raw`` and ``targets_raw``.
-            scaler = StandardScaler()
-            scaler.fit(tensor_data)
-            tensor_data = scaler.transform(tensor_data)
+            tensor_data = normalize(tensor_data)[0]
 
         tensor_data = torch.Tensor(tensor_data)
         inputs_raw = tensor_data.contiguous()

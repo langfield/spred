@@ -28,6 +28,8 @@ def objective(trial: optuna.Trial) -> float:
     # Set arguments.
     args.num_train_epochs = 100000
     args.stationarize = False
+    args.normalize = True
+    args.aggregation_size = 1
     args.seed = 42
     args.max_grad_norm = 3
     args.warmup_steps = 10000
@@ -35,7 +37,7 @@ def objective(trial: optuna.Trial) -> float:
     args.warmup_proportion = trial.suggest_uniform("warmup_proportion", 0.05, 0.4)
     args.weight_decay = trial.suggest_loguniform("weight_decay", 5e-4, 1e-2)
     args.adam_epsilon = trial.suggest_loguniform("adam_epsilon", 1e-9, 1e-7)
-    batch_size = trial.suggest_discrete_uniform("train_batch_size", 16, 64, 8)
+    batch_size = trial.suggest_discrete_uniform("train_batch_size", 64, 512, 64)
     args.train_batch_size = int(batch_size)
 
     # Set config.
@@ -46,7 +48,7 @@ def objective(trial: optuna.Trial) -> float:
     config["n_positions"] = config["n_ctx"]
     config["resid_pdrop"] = trial.suggest_uniform("resid_pdrop", 0.02, 0.15)
     config["attn_pdrop"] = trial.suggest_uniform("attn_pdrop", 0.02, 0.15)
-    config["n_embd"] = 768
+    config["n_embd"] = int(trial.suggest_discrete_uniform("n_embd", 32, 256, 16))
     config["n_head"] = 16
     config["vocab_size"] = 5
 
