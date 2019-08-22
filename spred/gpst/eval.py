@@ -1,6 +1,7 @@
 """ Evaluate a trained GPST model and graph its predictions. """
 import os
 import copy
+import random
 import argparse
 import numpy as np
 import pandas as pd
@@ -110,7 +111,8 @@ def main() -> None:
 
     # Iterate in step sizes of 1 over ``raw_data``.
     # HARDCODE
-    for i in range(args.width):
+    start = random.randint(0, len(raw_data) // 2)
+    for i in range(start, start + args.width):
         assert i + max_seq_len <= len(raw_data)
         tensor_data = np.array(raw_data.iloc[i : i + max_seq_len, :].values)
 
