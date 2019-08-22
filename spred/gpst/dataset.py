@@ -42,7 +42,7 @@ class GPSTDataset(Dataset):
         seq_len: int,
         encoding: str = "utf-8",
         on_memory: bool = True,
-        tationarization: bool = False,
+        stationarize: bool = False,
         aggregation_size: int = 1,
         normalize: bool = False,
         train_batch_size: int = 1,
