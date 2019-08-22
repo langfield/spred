@@ -13,14 +13,10 @@ args = parser.parse_args()
 raw_data = pd.read_csv(args.file, sep=args.sep)
 
 print("Generating technical indicators...")
-raw_data = add_all_ta_features(raw_data, 
-                               "Open", 
-                               "High", 
-                               "Low", 
-                               "Close", 
-                               "Volume", 
-                               fillna=True)
-#raw_data = dropna(raw_data)
+raw_data = add_all_ta_features(
+    raw_data, "Open", "High", "Low", "Close", "Volume", fillna=True
+)
+# raw_data = dropna(raw_data)
 print("[done]")
 
 print(raw_data.head())
