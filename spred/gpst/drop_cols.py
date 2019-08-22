@@ -8,9 +8,9 @@ parser.add_argument("--output_file", type=str, default="file")
 args = parser.parse_args()
 
 # Grab training data.
-raw_data = pd.read_csv(args.file, sep='\t')
+raw_data = pd.read_csv(args.file, sep="\t")
 # drop all columns specified in the comma separated list from args
-drop = [x.strip() for x in args.drop_cols.split(',')]
+drop = [x.strip() for x in args.drop_cols.split(",")]
 print("Dropping", drop)
 if len(drop) > 0:
     raw_data = raw_data.drop(columns=drop)
