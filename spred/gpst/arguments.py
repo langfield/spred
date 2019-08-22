@@ -6,9 +6,9 @@ def get_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     """ Adds GPST arguments to the passed Parser object. """
 
     # Required.
-    parser.add_argument("--output_dir", type=str, required=True)
-    parser.add_argument("--gpst_model", type=str, required=True)
     parser.add_argument("--dataset", type=str, required=True)
+    parser.add_argument("--gpst_model", type=str, required=True)
+    parser.add_argument("--output_dir", type=str, required=True)
 
     # Saving.
     parser.add_argument("--model_name", type=str, default="openai-gpt")

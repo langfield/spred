@@ -1,7 +1,10 @@
 """ Dataset classes for GPST preprocessing. """
+import sys
 import copy
+from typing import Tuple
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 from sklearn.preprocessing import StandardScaler
 
 from torch.utils.data import Dataset
@@ -22,6 +25,8 @@ def stationarize(input_data: pd.DataFrame) -> pd.DataFrame:
 
 def aggregate(input_data: pd.DataFrame, k: int) -> pd.DataFrame:
     """ Returns an aggregated version of ``input_data`` with bucket size ``k`` """
+    if k == 1:
+        return input_data
     raw_data = pd.DataFrame()
     columns = input_data.columns
     for col in columns:
@@ -29,8 +34,17 @@ def aggregate(input_data: pd.DataFrame, k: int) -> pd.DataFrame:
         for i in range(len(input_data[col]) // k):
             agg.append(input_data[col].iloc[i : i + k].values.sum())
         raw_data[col] = agg
-
     return raw_data
+
+def normalize(inputs_raw: np.ndarray, targets_raw: np.ndarray = None) -> Tuple[np.ndarray]:
+    """ Fits a StandardScaler to ``inputs_raw`` and normalizes the inputs. """
+    # Normalize ``inputs_raw`` and ``targets_raw``.
+    scaler = StandardScaler()
+    scaler.fit(inputs_raw)
+    inputs_raw = scaler.transform(inputs_raw)
+    if targets_raw:
+        targets_raw = scaler.transform(targets_raw)
+    return inputs_raw, targets_raw
 
 
 class GPSTDataset(Dataset):
@@ -44,7 +58,7 @@ class GPSTDataset(Dataset):
         on_memory: bool = True,
         stationarization: bool = False,
         aggregation_size: int = 1,
-        normalize: bool = False,
+        normalization: bool = False,
         train_batch_size: int = 1,
     ) -> None:
 
@@ -53,7 +67,7 @@ class GPSTDataset(Dataset):
         self.on_memory = on_memory
         self.corpus_path = corpus_path
         self.encoding = encoding
-        self.normalize = normalize
+        self.normalize = normalization
 
         assert corpus_path[-4:] == ".csv"
         self.raw_data = pd.read_csv(corpus_path, sep="\t")
@@ -67,7 +81,11 @@ class GPSTDataset(Dataset):
             self.raw_data = self.raw_data[1:]
 
         # aggregate the price data to reduce volatility
+        print("Aggregating...")
+        sys.stdout.flush()
         self.raw_data = aggregate(self.raw_data, aggregation_size)
+        print("Done aggregating.")
+        sys.stdout.flush()
 
         num_batches = len(self.raw_data) // (train_batch_size * seq_len)
         rows_to_keep = train_batch_size * seq_len * num_batches
@@ -105,7 +123,8 @@ class GPSTDataset(Dataset):
         input_ids_all = np.arange(0, num_seqs * seq_len)
 
         features = []
-        for i in range(num_seqs):
+        print("Creating features...")
+        for i in tqdm(range(num_seqs)):
             inputs_raw = tensor_data[i * seq_len : (i + 1) * seq_len]
             input_ids = input_ids_all[i * seq_len : (i + 1) * seq_len]
             position_ids = np.arange(0, seq_len)
@@ -113,16 +132,12 @@ class GPSTDataset(Dataset):
             targets_raw = copy.deepcopy(inputs_raw)
 
             if self.normalize:
-                # Normalize ``inputs_raw`` and ``targets_raw``.
-                scaler = StandardScaler()
-                scaler.fit(inputs_raw)
-                inputs_raw = scaler.transform(inputs_raw)
-                targets_raw = scaler.transform(targets_raw)
+                inputs_raw, targets_raw = normalize(inputs_raw, targets_raw)
 
             features.append(
                 (input_ids, position_ids, lm_labels, inputs_raw, targets_raw)
             )
-
+        print("Done creating features.")
         return features
 
 
