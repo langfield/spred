@@ -42,7 +42,7 @@ class GPSTDataset(Dataset):
         seq_len: int,
         encoding: str = "utf-8",
         on_memory: bool = True,
-        stationarize: bool = False,
+        stationarization: bool = False,
         aggregation_size: int = 1,
         normalize: bool = False,
         train_batch_size: int = 1,
@@ -58,7 +58,7 @@ class GPSTDataset(Dataset):
         assert corpus_path[-4:] == ".csv"
         self.raw_data = pd.read_csv(corpus_path, sep="\t")
 
-        if tationarization:
+        if stationarization:
             print("Preprocessing data...")
             # Stationarize each of the columns.
             self.raw_data = stationarize(self.raw_data)
@@ -82,8 +82,7 @@ class GPSTDataset(Dataset):
         return self.features[item]
 
     def create_features(self, tensor_data):
-        """
-        Returns a list of features of the form
+        """ Returns a list of features of the form
         (input, input_raw, is_masked, target, seg_id, label).
         """
         original_data_len = tensor_data.shape[0]
@@ -115,7 +114,6 @@ class GPSTDataset(Dataset):
 
             if self.normalize:
                 # Normalize ``inputs_raw`` and ``targets_raw``.
-                print("Normalizing data...")
                 scaler = StandardScaler()
                 scaler.fit(inputs_raw)
                 inputs_raw = scaler.transform(inputs_raw)
