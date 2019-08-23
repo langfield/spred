@@ -171,6 +171,7 @@ def main() -> None:
         print("Inputs from index {} to {}".format(i, i+max_seq_len))
         print("Inputs:", inputs_raw)
         outputs = model(input_ids, position_ids, None, inputs_raw)
+        print('Inputs after:', inputs_raw)
         predictions = outputs[0]
         print("predictions:", predictions)
         # HARDCODE
@@ -218,6 +219,7 @@ def main() -> None:
         all_inputs.append(actual)
         print("out:",pred)
         print("in :",actual)
+        input()
 
     def matplot(graphs_path, data_filename, dfs, ylabels, column_counts):
         """ Do some path handling and call the ``graph()`` function. """
