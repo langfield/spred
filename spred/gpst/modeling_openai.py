@@ -720,7 +720,7 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
             shift_logits = lm_logits[:, :-1].contiguous()
             shift_labels = targets_raw[:, 1:].contiguous()
 
-            loss = self.regression_loss(shift_logits, shift_labels)
+            loss = self.smape(shift_logits, shift_labels)
             outputs = (loss,) + outputs
 
         return outputs  # (loss), lm_logits, (all hidden states), (all attentions)
@@ -734,3 +734,8 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         loss = torch.mean(loss)
 
         return loss
+
+    def smape(self, predicted, true):
+        epsilon = 0.1
+        summ = torch.max(torch.abs(true) + torch.abs(predicted) + epsilon, 0.5 + epsilon * torch.ones(true.shape))
+        smape = torch.abs(predicted - true) / summ * 2.0
