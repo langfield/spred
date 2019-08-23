@@ -191,16 +191,12 @@ def train(args=None) -> float:
                 print("Shape of targets_raw:", targets_raw.shape)
 
             # Forward call.
-            outputs = model(
-                input_ids, position_ids, lm_labels, inputs_raw, targets_raw
-            )
+            outputs = model(input_ids, position_ids, lm_labels, inputs_raw, targets_raw)
             loss = outputs[0]
             LOSS = float(loss)
             loss.backward()
             if torch.__version__[:5] != "0.3.1":
-                torch.nn.utils.clip_grad_norm_(
-                    model.parameters(), args.max_grad_norm
-                )
+                torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
             scheduler.step()
             optimizer.step()
             optimizer.zero_grad()

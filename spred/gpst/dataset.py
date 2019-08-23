@@ -1,11 +1,10 @@
 """ Dataset classes for GPST preprocessing. """
 import sys
 import copy
-from typing import Tuple
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import RobustScaler
 
 from torch.utils.data import Dataset
 
@@ -36,15 +35,13 @@ def aggregate(input_data: pd.DataFrame, k: int) -> pd.DataFrame:
         raw_data[col] = agg
     return raw_data
 
-def normalize(inputs_raw: np.ndarray, targets_raw: np.ndarray = None) -> Tuple[np.ndarray]:
-    """ Fits a StandardScaler to ``inputs_raw`` and normalizes the inputs. """
-    # Normalize ``inputs_raw`` and ``targets_raw``.
-    scaler = StandardScaler()
-    scaler.fit(inputs_raw)
-    inputs_raw = scaler.transform(inputs_raw)
-    if targets_raw is not None:
-        targets_raw = scaler.transform(targets_raw)
-    return inputs_raw, targets_raw
+
+def normalize(tensor_data: np.ndarray) -> np.ndarray:
+    """ Fits a RobustScaler to ``tensor_data`` and normalizes the inputs. """
+    scaler = RobustScaler()
+    scaler.fit(tensor_data)
+    tensor_data = scaler.transform(tensor_data)
+    return tensor_data
 
 
 class GPSTDataset(Dataset):
@@ -90,6 +87,13 @@ class GPSTDataset(Dataset):
         num_batches = len(self.raw_data) // (train_batch_size * seq_len)
         rows_to_keep = train_batch_size * seq_len * num_batches
         self.tensor_data = np.array(self.raw_data.iloc[:rows_to_keep, :].values)
+
+        # Normalize entire dataset and save scaler object.
+        if self.normalize:
+            print("Normalizing...")
+            tensor_data = normalize(tensor_data)
+            print("Done normalizing.")
+
         self.features = self.create_features(self.tensor_data)
         print("len of features:", len(self.features))
 
@@ -130,10 +134,6 @@ class GPSTDataset(Dataset):
             position_ids = np.arange(0, seq_len)
             lm_labels = copy.deepcopy(input_ids)
             targets_raw = copy.deepcopy(inputs_raw)
-
-            if self.normalize:
-                inputs_raw, targets_raw = normalize(inputs_raw, targets_raw)
-
             features.append(
                 (input_ids, position_ids, lm_labels, inputs_raw, targets_raw)
             )
