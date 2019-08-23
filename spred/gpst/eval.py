@@ -103,6 +103,13 @@ def main() -> None:
     print("aggregate")
     print(raw_data.head(30))
     raw_data = raw_data[1:]
+    raw_data = np.array(raw_data)
+
+    # Normalize entire dataset and save scaler object.
+    if args.normalize:
+        print("Normalizing...")
+        raw_data = normalize(raw_data)
+        print("Done normalizing.")
 
     assert len(raw_data) >= max_seq_len
     output_list = []
@@ -114,13 +121,9 @@ def main() -> None:
     start = random.randint(0, len(raw_data) // 2)
     for i in range(start, start + args.width):
         assert i + max_seq_len <= len(raw_data)
-        tensor_data = np.array(raw_data.iloc[i : i + max_seq_len, :].values)
+        tensor_data = np.array(raw_data[i : i + max_seq_len, :])
         # get the next value in the sequence, i.e., the value we want to predict
-        actual = raw_data.iloc[i+max_seq_len, 0]
-
-        if args.normalize:
-            # Normalize ``inputs_raw`` and ``targets_raw``.
-            tensor_data = normalize(tensor_data)[0]
+        actual = raw_data[i + max_seq_len, 0]
 
         tensor_data = torch.Tensor(tensor_data)
         inputs_raw = tensor_data.contiguous()
@@ -171,11 +174,11 @@ def main() -> None:
         predictions = outputs[0]
         # HARDCODE
         # DEBUG
-        #========================================
+        # ========================================
         # SHADOWTEST
         # predictions = copy.deepcopy(inputs_raw)
         # SHADOWTEST
-        #========================================
+        # ========================================
         # Casting to correct ``torch.Tensor`` type.
         if torch.__version__[:5] == "0.3.1":
             pred = np.array(predictions[0, -1].data)[0]
@@ -188,7 +191,7 @@ def main() -> None:
         graph_width = args.terminal_plot_width
         if len(output_list) >= graph_width:
             output_list = output_list[1:]
-        
+
         # Create ``out_array`` to print graph as it is populated.
         # Shape is the number of iterations we've made, up until we hit
         # ``width`` iterations, after which the shape is ``(width,)``.
