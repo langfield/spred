@@ -720,7 +720,7 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
             shift_logits = lm_logits[:, :-1].contiguous()
             shift_labels = targets_raw[:, 1:].contiguous()
 
-            loss = self.smape(shift_logits, shift_labels)
+            loss = self.regression_loss(shift_logits, shift_labels)
             outputs = (loss,) + outputs
 
         return outputs  # (loss), lm_logits, (all hidden states), (all attentions)
