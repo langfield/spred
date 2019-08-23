@@ -737,10 +737,13 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
 
     def smape(self, predicted, true):
         epsilon = 0.1
-            if torch.__version__[:5] == "0.3.1":
-                ones = torch.ones(true.shape).cuda()
-            else:
-                device = true.device
-                ones = torch.ones(true.shape).to(device)
+        if torch.__version__[:5] == "0.3.1":
+            ones = torch.ones(true.shape).cuda()
+        else:
+            device = true.device
+            ones = torch.ones(true.shape).to(device)
         summ = torch.max(torch.abs(true) + torch.abs(predicted) + epsilon, 0.5 + epsilon * ones)
         smape = torch.abs(predicted - true) / summ * 2.0
+        smape = torch.mul(smape, smape)
+        smape = torch.sum(smape)
+        return smape
