@@ -115,9 +115,8 @@ def main() -> None:
     for i in range(start, start + args.width):
         assert i + max_seq_len <= len(raw_data)
         tensor_data = np.array(raw_data.iloc[i : i + max_seq_len, :].values)
-        #TODO: verify that this fixes the off-by-1 error
+        # get the next value in the sequence, i.e., the value we want to predict
         actual = raw_data.iloc[i+max_seq_len, 0]
-        print('actual:', actual)
 
         if args.normalize:
             # Normalize ``inputs_raw`` and ``targets_raw``.
@@ -168,12 +167,8 @@ def main() -> None:
         # ``predictions`` shape: (batch_size, max_seq_len, dim).
         # ``pred`` shape: <scalar>.
         # ``pred`` is the last prediction in the first (and only) batch.
-        print("Inputs from index {} to {}".format(i, i+max_seq_len))
-        print("Inputs:", inputs_raw)
         outputs = model(input_ids, position_ids, None, inputs_raw)
-        print('Inputs after:', inputs_raw)
         predictions = outputs[0]
-        print("predictions:", predictions)
         # HARDCODE
         # DEBUG
         #========================================
@@ -193,7 +188,6 @@ def main() -> None:
         graph_width = args.terminal_plot_width
         if len(output_list) >= graph_width:
             output_list = output_list[1:]
-        print('Predicted value:',pred)
         
         # Create ``out_array`` to print graph as it is populated.
         # Shape is the number of iterations we've made, up until we hit
@@ -205,21 +199,9 @@ def main() -> None:
             os.system("clear")
             plot_to_terminal(out_array)
 
-        # Grab inputs and outputs for matplotlib plot.
-        # ``inputs_raw_array`` shape: (dim,)
-        if torch.__version__[:5] == "0.3.1":
-            inputs_raw = inputs_raw.data
-        #TODO: verify that this fixes the off-by-1 error
-        inputs_raw_array = np.array(inputs_raw[0, -1, :])
-        # actual = inputs_raw_array[..., 0]
-        print('old actual:', inputs_raw_array[..., 0])
-
         # Append scalar arrays to lists.
         all_outputs.append(pred)
         all_inputs.append(actual)
-        print("out:",pred)
-        print("in :",actual)
-        input()
 
     def matplot(graphs_path, data_filename, dfs, ylabels, column_counts):
         """ Do some path handling and call the ``graph()`` function. """
