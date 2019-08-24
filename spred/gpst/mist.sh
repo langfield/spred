@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DATASET="../exchange/concatenated_price_data/IOTABTC_drop.csv"
+DATASET="../exchange/concatenated_price_data/XRPBTC_drop.csv"
 GPST_MODEL="config.json"
 MODEL_NAME="pytorch_model"
 OUTPUT_DIR="checkpoints"
@@ -10,8 +10,13 @@ SEED="42"
 EVAL_BATCH_SIZE="1"
 AGGREGATION_SIZE="1"
 GRAPH_DIR="graphs/"
+<<<<<<< HEAD
 WIDTH="300"
 TERMINAL_PLOT_WIDTH="250"
+=======
+WIDTH="200"
+TERMINAL_PLOT_WIDTH="50"
+>>>>>>> 1eed349ae5049ddecf5bcaf25bcf4d4e0fc6da04
 NORMALIZE="--normalize"
 STATIONARIZE=""
 
