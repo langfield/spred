@@ -48,7 +48,7 @@ def objective(trial: optuna.Trial) -> float:
     args.warmup_proportion = trial.suggest_uniform("warmup_proportion", 0.05, 0.4)
     batch_size = trial.suggest_discrete_uniform("train_batch_size", 32, 256, 32)
     args.train_batch_size = int(batch_size)
-    agg_size = trial.suggest_discrete_uniform("agg_size", 5, 30, 5)
+    agg_size = 1
     args.aggregation_size = int(agg_size)
 
     # Set config.

@@ -721,7 +721,7 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
             shift_logits = lm_logits[:, :-1].contiguous()
             shift_labels = targets_raw[:, 1:].contiguous()
 
-            loss = self.regression_loss(shift_logits, shift_labels)
+            loss = self.smape(shift_logits, shift_labels)
             outputs = (loss,) + outputs
 
         return outputs  # (loss), lm_logits, (all hidden states), (all attentions)
@@ -739,7 +739,7 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
     def smape(self, predicted, true):
         epsilon = 0.1
         if torch.__version__[:5] == "0.3.1":
-            ones = torch.ones(true.shape).cuda()
+            ones = torch.autograd.Variable(torch.ones(true.shape).cuda())
         else:
             device = true.device
             ones = torch.ones(true.shape).to(device)
