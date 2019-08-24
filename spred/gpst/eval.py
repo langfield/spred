@@ -297,7 +297,7 @@ def sanity():
             if count < start:
                 count += 1
                 continue
-
+            
             float_row = [float(i) for i in row]
             if len(seq) == max_seq_len and seq_count != 0:
                 # Get the next value in the sequence, i.e., the value we just predicted
@@ -313,7 +313,9 @@ def sanity():
             if len(seq) == max_seq_len + 1:
                 seq_df = stationarize(pd.DataFrame(seq, columns = ['Open', 'High', 'Low', 'Close', 'Volume'], dtype=float))[1:]
                 pred = predict(model, seq_df, max_seq_len, dim, batch_size)
-                
+                print('Prediction {} at time step {}'.format(pred, count+1))
+                print(seq_df)
+                input()
                 if TERM_PRINT:
                     # Create ``out_array`` to print graph as it is populated.
                     # Shape is the number of iterations we've made, up until we hit
@@ -337,6 +339,8 @@ def sanity():
                 seq = seq[1:][:]
                 seq_count += 1
 
+            count += 1
+
     # Stack and cast to ``pd.DataFrame``.
     # ``all_in`` and ``all_out`` shape: (args.width,)
     all_in = np.stack(all_inputs)
@@ -345,4 +349,5 @@ def sanity():
     gen_plot(all_in, all_out, graph_path, file)
 
 if __name__ == "__main__":
-    sanity()
+    #sanity()
+    main()
