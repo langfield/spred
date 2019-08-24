@@ -24,6 +24,7 @@ from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 
 DEBUG = False
 TERM_PRINT = False
+# pylint: disable=no-member
 
 
 def load_model(
@@ -51,10 +52,6 @@ def load_model(
 def create_sample_data(dim: int, max_seq_len: int, width: int) -> torch.Tensor:
     """Construct sample time series."""
     print("Width:", width)
-    # x vals.
-    # time = np.arange(0, width, 100 / max_seq_len)
-    # y vals.
-    # price = np.sin(time) + 10
     price = np.array([0] * max_seq_len)
     df = pd.DataFrame({"Price": price})
     df = df[[col for col in df.columns for i in range(dim)]]
@@ -122,7 +119,8 @@ def main() -> None:
     for i in range(start, start + args.width):
         assert i + max_seq_len <= len(raw_data)
         tensor_data = np.array(raw_data[i : i + max_seq_len, :])
-        # get the next value in the sequence, i.e., the value we want to predict
+
+        # Get the next value in the sequence, i.e., the value we want to predict.
         actual = raw_data[i + max_seq_len, 0]
 
         tensor_data = torch.Tensor(tensor_data)
@@ -172,13 +170,6 @@ def main() -> None:
         # ``pred`` is the last prediction in the first (and only) batch.
         outputs = model(input_ids, position_ids, None, inputs_raw)
         predictions = outputs[0]
-        # HARDCODE
-        # DEBUG
-        # ========================================
-        # SHADOWTEST
-        # predictions = copy.deepcopy(inputs_raw)
-        # SHADOWTEST
-        # ========================================
         # Casting to correct ``torch.Tensor`` type.
         if torch.__version__[:5] == "0.3.1":
             pred = np.array(predictions[0, -1].data)[0]
@@ -187,7 +178,6 @@ def main() -> None:
 
         # ``output_list`` is a running list of the ``graph_width`` most recent
         # outputs from the forward call.
-        # How many time steps fit in terminal window.
         graph_width = args.terminal_plot_width
         if len(output_list) >= graph_width:
             output_list = output_list[1:]
