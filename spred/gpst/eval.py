@@ -233,73 +233,12 @@ def main() -> None:
     start = random.randint(0, len(raw_data) // 2)
     for i in range(start, start + args.width):
         assert i + max_seq_len <= len(raw_data)
-<<<<<<< HEAD
         pred = predict(model, raw_data[i : i + max_seq_len, :],
                        max_seq_len, dim, batch_size)
         
         # Get the next value in the sequence, i.e., the value we want to predict
         actual = raw_data[i + max_seq_len, 0]
         
-=======
-        tensor_data = np.array(raw_data[i : i + max_seq_len, :])
-
-        # Get the next value in the sequence, i.e., the value we want to predict.
-        actual = raw_data[i + max_seq_len, 0]
-
-        tensor_data = torch.Tensor(tensor_data)
-        inputs_raw = tensor_data.contiguous()
-
-        # Create ``position_ids``.
-        position_ids = torch.arange(0, tensor_data.shape[0])
-        position_ids = torch.stack([position_ids])
-
-        # Create ``input_ids``.
-        input_ids = copy.deepcopy(position_ids)
-
-        # Reshape.
-        inputs_raw = inputs_raw.view(batch_size, max_seq_len, dim)
-        input_ids = input_ids.view(batch_size, max_seq_len)
-        position_ids = position_ids.view(batch_size, max_seq_len)
-
-        # Casting to correct ``torch.Tensor`` type.
-        if torch.__version__[:5] == "0.3.1":
-            input_ids = input_ids.long().cuda()
-            position_ids = Variable(position_ids.long().cuda()).contiguous()
-            inputs_raw = Variable(inputs_raw.cuda()).contiguous()
-        else:
-            input_ids = input_ids.to(device)
-            position_ids = position_ids.to(device)
-            inputs_raw = inputs_raw.to(device)
-
-        if DEBUG:
-            print("================TYPECHECK==================")
-            print("Type of input_ids:", type(input_ids))
-            print("Type of position_ids:", type(position_ids))
-            if torch.__version__[:5] == "0.3.1":
-                print("type of position_ids data:", type(position_ids.data))
-            print("Type of inputs_raw:", type(inputs_raw))
-            print("================SHAPECHECK=================")
-            print("input_ids shape:", input_ids.shape)
-            print("position_ids shape:", position_ids.shape)
-            print("inputs_raw shape:", inputs_raw.shape)
-
-        # Shape check.
-        assert input_ids.shape == (batch_size, max_seq_len)
-        assert position_ids.shape == (batch_size, max_seq_len)
-        assert inputs_raw.shape == (batch_size, max_seq_len, dim)
-
-        # ``predictions`` shape: (batch_size, max_seq_len, dim).
-        # ``pred`` shape: <scalar>.
-        # ``pred`` is the last prediction in the first (and only) batch.
-        outputs = model(input_ids, position_ids, None, inputs_raw)
-        predictions = outputs[0]
-        # Casting to correct ``torch.Tensor`` type.
-        if torch.__version__[:5] == "0.3.1":
-            pred = np.array(predictions[0, -1].data)[0]
-        else:
-            pred = np.array(predictions[0, -1].data)
-
->>>>>>> 512d4f48a7efd7239c20a81220cf3901349f3393
         # ``output_list`` is a running list of the ``graph_width`` most recent
         # outputs from the forward call.
         graph_width = args.terminal_plot_width
