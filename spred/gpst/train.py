@@ -16,6 +16,8 @@ from tqdm import tqdm, trange
 from pytorch_transformers import AdamW, WarmupLinearSchedule
 
 # pylint: disable=wrong-import-order
+# pylint: disable=no-name-in-module
+# pylint: ungrouped-imports
 import torch
 from torch.utils.data import DataLoader
 
@@ -23,7 +25,6 @@ if torch.__version__[:5] == "0.3.1":
     from torch.autograd import Variable
     from torch_addons.sampler import RandomSampler
 else:
-    # pylint: ungrouped-imports
     from torch.utils.data import RandomSampler
 
 # pylint: disable=wrong-import-position
@@ -39,7 +40,7 @@ logging.basicConfig(
     datefmt="%m/%d/%Y %H:%M:%S",
     level=logging.INFO,
 )
-# pylint: disable=invalid-name
+# pylint: disable=invalid-name, no-member
 logger = logging.getLogger(__name__)
 
 
@@ -64,7 +65,7 @@ def train(args=None) -> float:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     n_gpu = torch.cuda.device_count()
     if torch.__version__[:5] != "0.3.1":
-        logger.info("device: {}, n_gpu {}".format(device, n_gpu))
+        logger.info("device: %s, n_gpu %d", str(device), n_gpu)
 
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
