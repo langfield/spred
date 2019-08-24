@@ -91,7 +91,7 @@ class GPSTDataset(Dataset):
         # Normalize entire dataset and save scaler object.
         if self.normalize:
             print("Normalizing...")
-            tensor_data = normalize(tensor_data)
+            self.tensor_data = normalize(self.tensor_data)
             print("Done normalizing.")
 
         self.features = self.create_features(self.tensor_data)
