@@ -172,8 +172,8 @@ def train(args=None) -> float:
                 targets_raw = Variable(targets_raw.contiguous())
                 inputs_raw = Variable(inputs_raw.contiguous())
 
-            # Get only first column.
-            targets_raw = targets_raw[:, :, 0]
+            # Get only fourth column (close).
+            targets_raw = targets_raw[:, :, 3]
 
             if DEBUG:
                 print("=======================================")
