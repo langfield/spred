@@ -56,9 +56,9 @@ def cross_correlation(args: argparse.Namespace, df: pd.DataFrame) -> pd.DataFram
     filename_no_ext = filename.split(".")[0]
     save_path = os.path.join(args.graphs_path, filename_no_ext + ".svg")
 
-    correlation(df, save_path)
-
-    """
+    #correlation(df, save_path)
+    corr = df.corr()
+    
     # Generate a mask for the upper triangle.
     mask = np.zeros_like(corr, dtype=np.bool)
     mask[np.triu_indices_from(mask)] = True
@@ -74,16 +74,16 @@ def cross_correlation(args: argparse.Namespace, df: pd.DataFrame) -> pd.DataFram
         corr,
         mask=mask,
         cmap=cmap,
-        vmax=0.3,
+        vmax=1,
         center=0,
         square=True,
         linewidths=0.5,
         cbar_kws={"shrink": 0.5},
     )
-    """
-
+    
+    plt.savefig(save_path)
     # Compute the correlation matrix.
-    corr = df.corr()
+    
     return corr
 
 
@@ -92,13 +92,13 @@ def drop_correlation(corr: pd.DataFrame) -> List[str]:
     Find columns with correlation higher than ``0.5`` and return the
     column labels as a list of strings.
     """
-    column_names = corr.columns
+    column_names = corr.columns[5:]
     dropped = set()
-    n_cols = len(corr)
+    n_cols = len(corr) - 5
     for i in range(n_cols):
         for j in range(n_cols):
             if i + (n_cols - j) < n_cols:
-                if abs(corr.iloc[i, j]) > 1:
+                if abs(corr.iloc[i, j]) > .5:
                     dropped.add(column_names[i])
     return list(dropped)
 
