@@ -1,0 +1,1 @@
+python3 prepro.py --drop_col "Date" --file "../../../ETHUSDT.csv" --output_file "../../../ETHUSDT_prepro.csv"
