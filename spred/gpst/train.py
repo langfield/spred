@@ -138,6 +138,7 @@ def train(args=None) -> float:
     elapsed_epochs = 0
     for _ in trange(int(args.num_train_epochs), desc="Epoch"):
         tr_loss = 0
+        epoch_avg_loss = 0
         nb_tr_steps = 0
         tqdm_bar = tqdm(train_dataloader, desc="Training", position=0, leave=True)
         for _, batch in enumerate(tqdm_bar):
@@ -200,6 +201,7 @@ def train(args=None) -> float:
             outputs = model(input_ids, position_ids, lm_labels, inputs_raw, targets_raw)
             loss = outputs[0]
             LOSS = float(loss)
+            epoch_avg_loss += LOSS
             loss.backward()
             if torch.__version__[:5] != "0.3.1":
                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
@@ -226,6 +228,8 @@ def train(args=None) -> float:
             nb_tr_steps += 1
             tqdm_bar.desc = "Training loss: {:.2e}".format(exp_average_loss)
 
+        epoch_avg_loss = epoch_avg_loss / nb_tr_steps
+
         # Save every ``args.save_freq`` epochs.
         elapsed_epochs += 1
         sys.stdout.flush()
@@ -248,7 +252,7 @@ def train(args=None) -> float:
         if args.timeout > 0 and time.time() - start >= args.timeout:
             break
 
-    return LOSS
+    return epoch_avg_loss
 
 
 if __name__ == "__main__":
