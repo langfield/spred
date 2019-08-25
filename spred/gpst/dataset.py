@@ -1,10 +1,11 @@
 """ Dataset classes for GPST preprocessing. """
 import sys
 import copy
+from typing import Tuple
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
-from sklearn.preprocessing import RobustScaler
+from sklearn.preprocessing import RobustScaler, StandardScaler
 
 from torch.utils.data import Dataset
 
@@ -44,6 +45,19 @@ def normalize(tensor_data: np.ndarray) -> np.ndarray:
     return tensor_data
 
 
+def seq_normalize(
+    inputs_raw: np.ndarray, targets_raw: np.ndarray = None
+) -> Tuple[np.ndarray]:
+    """ Fits a StandardScaler to ``inputs_raw`` and normalizes the inputs. """
+    # Normalize ``inputs_raw`` and ``targets_raw``.
+    scaler = StandardScaler()
+    scaler.fit(inputs_raw)
+    inputs_raw = scaler.transform(inputs_raw)
+    if targets_raw is not None:
+        targets_raw = scaler.transform(targets_raw)
+    return inputs_raw, targets_raw
+
+
 class GPSTDataset(Dataset):
     """ Dataset class for GPST (training). """
 
@@ -56,6 +70,7 @@ class GPSTDataset(Dataset):
         stationarization: bool = False,
         aggregation_size: int = 1,
         normalization: bool = False,
+        seq_norm: bool = False,
         train_batch_size: int = 1,
     ) -> None:
 
@@ -65,6 +80,7 @@ class GPSTDataset(Dataset):
         self.corpus_path = corpus_path
         self.encoding = encoding
         self.normalize = normalization
+        self.seq_norm = seq_norm
 
         assert corpus_path[-4:] == ".csv"
         self.raw_data = pd.read_csv(corpus_path, sep="\t")
@@ -134,6 +150,9 @@ class GPSTDataset(Dataset):
             position_ids = np.arange(0, seq_len)
             lm_labels = copy.deepcopy(input_ids)
             targets_raw = copy.deepcopy(inputs_raw)
+            if self.seq_norm:
+                inputs_raw, targets_raw = seq_normalize(inputs_raw, targets_raw)
+
             features.append(
                 (input_ids, position_ids, lm_labels, inputs_raw, targets_raw)
             )

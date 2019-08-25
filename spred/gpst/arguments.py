@@ -36,6 +36,7 @@ def get_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     # Data preprocessing.
     parser.add_argument("--aggregation_size", type=int, default=1)
     parser.add_argument("--normalize", action="store_true")
+    parser.add_argument("--seq_norm", action="store_true")
     parser.add_argument("--stationarize", action="store_true")
     parser.set_defaults(stationarize=False)
 
@@ -98,6 +99,8 @@ DOCSTRING = """
         How many timesteps to aggregate along first dimension of raw data.
     normalize : flag.
         Whether to normalize the raw data.
+    seq_norm : flag.
+        Whether to normalize by norming each sequence independently. 
     save_freq : int, optional.
         Model will be saved after every ``args.save_freq`` epochs.
 """
