@@ -4,7 +4,7 @@ MODEL_ROOT="checkpoints"
 GPST_MODEL="config.json"
 DATASET="../exchange/concatenated_price_data/ETHUSDT_drop.csv"
 
-TIMEOUT="30"
+TIMEOUT="5000"
 SAVE_FREQ="1"
 
 if [ "$(whoami)" != "mckade" ]; then
