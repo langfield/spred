@@ -6,6 +6,7 @@ import argparse
 import numpy as np
 import pandas as pd
 import csv
+from typing import Tuple
 
 import torch
 
@@ -60,7 +61,7 @@ def create_sample_data(dim: int, max_seq_len: int, width: int) -> torch.Tensor:
     return tensor_data
 
 
-def get_model(args):
+def get_model(args:argparse.Namespace) -> Tuple[typing.Any]:
     weights_name = args.model_name + ".bin"
     config_name = args.model_name + ".json"
 
