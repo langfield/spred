@@ -28,10 +28,9 @@ def parse(parser: argparse.ArgumentParser) -> argparse.Namespace:
     return parser.parse_args()
 
 
-def drop_cols(df: pd.DataFrame, cols: str) -> pd.DataFrame:
+def drop_cols(df: pd.DataFrame, drop: list) -> pd.DataFrame:
     """ Drop the specified columns and return the resultant ``pd.DataFrame``. """
     # drop all columns specified in the comma separated list from args
-    drop = [x.strip() for x in cols.split(",")]
     print("Dropping", drop)
     df = df.drop(columns=drop)
 
@@ -44,7 +43,7 @@ def gen_ta(df: pd.DataFrame) -> pd.DataFrame:
     df = add_all_ta_features(df, "Open", "High", "Low", "Close", "Volume", fillna=True)
     print("[done]")
 
-    bad_columns = "trend_adx, trend_adx_pos, trend_adx_neg"
+    bad_columns = ["trend_adx", "trend_adx_pos", "trend_adx_neg"]
     df = drop_cols(df, bad_columns)
 
     return df
@@ -99,7 +98,7 @@ def drop_correlation(corr: pd.DataFrame) -> List[str]:
     for i in range(n_cols):
         for j in range(n_cols):
             if i + (n_cols - j) < n_cols:
-                if corr.iloc[i, j] > 0.5:
+                if abs(corr.iloc[i, j]) > 1:
                     dropped.add(column_names[i])
     return list(dropped)
 
@@ -113,7 +112,8 @@ def main() -> None:
     df = gen_ta(df)
     # Drop columns
     if args.drop_cols != "":
-        df = drop_cols(df, args.drop_cols)
+        drop = [x.strip() for x in args.drop_cols.split(",")]
+        df = drop_cols(df, drop)
 
     corr = cross_correlation(args, df)
     corr_cols = drop_correlation(corr)
