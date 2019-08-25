@@ -1,12 +1,14 @@
 """ Preprocess a raw time-series dataset from a ``.csv`` file. """
 import os
 import argparse
+from typing import List
 import numpy as np
 import pandas as pd
 import seaborn as sns
 from ta import add_all_ta_features
 
 import matplotlib
+
 matplotlib.use("Agg")
 # pylint: disable=wrong-import-position
 import matplotlib.pyplot as plt
@@ -24,7 +26,7 @@ def parse(parser: argparse.ArgumentParser) -> argparse.Namespace:
     return parser.parse_args()
 
 
-def drop_cols(args: argparse.Namespace, df: pd.DataFrame, cols: str) -> pd.DataFrame:
+def drop_cols(df: pd.DataFrame, cols: str) -> pd.DataFrame:
     """ Drop the specified columns and return the resultant ``pd.DataFrame``. """
     # drop all columns specified in the comma separated list from args
     drop = [x.strip() for x in cols.split(",")]
@@ -34,25 +36,24 @@ def drop_cols(args: argparse.Namespace, df: pd.DataFrame, cols: str) -> pd.DataF
     return df
 
 
-def gen_ta(args: argparse.Namespace, df: pd.DataFrame) -> pd.DataFrame:
+def gen_ta(df: pd.DataFrame) -> pd.DataFrame:
     """ Generate technical indicators and return resultant ``pd.DataFrame``. """
     print("Generating technical indicators...")
     df = add_all_ta_features(df, "Open", "High", "Low", "Close", "Volume", fillna=True)
     print("[done]")
 
     bad_columns = "trend_adx, trend_adx_pos, trend_adx_neg"
-    df = drop_cols(args, df, bad_columns)
+    df = drop_cols(df, bad_columns)
 
     return df
 
 
-def cross_correlation(args: argparse.Namespace, df: pd.DataFrame) -> None:
+def cross_correlation(args: argparse.Namespace, df: pd.DataFrame) -> pd.DataFrame:
     """ Compute cross correlation and graph as a ``.svg``. """
-    GRAPHS_PATH = args.graphs_path
-    assert os.path.isdir(GRAPHS_PATH)
+    assert os.path.isdir(args.graphs_path)
     filename = os.path.basename(args.file)
     filename_no_ext = filename.split(".")[0]
-    save_path = os.path.join(GRAPHS_PATH, filename_no_ext + ".svg")
+    save_path = os.path.join(args.graphs_path, filename_no_ext + ".svg")
 
     # Compute the correlation matrix.
     corr = df.corr()
@@ -62,7 +63,7 @@ def cross_correlation(args: argparse.Namespace, df: pd.DataFrame) -> None:
     mask[np.triu_indices_from(mask)] = True
 
     # Set up the matplotlib figure.
-    f, ax = plt.subplots(figsize=(11, 9))
+    _f, _ax = plt.subplots(figsize=(11, 9))
 
     # Generate a custom diverging colormap.
     cmap = sns.diverging_palette(220, 10, as_cmap=True)
@@ -81,6 +82,23 @@ def cross_correlation(args: argparse.Namespace, df: pd.DataFrame) -> None:
 
     # Save to svg.
     plt.savefig(save_path)
+    return corr
+
+
+def drop_correlation(corr: pd.DataFrame) -> List[str]:
+    """
+    Find columns with correlation higher than ``0.5`` and return the
+    column labels as a list of strings.
+    """
+    column_names = corr.columns
+    dropped = set()
+    n_cols = len(corr)
+    for i in range(n_cols):
+        for j in range(n_cols):
+            if i + (n_cols - j) < n_cols:
+                if corr.iloc[i, j] > 0.5:
+                    dropped.add(column_names[i])
+    return list(dropped)
 
 
 def main() -> None:
@@ -89,12 +107,14 @@ def main() -> None:
     # Grab training data
     df = pd.read_csv(args.file, sep=",")
     # Generate technical indicators
-    df = gen_ta(args, df)
+    df = gen_ta(df)
     # Drop columns
     if args.drop_cols != "":
-        df = drop_cols(args, df, args.drop_cols)
+        df = drop_cols(df, args.drop_cols)
 
-    cross_correlation(args, df)
+    corr = cross_correlation(args, df)
+    corr_cols = drop_correlation(corr)
+    df = drop_cols(df, corr_cols)
 
     # Save dataframe to csv file
     df.to_csv(path_or_buf=args.output_file, sep=args.sep, index=False)
