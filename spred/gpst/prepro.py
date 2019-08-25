@@ -25,6 +25,9 @@ def gen_ta(df):
     )
     print("[done]")
 
+    drop_cols = "trend_adx, trend_adx_pos, trend_adx_neg"
+    df = drop_cols(df, drop_cols)
+
     return df
 
 def main():
@@ -34,8 +37,7 @@ def main():
     # Generate technical indicators
     df = gen_ta(df)
     # Drop columns
-    if args.drop_cols == "":
-        args.drop_cols = "trend_adx, trend_adx_pos, trend_adx_neg"
+    if args.drop_cols != "":
         df = drop_cols(df, args.drop_cols)
 
     # Save dataframe to csv file
