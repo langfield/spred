@@ -139,7 +139,7 @@ def train(args=None) -> float:
     for _ in trange(int(args.num_train_epochs), desc="Epoch"):
         tr_loss = 0
         nb_tr_steps = 0
-        tqdm_bar = tqdm(train_dataloader, desc="Training")
+        tqdm_bar = tqdm(train_dataloader, desc="Training", position=0, leave=True)
         for _, batch in enumerate(tqdm_bar):
 
             if torch.__version__[:5] == "0.3.1":
