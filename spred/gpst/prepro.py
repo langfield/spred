@@ -7,8 +7,6 @@ import pandas as pd
 import seaborn as sns
 from ta import add_all_ta_features
 
-from heatmap import correlation
-
 import matplotlib
 
 matplotlib.use("Agg")
@@ -98,7 +96,7 @@ def drop_correlation(corr: pd.DataFrame) -> List[str]:
     for i in range(n_cols):
         for j in range(n_cols):
             if i + (n_cols - j) < n_cols:
-                if abs(corr.iloc[i, j]) > .5:
+                if abs(corr.iloc[i, j]) > .75 and column_names[j] not in dropped:
                     dropped.add(column_names[i])
     return list(dropped)
 
