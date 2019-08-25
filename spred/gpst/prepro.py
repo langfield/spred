@@ -7,6 +7,8 @@ import pandas as pd
 import seaborn as sns
 from ta import add_all_ta_features
 
+from heatmap import correlation
+
 import matplotlib
 
 matplotlib.use("Agg")
@@ -55,9 +57,9 @@ def cross_correlation(args: argparse.Namespace, df: pd.DataFrame) -> pd.DataFram
     filename_no_ext = filename.split(".")[0]
     save_path = os.path.join(args.graphs_path, filename_no_ext + ".svg")
 
-    # Compute the correlation matrix.
-    corr = df.corr()
+    correlation(df, save_path)
 
+    """
     # Generate a mask for the upper triangle.
     mask = np.zeros_like(corr, dtype=np.bool)
     mask[np.triu_indices_from(mask)] = True
@@ -79,9 +81,10 @@ def cross_correlation(args: argparse.Namespace, df: pd.DataFrame) -> pd.DataFram
         linewidths=0.5,
         cbar_kws={"shrink": 0.5},
     )
+    """
 
-    # Save to svg.
-    plt.savefig(save_path)
+    # Compute the correlation matrix.
+    corr = df.corr()
     return corr
 
 
