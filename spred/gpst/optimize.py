@@ -20,7 +20,7 @@ def main():
     datestring = str(datetime.datetime.now())
     datestring = datestring.replace(" ", "_")
     logging.getLogger().setLevel(logging.INFO)  # Setup the root logger.
-    logging.getLogger().addHandler(logging.FileHandler("optuna_" + datestring + ".log"))
+    logging.getLogger().addHandler(logging.FileHandler("logs/optuna_" + datestring + ".log"))
     optuna.logging.enable_propagation()  # Propagate logs to the root logger.
     optuna.logging.disable_default_handler()  # Stop showing logs in stderr.
 
@@ -38,7 +38,8 @@ def objective(trial: optuna.Trial) -> float:
     # Set arguments.
     args.num_train_epochs = 100000
     args.stationarize = True
-    args.normalize = True
+    args.normalize = False
+    args.seq_norm = True
     args.seed = 42
     args.max_grad_norm = 3
     args.warmup_steps = 10000
@@ -50,6 +51,7 @@ def objective(trial: optuna.Trial) -> float:
     args.train_batch_size = int(batch_size)
     agg_size = 1
     args.aggregation_size = int(agg_size)
+    logging.getLogger().info(str(args))
 
     # Set config.
     config = {}

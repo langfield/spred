@@ -24,6 +24,7 @@ import math
 import os
 import sys
 from io import open
+from functools import reduce
 
 import torch
 import torch.nn as nn
@@ -746,5 +747,7 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         summ = torch.max(torch.abs(true) + torch.abs(predicted) + epsilon, 0.5 + epsilon * ones)
         smape = torch.abs(predicted - true) / summ * 2.0
         smape = torch.mul(smape, smape)
-        smape = torch.sum(smape)
+        smape_shape = smape.shape
+        smape = torch.sum(smape) / reduce((lambda x, y: x * y), smape_shape)
+         
         return smape

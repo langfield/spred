@@ -8,6 +8,7 @@ import sys
 import random
 import logging
 import argparse
+import datetime
 import time
 
 import numpy as np
@@ -41,7 +42,10 @@ logging.basicConfig(
     level=logging.INFO,
 )
 # pylint: disable=invalid-name, no-member
+datestring = str(datetime.datetime.now())
+datestring = datestring.replace(" ", "_")
 logger = logging.getLogger(__name__)
+logger.addHandler(logging.FileHandler("logs/rain_" + datestring + ".log"))
 
 
 def train(args=None) -> float:
@@ -87,6 +91,7 @@ def train(args=None) -> float:
         stationarization=args.stationarize,
         aggregation_size=args.aggregation_size,
         normalization=args.normalize,
+        seq_norm=args.seq_norm,
         train_batch_size=args.train_batch_size,
     )
     print("Length of training dataset:", len(train_data))

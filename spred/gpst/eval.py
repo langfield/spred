@@ -19,7 +19,7 @@ from pytorch_transformers import WEIGHTS_NAME, CONFIG_NAME
 from plot import graph
 from arguments import get_args
 from termplt import plot_to_terminal
-from dataset import aggregate, stationarize, normalize
+from dataset import aggregate, stationarize, normalize, seq_normalize
 from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 
 
@@ -59,6 +59,7 @@ def create_sample_data(dim: int, max_seq_len: int, width: int) -> torch.Tensor:
     tensor_data = torch.Tensor(np.array(df))
     return tensor_data
 
+
 def get_model(args):
     weights_name = args.model_name + ".bin"
     config_name = args.model_name + ".json"
@@ -80,8 +81,10 @@ def get_model(args):
 
     return (model, dim, max_seq_len, batch_size, data_filename, graph_path)
 
-def load_from_file(file, max_seq_len, stat=True, agg_size=1,
-                   norm=False, debug=False) -> pd.DataFrame:
+
+def load_from_file(
+    file, max_seq_len, stat=True, agg_size=1, norm=False, debug=False
+) -> pd.DataFrame:
     """
     Returns a dataframe containing the data from `file`
     `stat`: Whether to stationarize the data
@@ -95,9 +98,9 @@ def load_from_file(file, max_seq_len, stat=True, agg_size=1,
         if debug:
             print("raw")
             print(raw_data.head(30))
-        
+
         raw_data = stationarize(raw_data)
-        
+
         if debug:
             print("stationary")
             print(raw_data.head(30))
@@ -124,10 +127,17 @@ def load_from_file(file, max_seq_len, stat=True, agg_size=1,
 
     return raw_data
 
-def predict(model, raw_data, max_seq_len, dim, batch_size=1, debug=False):
+
+def predict(
+    model, raw_data, max_seq_len, dim, batch_size=1, debug=False, seq_norm=False
+):
     if torch.__version__[:5] != "0.3.1":
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     tensor_data = np.array(raw_data)
+
+    if seq_norm:
+        # Normalize ``inputs_raw`` and ``targets_raw``.
+        tensor_data = seq_normalize(tensor_data)[0]
 
     tensor_data = torch.Tensor(tensor_data)
     inputs_raw = tensor_data.contiguous()
@@ -184,7 +194,8 @@ def predict(model, raw_data, max_seq_len, dim, batch_size=1, debug=False):
         pred = np.array(predictions[0, -1].data)
 
     return pred
-    
+
+
 def gen_plot(all_in, all_out, graph_path, file):
     def matplot(graphs_path, data_filename, dfs, ylabels, column_counts):
         """ Do some path handling and call the ``graph()`` function. """
@@ -222,9 +233,10 @@ def main() -> None:
 
     # load model and data
     model, dim, max_seq_len, batch_size, file, graph_path = get_model(args)
-    raw_data = load_from_file(file, max_seq_len, args.stationarize, 
-                                  args.aggregation_size, args.normalize)
-    
+    raw_data = load_from_file(
+        file, max_seq_len, args.stationarize, args.aggregation_size, args.normalize
+    )
+
     output_list = []
     all_inputs = []
     all_outputs = []
@@ -233,12 +245,13 @@ def main() -> None:
     start = random.randint(0, len(raw_data) // 2)
     for i in range(start, start + args.width):
         assert i + max_seq_len <= len(raw_data)
-        pred = predict(model, raw_data[i : i + max_seq_len, :],
-                       max_seq_len, dim, batch_size)
-        
+        pred = predict(
+            model, raw_data[i : i + max_seq_len, :], max_seq_len, dim, batch_size
+        )
+
         # Get the next value in the sequence, i.e., the value we want to predict
         actual = raw_data[i + max_seq_len, 0]
-        
+
         # ``output_list`` is a running list of the ``graph_width`` most recent
         # outputs from the forward call.
         graph_width = args.terminal_plot_width
@@ -263,8 +276,9 @@ def main() -> None:
     # ``all_in`` and ``all_out`` shape: (args.width,)
     all_in = np.stack(all_inputs)
     all_out = np.stack(all_outputs)
-    
+
     gen_plot(all_in, all_out, graph_path, file)
+
 
 def sanity():
     """Make predictions on a single sequence."""
@@ -275,9 +289,9 @@ def sanity():
 
     # load model and data
     model, dim, max_seq_len, batch_size, file, graph_path = get_model(args)
-    # raw_data = load_from_file(file, max_seq_len, args.stationarize, 
+    # raw_data = load_from_file(file, max_seq_len, args.stationarize,
     #                               args.aggregation_size, args.normalize)
-    
+
     output_list = []
     all_inputs = []
     all_outputs = []
@@ -286,7 +300,7 @@ def sanity():
     start = random.randint(0, 100000 // 2)
     start = start - start % max_seq_len
     with open(file) as csvfile:
-        readCSV = csv.reader(csvfile, delimiter='\t')
+        readCSV = csv.reader(csvfile, delimiter="\t")
         seq = []
         count = 0
         seq_count = 0
@@ -297,23 +311,31 @@ def sanity():
             if count < start:
                 count += 1
                 continue
-            
+
             float_row = [float(i) for i in row]
             if len(seq) == max_seq_len and seq_count != 0:
                 # Get the next value in the sequence, i.e., the value we just predicted
                 # print('actual:',float_row)
                 actual = float_row[0] - last_val[0]
-                
+
                 all_inputs.append(actual)
-                
+
                 if seq_count == args.width:
                     break
 
             seq.append(float_row)
             if len(seq) == max_seq_len + 1:
-                seq_df = stationarize(pd.DataFrame(seq, columns = ['Open', 'High', 'Low', 'Close', 'Volume'], dtype=float))[1:]
-                pred = predict(model, seq_df, max_seq_len, dim, batch_size)
-                print('Prediction {} at time step {}'.format(pred, count+1))
+                seq_df = stationarize(
+                    pd.DataFrame(
+                        seq,
+                        columns=["Open", "High", "Low", "Close", "Volume"],
+                        dtype=float,
+                    )
+                )[1:]
+                pred = predict(
+                    model, seq_df, max_seq_len, dim, batch_size, seq_norm=args.seq_norm
+                )
+                print("Prediction {} at time step {}".format(pred, count + 1))
                 print(seq_df)
                 input()
                 if TERM_PRINT:
@@ -328,7 +350,9 @@ def sanity():
                     if len(output_list) >= graph_width:
                         output_list = output_list[1:]
                     out_array = np.stack(output_list)
-                    out_array = np.concatenate([np.array([-1.5]), out_array, np.array([1.5])])
+                    out_array = np.concatenate(
+                        [np.array([-1.5]), out_array, np.array([1.5])]
+                    )
                     os.system("clear")
                     plot_to_terminal(out_array)
 
@@ -345,9 +369,10 @@ def sanity():
     # ``all_in`` and ``all_out`` shape: (args.width,)
     all_in = np.stack(all_inputs)
     all_out = np.stack(all_outputs)
-    
+
     gen_plot(all_in, all_out, graph_path, file)
 
+
 if __name__ == "__main__":
-    #sanity()
+    # sanity()
     main()
