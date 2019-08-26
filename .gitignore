@@ -10,5 +10,4 @@ spred/gpst/data/*
 *.zip
 spred/exchange/concatenated_price_data/*
 spred/gpst/checkpoints/*
-spred/gpst/.mypy_cache/*
-spred/gpst/.mypy_cache/
+spred/gpst/.mypy_cache/3.6/*
