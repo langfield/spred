@@ -5,7 +5,7 @@ import copy
 import random
 import argparse
 
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -26,6 +26,7 @@ from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 
 DEBUG = False
 TERM_PRINT = False
+CHECK_SANITY = False
 # pylint: disable=no-member
 
 
@@ -211,29 +212,21 @@ def term_print(
     return output_list
 
 
-def main() -> None:
+def prediction_loop(
+    args: argparse.Namespace, model: OpenAIGPTLMHeadModel, input_array: np.ndarray
+) -> Tuple[List[np.ndarray], List[np.ndarray]]:
     """
-    Make predictions on randomly chosen sequences whose concatenated length
-    adds up to ``args.width``, starting from ``start``, a randomly chosen
-    starting index.
+    Parameters
+    ----------
+    input_array : ``np.ndarray``, required.
+    args : ``argparse.Namespace``, required.
+    model : ``OpenAIGPTLMHeadModel``, required.
+
+    Returns
+    -------
+    all_inputs : ``List[np.ndarray``.
+    all_outputs : ``List[np.ndarray``.
     """
-    # Set hyperparameters.
-    parser = argparse.ArgumentParser()
-    parser = get_args(parser)
-    args = parser.parse_args()
-
-    model = get_model(args)
-
-    # Grab config arguments from model.
-    args.max_seq_len = model.config.n_positions
-    args.dim = model.config.vocab_size
-
-    print("Data dimensionality:", args.dim)
-    print("Max sequence length :", args.max_seq_len)
-    print("Eval batch size:", args.eval_batch_size)
-
-    input_array = load_from_file(args)
-
     output_list: List[np.ndarray] = []
     all_inputs = []
     all_outputs = []
@@ -254,35 +247,33 @@ def main() -> None:
             output_list = term_print(args, output_list, pred)
 
         # Append scalar arrays to lists.
-        all_outputs.append(pred)
         all_inputs.append(actual)
+        all_outputs.append(pred)
 
-    # Stack and cast to ``pd.DataFrame``.
-    # ``all_in`` and ``all_out`` shape: (args.width,)
-    all_in = np.stack(all_inputs)
-    all_out = np.stack(all_outputs)
-
-    gen_plot(all_in, all_out, args.graph_dir, args.dataset)
+    return all_inputs, all_outputs
 
 
-def sanity() -> None:
-    """Make predictions on a single sequence."""
-    # Set hyperparameters.
-    parser = argparse.ArgumentParser()
-    parser = get_args(parser)
-    args = parser.parse_args()
+def sanity_loop(
+    args: argparse.Namespace, model: OpenAIGPTLMHeadModel, input_array: np.ndarray
+) -> Tuple[List[np.ndarray], List[np.ndarray]]:
+    """
+    Parameters
+    ----------
+    input_array : ``np.ndarray``, required.
+    args : ``argparse.Namespace``, required.
+    model : ``OpenAIGPTLMHeadModel``, required.
 
-    model = get_model(args)
-
-    # Grab config arguments from model.
-    args.max_seq_len = model.config.n_positions
-    args.dim = model.config.vocab_size
-
+    Returns
+    -------
+    all_inputs : ``List[np.ndarray``.
+    all_outputs : ``List[np.ndarray``.
+    """
     output_list: List[np.ndarray] = []
     all_inputs = []
     all_outputs = []
 
     # Iterate in step sizes of 1 over ``input_array``.
+    # HARDCODE
     start = random.randint(0, 100000 // 2)
     start = start - start % args.max_seq_len
     with open(args.dataset) as csvfile:
@@ -332,6 +323,37 @@ def sanity() -> None:
                 seq_count += 1
 
             count += 1
+
+    return all_inputs, all_outputs
+
+
+def main() -> None:
+    """
+    Make predictions on randomly chosen sequences whose concatenated length
+    adds up to ``args.width``, starting from ``start``, a randomly chosen
+    starting index.
+    """
+    # Set hyperparameters.
+    parser = argparse.ArgumentParser()
+    parser = get_args(parser)
+    args = parser.parse_args()
+
+    model = get_model(args)
+
+    # Grab config arguments from model.
+    args.max_seq_len = model.config.n_positions
+    args.dim = model.config.vocab_size
+
+    print("Data dimensionality:", args.dim)
+    print("Max sequence length :", args.max_seq_len)
+    print("Eval batch size:", args.eval_batch_size)
+
+    input_array = load_from_file(args)
+
+    if CHECK_SANITY:
+        all_inputs, all_outputs = sanity_loop(args, model, input_array)
+    else:
+        all_inputs, all_outputs = prediction_loop(args, model, input_array)
 
     # Stack and cast to ``pd.DataFrame``.
     # ``all_in`` and ``all_out`` shape: (args.width,)
