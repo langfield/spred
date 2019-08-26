@@ -1,12 +1,14 @@
 """ Evaluate a trained GPST model and graph its predictions. """
 import os
+import csv
 import copy
 import random
 import argparse
+
+from typing import Tuple, List, Any
+
 import numpy as np
 import pandas as pd
-import csv
-from typing import Tuple
 
 import torch
 
@@ -51,17 +53,7 @@ def load_model(
     return model
 
 
-def create_sample_data(dim: int, max_seq_len: int, width: int) -> torch.Tensor:
-    """Construct sample time series."""
-    print("Width:", width)
-    price = np.array([0] * max_seq_len)
-    df = pd.DataFrame({"Price": price})
-    df = df[[col for col in df.columns for i in range(dim)]]
-    tensor_data = torch.Tensor(np.array(df))
-    return tensor_data
-
-
-def get_model(args:argparse.Namespace) -> Tuple[typing.Any]:
+def get_model(args: argparse.Namespace) -> Tuple[Any]:
     weights_name = args.model_name + ".bin"
     config_name = args.model_name + ".json"
 
@@ -84,17 +76,17 @@ def get_model(args:argparse.Namespace) -> Tuple[typing.Any]:
 
 
 def load_from_file(
-    file, max_seq_len, stat=True, agg_size=1, norm=False, debug=False
+    data_filename, max_seq_len, stat=True, agg_size=1, norm=False, debug=False
 ) -> pd.DataFrame:
     """
-    Returns a dataframe containing the data from `file`
+    Returns a dataframe containing the data from `data_filename`
     `stat`: Whether to stationarize the data
     `agg_size`: Size of aggregation bucket (1 means no aggregation)
     `norm`: Whether to normalize the data
     `debug`: Enables logging
     """
     # Grab training data.
-    raw_data = pd.read_csv(file, sep="\t")
+    raw_data = pd.read_csv(data_filename, sep="\t")
     if stat:
         if debug:
             print("raw")
@@ -130,14 +122,25 @@ def load_from_file(
 
 
 def predict(
-    model, raw_data, max_seq_len, dim, batch_size=1, debug=False, seq_norm=False
-):
+    model: OpenAIGPTLMHeadModel,
+    raw_data: pd.DataFrame,
+    max_seq_len: int,
+    dim: int,
+    batch_size: int = 1,
+    debug: bool = False,
+    seq_norm: bool = False,
+) -> np.ndarray:
+    """
+    Returns
+    -------
+    ``pred`` shape: <scalar>.
+    ``pred`` is the last prediction in the first (and only) batch.
+    """
     if torch.__version__[:5] != "0.3.1":
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     tensor_data = np.array(raw_data)
 
     if seq_norm:
-        # Normalize ``inputs_raw`` and ``targets_raw``.
         tensor_data = seq_normalize(tensor_data)[0]
 
     tensor_data = torch.Tensor(tensor_data)
@@ -165,26 +168,12 @@ def predict(
         position_ids = position_ids.to(device)
         inputs_raw = inputs_raw.to(device)
 
-    if debug:
-        print("================TYPECHECK==================")
-        print("Type of input_ids:", type(input_ids))
-        print("Type of position_ids:", type(position_ids))
-        if torch.__version__[:5] == "0.3.1":
-            print("type of position_ids data:", type(position_ids.data))
-        print("Type of inputs_raw:", type(inputs_raw))
-        print("================SHAPECHECK=================")
-        print("input_ids shape:", input_ids.shape)
-        print("position_ids shape:", position_ids.shape)
-        print("inputs_raw shape:", inputs_raw.shape)
-
     # Shape check.
     assert input_ids.shape == (batch_size, max_seq_len)
     assert position_ids.shape == (batch_size, max_seq_len)
     assert inputs_raw.shape == (batch_size, max_seq_len, dim)
 
     # ``predictions`` shape: (batch_size, max_seq_len, dim).
-    # ``pred`` shape: <scalar>.
-    # ``pred`` is the last prediction in the first (and only) batch.
     outputs = model(input_ids, position_ids, None, inputs_raw)
     predictions = outputs[0]
 
@@ -197,8 +186,16 @@ def predict(
     return pred
 
 
-def gen_plot(all_in, all_out, graph_path, file):
-    def matplot(graphs_path, data_filename, dfs, ylabels, column_counts):
+def gen_plot(
+    all_in: np.ndarray, all_out: np.ndarray, graph_path: np.ndarray, data_filename: str
+) -> None:
+    def matplot(
+        graphs_path: str,
+        data_filename: str,
+        dfs: List[pd.DataFrame],
+        ylabels: List[str],
+        column_counts: List[int],
+    ) -> None:
         """ Do some path handling and call the ``graph()`` function. """
         assert os.path.isdir(graphs_path)
         filename = os.path.basename(data_filename)
@@ -222,20 +219,50 @@ def gen_plot(all_in, all_out, graph_path, file):
     dfs = [df]
     y_label = "Predictions vs Input"
     column_counts = [2]
-    matplot(graph_path, file, dfs, y_label, column_counts)
+    matplot(graph_path, data_filename, dfs, y_label, column_counts)
+
+
+def term_print(
+    args: argparse.Namespace, output_list: List[np.ndarray], pred: np.ndarray
+) -> List[np.ndarray]:
+    """
+    Print ``output_list`` of predictions to the terminal via ``terminalplot``.
+    Create ``out_array`` to print graph as it is populated.
+    Shape is the number of iterations we've made, up until we hit
+    ``width`` iterations, after which the shape is ``(width,)``.
+    ``output_list`` is a running list of the ``args.terminal_plot_width``
+    most recent outputs from the forward call.
+    """
+    output_list.append(pred)
+    if len(output_list) >= args.terminal_plot_width:
+        output_list = output_list[1:]
+    out_array = np.concatenate(
+        [np.array([-1.5]), np.stack(output_list), np.array([1.5])]
+    )
+    os.system("clear")
+    plot_to_terminal(out_array)
+    return output_list
 
 
 def main() -> None:
-    """Make predictions on a single sequence."""
+    """
+    Make predictions on randomly chosen sequences whose concatenated length
+    adds up to ``args.width``, starting from ``start``, a randomly chosen
+    starting index.
+    """
     # Set hyperparameters.
     parser = argparse.ArgumentParser()
     parser = get_args(parser)
     args = parser.parse_args()
 
     # load model and data
-    model, dim, max_seq_len, batch_size, file, graph_path = get_model(args)
+    model, dim, max_seq_len, batch_size, data_filename, graph_path = get_model(args)
     raw_data = load_from_file(
-        file, max_seq_len, args.stationarize, args.aggregation_size, args.normalize
+        data_filename,
+        max_seq_len,
+        args.stationarize,
+        args.aggregation_size,
+        args.normalize,
     )
 
     output_list = []
@@ -250,24 +277,11 @@ def main() -> None:
             model, raw_data[i : i + max_seq_len, :], max_seq_len, dim, batch_size
         )
 
-        # Get the next value in the sequence, i.e., the value we want to predict
+        # Get the next value in the sequence, i.e., the value we want to predict.
         actual = raw_data[i + max_seq_len, 0]
 
-        # ``output_list`` is a running list of the ``graph_width`` most recent
-        # outputs from the forward call.
-        graph_width = args.terminal_plot_width
-        if len(output_list) >= graph_width:
-            output_list = output_list[1:]
-
-        # Create ``out_array`` to print graph as it is populated.
-        # Shape is the number of iterations we've made, up until we hit
-        # ``width`` iterations, after which the shape is ``(width,)``.
-        output_list.append(pred)
-        out_array = np.stack(output_list)
-        out_array = np.concatenate([np.array([-1.5]), out_array, np.array([1.5])])
         if TERM_PRINT:
-            os.system("clear")
-            plot_to_terminal(out_array)
+            output_list = term_print(args, output_list, pred)
 
         # Append scalar arrays to lists.
         all_outputs.append(pred)
@@ -278,10 +292,10 @@ def main() -> None:
     all_in = np.stack(all_inputs)
     all_out = np.stack(all_outputs)
 
-    gen_plot(all_in, all_out, graph_path, file)
+    gen_plot(all_in, all_out, graph_path, data_filename)
 
 
-def sanity():
+def sanity() -> None:
     """Make predictions on a single sequence."""
     # Set hyperparameters.
     parser = argparse.ArgumentParser()
@@ -289,9 +303,7 @@ def sanity():
     args = parser.parse_args()
 
     # load model and data
-    model, dim, max_seq_len, batch_size, file, graph_path = get_model(args)
-    # raw_data = load_from_file(file, max_seq_len, args.stationarize,
-    #                               args.aggregation_size, args.normalize)
+    model, dim, max_seq_len, batch_size, data_filename, graph_path = get_model(args)
 
     output_list = []
     all_inputs = []
@@ -300,14 +312,13 @@ def sanity():
     # Iterate in step sizes of 1 over ``raw_data``.
     start = random.randint(0, 100000 // 2)
     start = start - start % max_seq_len
-    with open(file) as csvfile:
-        readCSV = csv.reader(csvfile, delimiter="\t")
+    with open(data_filename) as csvfile:
+        read_csv = csv.reader(csvfile, delimiter="\t")
         seq = []
         count = 0
         seq_count = 0
-        first = True
         last_val = [0]
-        for row in readCSV:
+        for row in read_csv:
             # Skip to the start row of the file
             if count < start:
                 count += 1
@@ -338,24 +349,10 @@ def sanity():
                 )
                 print("Prediction {} at time step {}".format(pred, count + 1))
                 print(seq_df)
+                # Step through the input one row at a time.
                 input()
                 if TERM_PRINT:
-                    # Create ``out_array`` to print graph as it is populated.
-                    # Shape is the number of iterations we've made, up until we hit
-                    # ``width`` iterations, after which the shape is ``(width,)``.
-                    output_list.append(pred)
-                    # ``output_list`` is a running list of the ``graph_width`` most recent
-                    # outputs from the forward call.
-                    # How many time steps fit in terminal window.
-                    graph_width = args.terminal_plot_width
-                    if len(output_list) >= graph_width:
-                        output_list = output_list[1:]
-                    out_array = np.stack(output_list)
-                    out_array = np.concatenate(
-                        [np.array([-1.5]), out_array, np.array([1.5])]
-                    )
-                    os.system("clear")
-                    plot_to_terminal(out_array)
+                    output_list = term_print(args, output_list, pred)
 
                 # Append scalar arrays to lists.
                 all_outputs.append(pred)
@@ -371,7 +368,7 @@ def sanity():
     all_in = np.stack(all_inputs)
     all_out = np.stack(all_outputs)
 
-    gen_plot(all_in, all_out, graph_path, file)
+    gen_plot(all_in, all_out, graph_path, data_filename)
 
 
 if __name__ == "__main__":
