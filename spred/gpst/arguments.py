@@ -3,7 +3,21 @@ import argparse
 
 
 def get_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
-    """ Adds GPST arguments to the passed Parser object. """
+    """
+    Adds GPST arguments to the passed ``ArgumentParser`` object.
+
+    Parameters
+    ----------
+    parser : ``argparse.ArgumentParser``, required.
+        A parser object, possibly with existing arguments already added.
+
+    Returns
+    -------
+    parser : ``argparse.ArgumentParser``.
+        The same parser as was passed in as a parameter, but with all
+        the arguments below added.
+
+    """
 
     # Required.
     parser.add_argument("--dataset", type=str, required=True)
@@ -39,6 +53,8 @@ def get_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument("--seq_norm", action="store_true")
     parser.add_argument("--stationarize", action="store_true")
     parser.set_defaults(stationarize=False)
+    parser.set_defaults(normalize=False)
+    parser.set_defaults(seq_norm=False)
 
     return parser
 
@@ -46,61 +62,61 @@ def get_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
 DOCSTRING = """
     Arguments
     ---------
-    model_name : str, optional (default = "openai-gpt").
+    model_name : ``str``, optional (default = "openai-gpt").
         The name used to save weights and config. These files will be saved
         in ``<args.output_dir>/<args.model_name>.bin``, and
         ``<args.output_dir>/<args.model_name>.json``, respectively.
-    output_dir : str, required.
+    output_dir : ``str``, required.
         "The output directory where the model predictions and checkpoints will be written.
-    dataset : str, required.
+    dataset : ``str``, required.
         The path to the dataset used for training/evaluation.
-    width : int, optional (default = 100).
+    width : ``int``, optional (default = 100).
         Number of timesteps to print during evaluation.
-    eval_batch_size : int, optional (default = 1).
+    eval_batch_size : ``int``, optional (default = 1).
         Batch size used for evaluation.
-    graph_dir : str, optional (default = "graphs/").
+    graph_dir : ``str``, optional (default = "graphs/").
         Path to save graphs to during evaluation.
-    terminal_plot_width : int, optional (default = 50).
+    terminal_plot_width : ``int``, optional (default = 50).
         How many timesteps to fit along the x-axis in ``terminal_plot``
         during evaluation.
-    num_train_epochs : int, optional (default = 3).
+    num_train_epochs : ``int``, optional (default = 3).
         Number of epochs (complete passes through the entire dataset) to run
         during training.
-    seed : int, optional (default = 42).
+    seed : ``int``, optional (default = 42).
         Random seed to use for torch and numpy.
-    train_batch_size : int, optional.
+    train_batch_size : ``int``, optional.
         Batch size (measured in sequences) used during training.
-    max_grad_norm : int, optional (default = 1).
+    max_grad_norm : ``int``, optional (default = 1).
         Max norm of gradients during training.
-    learning_rate : float, optional.
+    learning_rate : ``float``, optional.
         Maximum/peak learning rate during scheduling.
-    warmup_proportion : float, optional.
+    warmup_proportion : ``float``, optional.
         Proportion of total training time during which learning rate is
         changed from 0 to ``args.learning_rate`` linearly.
-    warmup_steps : int, optional.
+    warmup_steps : ``int``, optional.
         Number of sequences to warmup over. Can be used instead instead of
         ``args.warmup_proportion``.
-    lr_schedule : str, optional.
+    lr_schedule : ``str``, optional.
         Which learning rate annealing schedule to use.
-    weight_decay : float, optional.
+    weight_decay : ``float``, optional.
         Rate of weight decay during training.
-    adam_epsilon : float, optional.
+    adam_epsilon : ``float``, optional.
         Epsilon value to use for Adam optimizer.
-    timeout : int, optional.
+    timeout : ``int``, optional.
         Number of seconds after which the training is automatically stopped.
         Setting this argument to ``0`` allows the training to run for as many
         epochs as is specified, regardless of the running time.
-    gpst_model : str, required.
+    gpst_model : ``str``, required.
         Path to the initial ``pytorch_transformers``-style config file used to
         spin up the model, or the path to a trained model file.
-    stationarize : flag.
+    stationarize : ``flag.
         Whether to stationarize the time series or not.
-    aggregation_size : int, optional.
+    aggregation_size : ``int``, optional.
         How many timesteps to aggregate along first dimension of raw data.
-    normalize : flag.
+    normalize : ``bool`` flag.
         Whether to normalize the raw data.
-    seq_norm : flag.
-        Whether to normalize by norming each sequence independently. 
-    save_freq : int, optional.
+    seq_norm : ``bool`` flag.
+        Whether to normalize by norming each sequence independently.
+    save_freq : ``int``, optional.
         Model will be saved after every ``args.save_freq`` epochs.
 """

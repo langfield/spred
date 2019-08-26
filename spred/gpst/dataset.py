@@ -1,7 +1,8 @@
 """ Dataset classes for GPST preprocessing. """
 import sys
 import copy
-from typing import Tuple
+from typing import Tuple, List
+
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -12,42 +13,59 @@ from torch.utils.data import Dataset
 DEBUG = True
 
 
-def stationarize(input_data: pd.DataFrame) -> pd.DataFrame:
-    """ Returns a stationarized version of ``input_data``. """
-    raw_data = copy.deepcopy(input_data)
-    columns = raw_data.columns
-    # print("columns", columns)
+def stationarize(input_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Returns a stationarized version of ``input_df``.
+
+    Parameters
+    ----------
+    input_df : ``pd.DataFrame``, required.
+        A 2-dimensional matrix of input data, where the columns are model features
+        and the rows are timesteps.
+        Shape: ``(total_data_len, vocab_size)``.
+
+    Returns
+    -------
+    df : ``pd.DataFrame``.
+        Shape: ``(total_data_len - 1, vocab_size)``.
+    """
+    df = copy.deepcopy(input_df)
+    columns = df.columns
     for col in columns:
-        raw_data[col] = raw_data[col] - raw_data[col].shift(1)
+        df[col] = df[col] - df[col].shift(1)
 
-    return raw_data
+    return df
 
 
-def aggregate(input_data: pd.DataFrame, k: int) -> pd.DataFrame:
-    """ Returns an aggregated version of ``input_data`` with bucket size ``k`` """
+def aggregate(input_df: pd.DataFrame, k: int) -> pd.DataFrame:
+    """ Returns an aggregated version of ``input_df`` with bucket size ``k``. """
     if k == 1:
-        return input_data
-    raw_data = pd.DataFrame()
-    columns = input_data.columns
+        return input_df
+    df = pd.DataFrame()
+    columns = input_df.columns
     for col in columns:
         agg = []
-        for i in range(len(input_data[col]) // k):
-            agg.append(input_data[col].iloc[i : i + k].values.sum())
-        raw_data[col] = agg
-    return raw_data
+        for i in range(len(input_df[col]) // k):
+            agg.append(input_df[col].iloc[i : i + k].values.sum())
+        df[col] = agg
+    return df
 
 
-def normalize(tensor_data: np.ndarray) -> np.ndarray:
-    """ Fits a RobustScaler to ``tensor_data`` and normalizes the inputs. """
+def normalize(input_df: pd.DataFrame) -> pd.DataFrame:
+    """ Fits a RobustScaler to ``input_df`` and normalizes the inputs. """
+    print("Normalizing...")
+    input_array = np.array(input_df)
     scaler = RobustScaler()
-    scaler.fit(tensor_data)
-    tensor_data = scaler.transform(tensor_data)
-    return tensor_data
+    scaler.fit(input_array)
+    input_array = scaler.transform(input_array)
+    df = pd.DataFrame(input_array)
+    print("Done normalizing.")
+    return df
 
 
 def seq_normalize(
     inputs_raw: np.ndarray, targets_raw: np.ndarray = None
-) -> Tuple[np.ndarray]:
+) -> Tuple[np.ndarray, np.ndarray]:
     """ Fits a StandardScaler to ``inputs_raw`` and normalizes the inputs. """
     # Normalize ``inputs_raw`` and ``targets_raw``.
     scaler = StandardScaler()
@@ -83,34 +101,32 @@ class GPSTDataset(Dataset):
         self.seq_norm = seq_norm
 
         assert corpus_path[-4:] == ".csv"
-        self.raw_data = pd.read_csv(corpus_path, sep="\t")
+        raw_data_df = pd.read_csv(corpus_path, sep="\t")
 
         if stationarization:
             print("Preprocessing data...")
             # Stationarize each of the columns.
-            self.raw_data = stationarize(self.raw_data)
+            input_df = stationarize(raw_data_df)
 
-            # remove the first row values as they will be NaN
-            self.raw_data = self.raw_data[1:]
+            # remove the first row values as they will be NaN.
+            input_df = input_df[1:]
 
-        # aggregate the price data to reduce volatility
+        # Aggregate the price data to reduce volatility.
         print("Aggregating...")
         sys.stdout.flush()
-        self.raw_data = aggregate(self.raw_data, aggregation_size)
+        input_df = aggregate(input_df, aggregation_size)
         print("Done aggregating.")
         sys.stdout.flush()
 
-        num_batches = len(self.raw_data) // (train_batch_size * seq_len)
-        rows_to_keep = train_batch_size * seq_len * num_batches
-        self.tensor_data = np.array(self.raw_data.iloc[:rows_to_keep, :].values)
-
         # Normalize entire dataset and save scaler object.
         if self.normalize:
-            print("Normalizing...")
-            self.tensor_data = normalize(self.tensor_data)
-            print("Done normalizing.")
+            input_df = normalize(input_df)
 
-        self.features = self.create_features(self.tensor_data)
+        num_batches = len(input_df) // (train_batch_size * seq_len)
+        rows_to_keep = train_batch_size * seq_len * num_batches
+        self.input_array = np.array(input_df.iloc[:rows_to_keep, :].values)
+
+        self.features = self.create_features(self.input_array)
         print("len of features:", len(self.features))
 
     def __len__(self) -> int:
@@ -119,25 +135,17 @@ class GPSTDataset(Dataset):
     def __getitem__(self, item):
         return self.features[item]
 
-    def create_features(self, tensor_data):
+    def create_features(
+        self, tensor_data: np.ndarray
+    ) -> List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
         """ Returns a list of features of the form
         (input, input_raw, is_masked, target, seg_id, label).
         """
         original_data_len = tensor_data.shape[0]
         seq_len = self.seq_len
 
-        if DEBUG:
-            print("original_data_len", original_data_len)
-            print("seq_len", seq_len)
-
-        # Make sure we didn't truncate away all the data when
-        # making sure ``batch_size * seq_len`` evenly divides the number of rows.
-        if original_data_len <= 0:
-            print("========================================")
-            print("Is ``args.train_batch_size`` larger than")
-            print("``<total_data_len> // seq_len ``?")
-            print("========================================")
-            assert original_data_len > 0
+        # Make sure we didn't truncate away all data via ``rows_to_keep``.
+        assert original_data_len > 0
 
         num_seqs = original_data_len // seq_len
         input_ids_all = np.arange(0, num_seqs * seq_len)
