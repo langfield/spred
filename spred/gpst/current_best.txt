@@ -72,3 +72,9 @@ Training loss: 2.25e-05: 100%|██████████| 432/432 [00:20<00:
     'n_ctx':5.0,
     'n_embd':288.0
 }
+
+#=======================================================================================
+
+
+08/25/2019 14:11:46 - INFO - optuna.study -   Finished trial#0 resulted in value: 1.529729962348938. Current best value is 1.529729962348938 with parameters: {'learning_rate': 0.0001947484098758328, 'warmup_proportion': 0.07437113653007205, 'train_batch_size': 224.0, 'n_ctx': 20.0, 'n_embd': 480.0}.
+08/25/2019 14:11:46 - INFO - root -   Namespace(adam_epsilon=7.400879524874149e-08, aggregation_size=1, dataset='../exchange/concatenated_price_data/ETHUSDT_drop.csv', eval_batch_size=1, gpst_model='config.json', graph_dir='graphs/', learning_rate=2.358476419922232e-06, lr_schedule='warmup_linear', max_grad_norm=3, model_name='openai-gpt', normalize=False, num_train_epochs=100000, output_dir='checkpoints', save_freq=1, seed=42, seq_norm=True, stationarize=True, terminal_plot_width=50, timeout=5000.0, train_batch_size=256, warmup_proportion=0.058271710572604704, warmup_steps=10000, weight_decay=0.005, width=100)

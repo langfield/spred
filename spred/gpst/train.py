@@ -45,7 +45,6 @@ logging.basicConfig(
 datestring = str(datetime.datetime.now())
 datestring = datestring.replace(" ", "_")
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.FileHandler("logs/rain_" + datestring + ".log"))
 
 
 def train(args=None) -> float:
@@ -256,4 +255,5 @@ def train(args=None) -> float:
 
 
 if __name__ == "__main__":
+    logger.addHandler(logging.FileHandler("logs/rain_" + datestring + ".log"))
     train()
