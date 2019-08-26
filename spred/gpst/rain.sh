@@ -2,7 +2,7 @@
 
 DATASET="../exchange/concatenated_price_data/ETHUSDT_drop.csv"
 GPST_MODEL="config.json"
-MODEL_NAME="short"
+MODEL_NAME="test_deletable"
 OUTPUT_DIR="checkpoints"
 
 # Hyperparameters:
@@ -18,9 +18,10 @@ ADAM_EPSILON="1.03286922292212e-08"
 AGGREGATION_SIZE="1"
 STATIONARIZE="--stationarize"
 NORMALIZE=""
+SEQ_NORM="--seq_norm"
 
 if [ "$(whoami)" != "mckade" ]; then
-    srun -J gpst -w adamantium --mem 10000 -c 4 python3 train.py --dataset ${DATASET} --gpst_model ${GPST_MODEL} --output_dir ${OUTPUT_DIR} --model_name ${MODEL_NAME}  --seed ${SEED} --train_batch_size ${TRAIN_BATCH_SIZE} --num_train_epochs ${NUM_TRAIN_EPOCHS} --save_freq ${SAVE_FREQ} --max_grad_norm ${MAX_GRAD_NORM} --learning_rate ${LEARNING_RATE} --warmup_proportion ${WARMUP_PROPORTION} --weight_decay ${WEIGHT_DECAY} --adam_epsilon ${ADAM_EPSILON} --aggregation_size ${AGGREGATION_SIZE} ${STATIONARIZE} ${NORMALIZE}
+    srun -J gpst -w adamantium --mem 10000 -c 4 python3 train.py --dataset ${DATASET} --gpst_model ${GPST_MODEL} --output_dir ${OUTPUT_DIR} --model_name ${MODEL_NAME}  --seed ${SEED} --train_batch_size ${TRAIN_BATCH_SIZE} --num_train_epochs ${NUM_TRAIN_EPOCHS} --save_freq ${SAVE_FREQ} --max_grad_norm ${MAX_GRAD_NORM} --learning_rate ${LEARNING_RATE} --warmup_proportion ${WARMUP_PROPORTION} --weight_decay ${WEIGHT_DECAY} --adam_epsilon ${ADAM_EPSILON} --aggregation_size ${AGGREGATION_SIZE} ${STATIONARIZE} ${NORMALIZE} ${SEQ_NORM}
 else
     NORMALIZE=""
     DATASET="../../../ETHUSDT_drop.csv"
