@@ -15,7 +15,7 @@ from train import train
 from arguments import get_args
 
 
-def main():
+def main() -> None:
     """ Run an Optuna study. """
     datestring = str(datetime.datetime.now())
     datestring = datestring.replace(" ", "_")

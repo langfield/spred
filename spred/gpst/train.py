@@ -132,12 +132,13 @@ def train(args=None) -> float:
 
     # Main training loop.
     start = time.time()
-    nb_tr_steps, tr_loss, exp_average_loss = 0, 0, None
+    nb_tr_steps, tr_loss, exp_average_loss = 0.0, 0.0, 0.0
+    completed_first_iteration = False
     model.train()
     elapsed_epochs = 0
     for _ in trange(int(args.num_train_epochs), desc="Epoch"):
-        tr_loss = 0
-        epoch_avg_loss = 0
+        tr_loss = 0.0
+        epoch_avg_loss = 0.0
         nb_tr_steps = 0
         tqdm_bar = tqdm(train_dataloader, desc="Training", position=0, leave=True)
         for _, batch in enumerate(tqdm_bar):
@@ -213,17 +214,18 @@ def train(args=None) -> float:
                 tr_loss += loss_data
                 exp_average_loss = (
                     loss_data
-                    if exp_average_loss is None
+                    if completed_first_iteration
                     else 0.7 * exp_average_loss + 0.3 * loss_data
                 )
             else:
                 tr_loss += loss.item()
                 exp_average_loss = (
                     loss.item()
-                    if exp_average_loss is None
+                    if completed_first_iteration
                     else 0.7 * exp_average_loss + 0.3 * loss.item()
                 )
 
+            completed_first_iteration = True
             nb_tr_steps += 1
             tqdm_bar.desc = "Training loss: {:.2e}".format(exp_average_loss)
 
