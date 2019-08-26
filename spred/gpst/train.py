@@ -81,12 +81,13 @@ def train(args=None) -> float:
     else:
         model.to(device)
 
-    # Compute the max input length for the Transformer
-    max_length = model.config.n_positions
+    assert model.config.n_positions == model.config.n_ctx
+    args.max_seq_len = model.config.n_ctx
+    args.dim = model.config.vocab_size
 
     train_data = GPSTDataset(
         args.dataset,
-        max_length,
+        args.max_seq_len,
         stationarization=args.stationarize,
         aggregation_size=args.aggregation_size,
         normalization=args.normalize,
@@ -158,19 +159,12 @@ def train(args=None) -> float:
             if not args.stationarize and input_ids.shape[0] < args.train_batch_size:
                 continue
             # ===HACK===
-            assert input_ids.shape == (args.train_batch_size, max_length)
-            assert position_ids.shape == (args.train_batch_size, max_length)
-            assert lm_labels.shape == (args.train_batch_size, max_length)
-            assert inputs_raw.shape == (
-                args.train_batch_size,
-                max_length,
-                model.config.vocab_size,
-            )
-            assert targets_raw.shape == (
-                args.train_batch_size,
-                max_length,
-                model.config.vocab_size,
-            )
+            bsz = args.train_batch_size
+            assert input_ids.shape == (bsz, args.max_seq_len)
+            assert position_ids.shape == (bsz, args.max_seq_len)
+            assert lm_labels.shape == (bsz, args.max_seq_len)
+            assert inputs_raw.shape == (bsz, args.max_seq_len, args.dim)
+            assert targets_raw.shape == (bsz, args.max_seq_len, args.dim)
 
             # torch_0.3.1 casting.
             if torch.__version__[:5] == "0.3.1":
@@ -180,22 +174,6 @@ def train(args=None) -> float:
 
             # Get only fourth column (close).
             targets_raw = targets_raw[:, :, 3]
-
-            if DEBUG:
-                print("=======================================")
-                print("Type of input_ids:", type(input_ids))
-                print("Type of position_ids:", type(position_ids))
-                print("Type of lm_labels:", type(lm_labels))
-                print("Type of inputs_raw:", type(inputs_raw))
-                print("Type of targets_raw:", type(targets_raw))
-                if torch.__version__[:5] == "0.3.1":
-                    print("Type of position_ids data:", type(position_ids.data))
-                    print("Type of targets_raw data:", type(targets_raw.data))
-                print("Shape of input_ids:", input_ids.shape)
-                print("Shape of position_ids:", position_ids.shape)
-                print("Shape of lm_labels:", lm_labels.shape)
-                print("Shape of inputs_raw:", inputs_raw.shape)
-                print("Shape of targets_raw:", targets_raw.shape)
 
             # Forward call.
             outputs = model(input_ids, position_ids, lm_labels, inputs_raw, targets_raw)
@@ -235,15 +213,7 @@ def train(args=None) -> float:
         elapsed_epochs += 1
         sys.stdout.flush()
         if elapsed_epochs % args.save_freq == 0:
-            if DEBUG:
-                print("")
-                print("Saving model to:", weights_name)
-                print("")
-                sys.stdout.flush()
-            # Only save the model itself.
             model_to_save = model.module if hasattr(model, "module") else model
-
-            # If we save using the predefined names, we can load using ``from_pretrained``.
             output_model_file = os.path.join(args.output_dir, weights_name)
             output_config_file = os.path.join(args.output_dir, config_name)
 
