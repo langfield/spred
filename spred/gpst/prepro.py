@@ -1,7 +1,7 @@
 """ Preprocess a raw time-series dataset from a ``.csv`` file. """
 import os
 import argparse
-from typing import List
+from typing import List, Set
 import numpy as np
 import pandas as pd
 import seaborn as sns
@@ -54,9 +54,9 @@ def cross_correlation(args: argparse.Namespace, df: pd.DataFrame) -> pd.DataFram
     filename_no_ext = filename.split(".")[0]
     save_path = os.path.join(args.graphs_path, filename_no_ext + ".svg")
 
-    #correlation(df, save_path)
+    # correlation(df, save_path)
     corr = df.corr()
-    
+
     # Generate a mask for the upper triangle.
     mask = np.zeros_like(corr, dtype=np.bool)
     mask[np.triu_indices_from(mask)] = True
@@ -78,10 +78,10 @@ def cross_correlation(args: argparse.Namespace, df: pd.DataFrame) -> pd.DataFram
         linewidths=0.5,
         cbar_kws={"shrink": 0.5},
     )
-    
+
     plt.savefig(save_path)
     # Compute the correlation matrix.
-    
+
     return corr
 
 
@@ -91,12 +91,12 @@ def drop_correlation(corr: pd.DataFrame) -> List[str]:
     column labels as a list of strings.
     """
     column_names = corr.columns[5:]
-    dropped = set()
+    dropped: Set[str] = set()
     n_cols = len(corr) - 5
     for i in range(n_cols):
         for j in range(n_cols):
             if i + (n_cols - j) < n_cols:
-                if abs(corr.iloc[i, j]) > .75 and column_names[j] not in dropped:
+                if abs(corr.iloc[i, j]) > 0.75 and column_names[j] not in dropped:
                     dropped.add(column_names[i])
     return list(dropped)
 
