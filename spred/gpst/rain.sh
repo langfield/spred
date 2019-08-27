@@ -1,8 +1,8 @@
 #!/bin/bash
 
-DATASET="../exchange/concatenated_price_data/ETHUSDT_drop.csv"
+DATASET="../exchange/concatenated_price_data/ETHUSDT_prepro.csv"
 GPST_MODEL="config.json"
-MODEL_NAME="test_deletable"
+MODEL_NAME="optuna_best_8_27"
 OUTPUT_DIR="checkpoints"
 
 # Hyperparameters:
