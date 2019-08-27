@@ -1,4 +1,7 @@
 """ Preprocess a raw time-series dataset from a ``.csv`` file. """
+import matplotlib
+
+matplotlib.use("Agg")
 import os
 import argparse
 from typing import List, Set
@@ -7,9 +10,6 @@ import pandas as pd
 import seaborn as sns
 from ta import add_all_ta_features
 
-import matplotlib
-
-matplotlib.use("Agg")
 # pylint: disable=wrong-import-position
 import matplotlib.pyplot as plt
 

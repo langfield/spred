@@ -2,7 +2,7 @@
 
 MODEL_ROOT="checkpoints"
 GPST_MODEL="config.json"
-DATASET="../exchange/concatenated_price_data/ETHUSDT_drop.csv"
+DATASET="../exchange/concatenated_price_data/ETHUSDT_prepro.csv"
 
 TIMEOUT="5000"
 SAVE_FREQ="1"

@@ -57,13 +57,13 @@ def objective(trial: optuna.Trial) -> float:
     config = {}
     config["initializer_range"] = 0.039589260915990014
     config["layer_norm_epsilon"] = 9.064249722000914e-11
-    config["n_ctx"] = int(trial.suggest_discrete_uniform("n_ctx", 5, 30, 5))
+    config["n_ctx"] = int(trial.suggest_discrete_uniform("n_ctx", 10, 40, 5))
     config["n_positions"] = config["n_ctx"]
     config["resid_pdrop"] = 0.08
     config["attn_pdrop"] = 0.08
     config["n_embd"] = int(trial.suggest_discrete_uniform("n_embd", 32, 768, 64))
     config["n_head"] = 16
-    config["vocab_size"] = 5
+    config["vocab_size"] = 33
     config["n_layer"] = 12
 
     dirpath = tempfile.mkdtemp()
