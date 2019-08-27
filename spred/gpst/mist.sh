@@ -1,8 +1,8 @@
 #!/bin/bash
 
-DATASET="../exchange/concatenated_price_data/ETHUSDT_drop.csv"
+DATASET="../exchange/concatenated_price_data/ETHUSDT_prepro.csv"
 GPST_MODEL="config.json"
-MODEL_NAME="pytorch_model"
+MODEL_NAME="optuna"
 OUTPUT_DIR="checkpoints"
 
 # Hyperparameters:
