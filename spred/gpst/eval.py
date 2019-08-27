@@ -112,7 +112,7 @@ def predict(
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     if seq_norm:
-        input_array = seq_normalize(input_array)[0]
+        input_array, _target_array = seq_normalize(input_array)
 
     tensor_data = torch.Tensor(input_array)
     inputs_raw = tensor_data.contiguous()
@@ -241,7 +241,8 @@ def prediction_loop(
 
         # Make prediction and get ``actual``: the value we want to predict.
         pred = predict(args, model, input_array_slice)
-        actual = input_array[i + args.max_seq_len, 0]
+        # HARDCODE: get ``Close`` price at index ``3``.
+        actual = input_array[i + args.max_seq_len, 3]
 
         if TERM_PRINT:
             output_list = term_print(args, output_list, pred)
