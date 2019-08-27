@@ -238,7 +238,6 @@ def prediction_loop(
         # Grab the slice of ``input_array`` we wish to predict on.
         assert i + args.max_seq_len <= len(input_array)
         input_array_slice = input_array[i : i + args.max_seq_len, :]
-        print("Shape of input_array_slice:", input_array_slice.shape)
 
         # Make prediction and get ``actual``: the value we want to predict.
         pred = predict(args, model, input_array_slice)
