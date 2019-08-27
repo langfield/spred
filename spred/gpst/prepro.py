@@ -15,6 +15,41 @@ import matplotlib.pyplot as plt
 
 sns.set(style="white")
 
+kept_ind = [
+    "Open",
+    "High",
+    "Low",
+    "Close",
+    "Volume",
+    "volume_em",
+    "volume_vpt",
+    "volume_nvi",
+    "volatility_atr",
+    "volatility_bbh",
+    "volatility_bbl",
+    "volatility_bbm",
+    "volatility_bbhi",
+    "volatility_bbli",
+    "volatility_kchi",
+    "volatility_kcli",
+    "volatility_dcli",
+    "trend_macd",
+    "trend_ema_fast",
+    "trend_ema_slow",
+    "trend_dpo",
+    "trend_kst",
+    "trend_kst_diff",
+    "trend_ichimoku_a",
+    "trend_ichimoku_b",
+    "trend_visual_ichimoku_b",
+    "trend_aroon_up",
+    "momentum_mfi",
+    "momentum_stoch",
+    "momentum_wr",
+    "momentum_ao",
+    "others_dr",
+    "others_cr",
+]
 
 def parse(parser: argparse.ArgumentParser) -> argparse.Namespace:
     """ Parse preprocessing arguments. """
@@ -24,6 +59,7 @@ def parse(parser: argparse.ArgumentParser) -> argparse.Namespace:
     parser.add_argument("--graphs_path", type=str, default="graphs/")
     parser.add_argument("--in_sep", type=str, default=",")
     parser.add_argument("--out_sep", type=str, default="\t")
+    parser.add_argument("--correlation", action="store_true")
     return parser.parse_args()
 
 
@@ -115,7 +151,10 @@ def main() -> None:
         df = drop_cols(df, drop)
 
     corr = cross_correlation(args, df)
-    corr_cols = drop_correlation(corr)
+    if args.correlation:
+        corr_cols = drop_correlation(corr)
+    else:
+        corr_cols = [s for s in df.columns if s not in kept_ind]
     df = drop_cols(df, corr_cols)
 
     # Save dataframe to csv file
