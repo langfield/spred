@@ -31,6 +31,7 @@ else:
 # pylint: disable=wrong-import-position
 from dataset import GPSTDataset
 from arguments import get_args
+from cocob import COCOBBackprop
 
 from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 
@@ -118,12 +119,18 @@ def train(args=None) -> float:
         },
     ]
     num_train_optimization_steps = len(train_dataloader) * args.num_train_epochs
+
+    # Trying COCOB
+    """
     optimizer = AdamW(
         optimizer_grouped_parameters,
         lr=args.learning_rate,
         weight_decay=args.weight_decay,
         eps=args.adam_epsilon,
     )
+    """
+    optimizer = COCOBBackprop(optimizer_grouped_parameters)
+
     scheduler = WarmupLinearSchedule(
         optimizer,
         warmup_steps=(args.warmup_proportion * num_train_optimization_steps),
@@ -183,9 +190,12 @@ def train(args=None) -> float:
             loss.backward()
             if torch.__version__[:5] != "0.3.1":
                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-            scheduler.step()
+            # REMOVING: ``scheduler.step()`` to try COCOB.
+            # HARDCODE
+            # scheduler.step()
             optimizer.step()
-            optimizer.zero_grad()
+            # HARDCODE: COCOB
+            # optimizer.zero_grad()
 
             if torch.__version__[:5] == "0.3.1":
                 loss_data = float(loss.data)
