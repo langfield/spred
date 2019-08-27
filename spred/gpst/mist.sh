@@ -1,6 +1,7 @@
 #!/bin/bash
 
 DATASET="../exchange/concatenated_price_data/ETHUSDT_prepro.csv"
+# DATASET="../gemini_prepro.csv"
 GPST_MODEL="config.json"
 MODEL_NAME="optuna"
 OUTPUT_DIR="checkpoints"
