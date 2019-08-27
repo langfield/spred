@@ -101,12 +101,12 @@ class GPSTDataset(Dataset):
         self.seq_norm = seq_norm
 
         assert corpus_path[-4:] == ".csv"
-        raw_data_df = pd.read_csv(corpus_path, sep="\t")
+        input_df = pd.read_csv(corpus_path, sep="\t")
 
         if stationarization:
             print("Preprocessing data...")
             # Stationarize each of the columns.
-            input_df = stationarize(raw_data_df)
+            input_df = stationarize(input_df)
 
             # remove the first row values as they will be NaN.
             input_df = input_df[1:]

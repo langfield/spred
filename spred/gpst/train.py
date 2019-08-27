@@ -129,14 +129,16 @@ def train(args=None) -> float:
         eps=args.adam_epsilon,
     )
     """
-    optimizer = COCOBBackprop(optimizer_grouped_parameters)
-
+    """
     scheduler = WarmupLinearSchedule(
         optimizer,
         warmup_steps=(args.warmup_proportion * num_train_optimization_steps),
         # warmup_steps=args.warmup_steps,
         t_total=num_train_optimization_steps,
     )
+    """
+    optimizer = COCOBBackprop(optimizer_grouped_parameters)
+
 
     # Main training loop.
     start = time.time()
@@ -194,8 +196,7 @@ def train(args=None) -> float:
             # HARDCODE
             # scheduler.step()
             optimizer.step()
-            # HARDCODE: COCOB
-            # optimizer.zero_grad()
+            optimizer.zero_grad()
 
             if torch.__version__[:5] == "0.3.1":
                 loss_data = float(loss.data)
