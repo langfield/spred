@@ -1,13 +1,13 @@
 {
-  "initializer_range": 0.023581137558402448,
-  "layer_norm_epsilon": 7.126849963035725e-11,
-  "n_ctx": 5,
-  "n_embd": 128,
-  "n_head": 8,
+  "initializer_range":  0.039589260915990014,
+  "layer_norm_epsilon": 9.064249722000914e-11,
+  "n_ctx": 10,
+  "n_embd": 672,
+  "n_head": 16,
   "n_layer": 12,
-  "n_positions": 5,
-  "vocab_size": 5,
-  "resid_pdrop": 0.09549734260318804,
-  "attn_pdrop": 0.0520418691858098
+  "n_positions": 10,
+  "vocab_size": 33,
+  "resid_pdrop": 0.08,
+  "attn_pdrop": 0.08
 }
 
