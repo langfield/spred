@@ -22,7 +22,8 @@ def parse(parser: argparse.ArgumentParser) -> argparse.Namespace:
     parser.add_argument("--file", type=str, default="file.csv")
     parser.add_argument("--output_file", type=str, default="out_file.csv")
     parser.add_argument("--graphs_path", type=str, default="graphs/")
-    parser.add_argument("--sep", type=str, default="\t")
+    parser.add_argument("--in_sep", type=str, default=",")
+    parser.add_argument("--out_sep", type=str, default="\t")
     return parser.parse_args()
 
 
@@ -105,12 +106,12 @@ def main() -> None:
     """ Preprocess, drop bad columns, and compute cross correlation. """
     args = parse(argparse.ArgumentParser())
     # Grab training data
-    df = pd.read_csv(args.file, sep=",")
+    df = pd.read_csv(args.file, sep=args.in_sep)
     # Generate technical indicators
     df = gen_ta(df)
     # Drop columns
     if args.drop_cols != "":
-        drop = [x.strip() for x in args.drop_cols.split(",")]
+        drop = [x.strip() for x in args.drop_cols.split(args.in_sep)]
         df = drop_cols(df, drop)
 
     corr = cross_correlation(args, df)
@@ -118,7 +119,7 @@ def main() -> None:
     df = drop_cols(df, corr_cols)
 
     # Save dataframe to csv file
-    df.to_csv(path_or_buf=args.output_file, sep=args.sep, index=False)
+    df.to_csv(path_or_buf=args.output_file, sep=args.out_sep, index=False)
 
 
 if __name__ == "__main__":
