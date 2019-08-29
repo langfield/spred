@@ -239,8 +239,9 @@ def prediction_loop(
         assert i + args.max_seq_len <= len(input_array)
         input_array_slice = input_array[i : i + args.max_seq_len, :]
         actual_array_slice = input_array[i + 1 : i + args.max_seq_len + 1, :]
-        actual_slice, _ = seq_normalize(actual_array_slice)
-        actual = actual_slice[-1] 
+        if args.seq_norm:
+            actual_array_slice, _ = seq_normalize(actual_array_slice)
+        actual = actual_array_slice[-1] 
 
         # Make prediction and get ``actual``: the value we want to predict.
         pred = predict(args, model, input_array_slice)
