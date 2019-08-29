@@ -29,30 +29,35 @@ def stationarize(input_df: pd.DataFrame) -> pd.DataFrame:
     df : ``pd.DataFrame``.
         Shape: ``(total_data_len - 1, vocab_size)``.
     """
+    print("Stationarizing...\n")
     df = copy.deepcopy(input_df)
     columns = df.columns
     for col in columns:
         df[col] = df[col] - df[col].shift(1)
 
+    print("Done stationarizing.")
     return df
 
 
 def aggregate(input_df: pd.DataFrame, k: int) -> pd.DataFrame:
     """ Returns an aggregated version of ``input_df`` with bucket size ``k``. """
+    print("Aggregating...\n")
     if k == 1:
         return input_df
     df = pd.DataFrame()
     columns = input_df.columns
-    print("")
-    sys.stdout.flush()
+
     for j, col in tqdm(enumerate(columns)):
         agg = []
-        # for i in tqdm(range(len(input_df[col]) // k), position=0, leave=True):
         for i in range(len(input_df[col]) // k):
             agg.append(input_df[col].iloc[i : i + k].values.sum())
         df[col] = agg
+
         tqdm.write("Columns aggregated: %d out of %d\r" % (j, len(columns)))
         sys.stdout.flush()
+    print("Done aggregating.")
+    print("Post-aggregation ``input_df`` shape:", input_df.shape)
+
     return df
 
 
@@ -110,20 +115,13 @@ class GPSTDataset(Dataset):
         print("Raw ``input_df`` shape:", input_df.shape)
 
         if stationarization:
-            print("Preprocessing data...")
             # Stationarize each of the columns.
             input_df = stationarize(input_df)
-
             # remove the first row values as they will be NaN.
             input_df = input_df[1:]
 
         # Aggregate the price data to reduce volatility.
-        print("Aggregating...")
-        sys.stdout.flush()
         input_df = aggregate(input_df, aggregation_size)
-        print("Done aggregating.")
-        print("Post-aggregation ``input_df`` shape:", input_df.shape)
-        sys.stdout.flush()
 
         # Normalize entire dataset and save scaler object.
         if self.normalize:

@@ -38,7 +38,7 @@ def objective(trial: optuna.Trial) -> float:
     # Set arguments.
     args.num_train_epochs = 10000
     # args.stationarize = trial.suggest_categorical("stationarize", [True, False])
-    args.stationarize = False
+    args.stationarize = True
     args.normalize = False
     args.seq_norm = True
     args.seed = 42
