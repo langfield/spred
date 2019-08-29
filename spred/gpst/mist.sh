@@ -1,7 +1,7 @@
 #!/bin/bash
 
-DATASET="../exchange/concatenated_price_data/ETHUSDT_prepro.csv"
-# DATASET="../gemini_prepro.csv"
+# DATASET="../exchange/concatenated_price_data/ETHUSDT_prepro.csv"
+DATASET="../gemini_prepro.csv"
 GPST_MODEL="config.json"
 MODEL_NAME="optuna"
 OUTPUT_DIR="checkpoints"
@@ -15,7 +15,7 @@ WIDTH="250"
 TERMINAL_PLOT_WIDTH="50"
 # Following arguments are either ``--<argument_name>`` or empty string.
 NORMALIZE=""
-STATIONARIZE=""
+STATIONARIZE="--stationarize"
 SEQ_NORM="--seq_norm"
 
 if [ "$(whoami)" != "mckade" ]; then
