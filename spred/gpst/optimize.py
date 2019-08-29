@@ -64,7 +64,7 @@ def objective(trial: optuna.Trial) -> float:
     config["n_ctx"] = 30
     config["n_positions"] = config["n_ctx"]
     config["resid_pdrop"] = trial.suggest_loguniform("resid_pdrop", 0.01, 0.15)
-    config["attn_pdrop"] = trial.suggest_loguniform("attn_pdrop", 0.01, 0.15)
+    config["attn_pdrop"] = trial.suggest_loguniform("attn_pdrop", 0.1, 0.3)
     config["n_embd"] = int(trial.suggest_discrete_uniform("n_embd", 32, 768, 64))
     # config["n_head"] = int(trial.suggest_discrete_uniform("n_head", 4, 16, 4))
     config["n_head"] = 8
