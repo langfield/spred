@@ -52,7 +52,7 @@ def objective(trial: optuna.Trial) -> float:
     batch_size = 192
     args.train_batch_size = int(batch_size)
     # agg_size = trial.suggest_discrete_uniform("agg_size", 1, 40, 5) 
-    agg_size = 30 
+    agg_size = 5 
     args.aggregation_size = int(agg_size)
     logging.getLogger().info(str(args))
 
