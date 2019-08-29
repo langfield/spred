@@ -43,11 +43,16 @@ def aggregate(input_df: pd.DataFrame, k: int) -> pd.DataFrame:
         return input_df
     df = pd.DataFrame()
     columns = input_df.columns
-    for col in columns:
+    print("")
+    sys.stdout.flush()
+    for j, col in tqdm(enumerate(columns)):
         agg = []
+        # for i in tqdm(range(len(input_df[col]) // k), position=0, leave=True):
         for i in range(len(input_df[col]) // k):
             agg.append(input_df[col].iloc[i : i + k].values.sum())
         df[col] = agg
+        tqdm.write("Columns aggregated: %d out of %d\r" % (j, len(columns)))
+        sys.stdout.flush()
     return df
 
 
@@ -102,6 +107,7 @@ class GPSTDataset(Dataset):
 
         assert corpus_path[-4:] == ".csv"
         input_df = pd.read_csv(corpus_path, sep="\t")
+        print("Raw ``input_df`` shape:", input_df.shape)
 
         if stationarization:
             print("Preprocessing data...")
@@ -116,6 +122,7 @@ class GPSTDataset(Dataset):
         sys.stdout.flush()
         input_df = aggregate(input_df, aggregation_size)
         print("Done aggregating.")
+        print("Post-aggregation ``input_df`` shape:", input_df.shape)
         sys.stdout.flush()
 
         # Normalize entire dataset and save scaler object.
@@ -123,8 +130,11 @@ class GPSTDataset(Dataset):
             input_df = normalize(input_df)
 
         num_batches = len(input_df) // (train_batch_size * seq_len)
+        print("Number of complete batches:", num_batches)
         rows_to_keep = train_batch_size * seq_len * num_batches
+        print("Rows to keep:", rows_to_keep)
         self.input_array = np.array(input_df.iloc[:rows_to_keep, :].values)
+        print("``self.input_array`` shape:", self.input_array.shape)
 
         self.features = self.create_features(self.input_array)
         print("len of features:", len(self.features))
@@ -148,6 +158,11 @@ class GPSTDataset(Dataset):
         assert original_data_len > 0
 
         num_seqs = original_data_len // seq_len
+        print(
+            "Expected number of sequences "
+            + "(``original_data_len`` // ``seq_len``) (%d // %d): %d"
+            % (original_data_len, seq_len, num_seqs)
+        )
         input_ids_all = np.arange(0, num_seqs * seq_len)
 
         features = []

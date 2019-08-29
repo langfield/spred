@@ -1,13 +1,13 @@
 {
-  "initializer_range":  0.039589260915990014,
-  "layer_norm_epsilon": 9.064249722000914e-11,
-  "n_ctx": 10,
-  "n_embd": 672,
-  "n_head": 16,
-  "n_layer": 12,
-  "n_positions": 10,
+  "initializer_range":  0.02,
+  "layer_norm_epsilon": 4.064249722000914e-05,
+  "n_ctx": 30,
+  "n_embd": 160,
+  "n_head": 8,
+  "n_layer": 6,
+  "n_positions": 30,
   "vocab_size": 33,
-  "resid_pdrop": 0.08,
-  "attn_pdrop": 0.08
+  "resid_pdrop": 0.023,
+  "attn_pdrop": 0.093
 }
 
