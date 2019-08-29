@@ -71,7 +71,7 @@ def load_from_file(args: argparse.Namespace, debug: bool = False) -> np.ndarray:
 
     input_df = pd.read_csv(data_filename, sep="\t")
     if debug:
-        print("Raw:\n", raw_data_df.head(30))
+        print("Raw:\n", input_df.head(30))
 
     if stat:
         input_df = stationarize(input_df)
@@ -247,6 +247,10 @@ def prediction_loop(
         if TERM_PRINT:
             output_list = term_print(args, output_list, pred)
 
+
+        # TODO: ``actual`` is not sequence-normalized currently, even 
+        # when the flag is set.
+
         # Append scalar arrays to lists.
         all_inputs.append(actual)
         all_outputs.append(pred)
@@ -349,7 +353,7 @@ def main() -> None:
     print("Max sequence length :", args.max_seq_len)
     print("Eval batch size:", args.eval_batch_size)
 
-    input_array = load_from_file(args)
+    input_array = load_from_file(args, debug=True)
 
     if CHECK_SANITY:
         all_inputs, all_outputs = sanity_loop(args, model, input_array)
