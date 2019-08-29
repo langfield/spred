@@ -1,20 +1,21 @@
 #!/bin/bash
 
-# DATASET="../exchange/concatenated_price_data/ETHUSDT_prepro.csv"
-DATASET="../gemini_prepro.csv"
+DATASET="../exchange/concatenated_price_data/ETHUSDT_prepro.csv"
+# DATASET="../gemini_prepro.csv"
 GPST_MODEL="config.json"
-MODEL_NAME="optuna_best_8_27"
+MODEL_NAME="optuna"
 OUTPUT_DIR="checkpoints"
 
 # Hyperparameters:
 SEED="42"
 EVAL_BATCH_SIZE="1"
-AGGREGATION_SIZE="1"
+AGGREGATION_SIZE="30"
 GRAPH_DIR="graphs/"
 WIDTH="250"
 TERMINAL_PLOT_WIDTH="50"
+# Following arguments are either ``--<argument_name>`` or empty string.
 NORMALIZE=""
-STATIONARIZE="--stationarize"
+STATIONARIZE=""
 SEQ_NORM="--seq_norm"
 
 if [ "$(whoami)" != "mckade" ]; then

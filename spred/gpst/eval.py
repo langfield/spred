@@ -69,12 +69,12 @@ def load_from_file(args: argparse.Namespace, debug: bool = False) -> np.ndarray:
 
     max_seq_len = args.max_seq_len
 
-    raw_data_df = pd.read_csv(data_filename, sep="\t")
+    input_df = pd.read_csv(data_filename, sep="\t")
     if debug:
         print("Raw:\n", raw_data_df.head(30))
 
     if stat:
-        input_df = stationarize(raw_data_df)
+        input_df = stationarize(input_df)
         if debug:
             print("Stationarized:\n", input_df.head(30))
 
