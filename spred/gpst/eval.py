@@ -238,18 +238,19 @@ def prediction_loop(
         # Grab the slice of ``input_array`` we wish to predict on.
         assert i + args.max_seq_len <= len(input_array)
         input_array_slice = input_array[i : i + args.max_seq_len, :]
+        actual_array_slice = input_array[i + 1 : i + args.max_seq_len + 1, :]
+        actual_slice, _ = seq_normalize(actual_array_slice)
+        actual = actual_slice[-1] 
 
         # Make prediction and get ``actual``: the value we want to predict.
         pred = predict(args, model, input_array_slice)
+
         # HARDCODE: get ``Close`` price at index ``3``.
-        actual = input_array[i + args.max_seq_len, 3]
+        actual = actual[3]
+        assert actual.shape == pred.shape
 
         if TERM_PRINT:
             output_list = term_print(args, output_list, pred)
-
-
-        # TODO: ``actual`` is not sequence-normalized currently, even 
-        # when the flag is set.
 
         # Append scalar arrays to lists.
         all_inputs.append(actual)
