@@ -26,7 +26,6 @@ from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 
 DEBUG = False
 TERM_PRINT = False
-CHECK_SANITY = False
 # pylint: disable=no-member
 
 
@@ -195,6 +194,11 @@ def gen_plot(
     """
     Graphs ``all_in`` and ``all_out`` on the same plot, and saves the figure
     as an ``.svg`` file.
+
+    Parameters
+    ----------
+    all_in : ``np.ndarray``, required.
+        An array of 
     """
 
     # Add a column dim to ``all_in`` and ``all_out`` so we may concat along it.
@@ -256,8 +260,8 @@ def prediction_loop(
 
     Returns
     -------
-    all_inputs : ``List[np.ndarray``.
-    all_outputs : ``List[np.ndarray``.
+    all_inputs : ``List[np.ndarray]``.
+    all_outputs : ``List[np.ndarray]``.
     """
     output_list: List[np.ndarray] = []
     all_inputs = []
@@ -389,10 +393,7 @@ def main() -> None:
 
     input_array = load_from_file(args, debug=True)
 
-    if CHECK_SANITY:
-        all_inputs, all_outputs = sanity_loop(args, model, input_array)
-    else:
-        all_inputs, all_outputs = prediction_loop(args, model, input_array)
+    all_inputs, all_outputs = prediction_loop(args, model, input_array)
 
     # Stack and cast to ``pd.DataFrame``.
     # ``all_in`` and ``all_out`` shape: (args.width,)
