@@ -296,80 +296,6 @@ def prediction_loop(
     return all_inputs, all_outputs
 
 
-def sanity_loop(
-    args: argparse.Namespace, model: OpenAIGPTLMHeadModel, input_array: np.ndarray
-) -> Tuple[List[np.ndarray], List[np.ndarray]]:
-    """
-    Parameters
-    ----------
-    input_array : ``np.ndarray``, required.
-    args : ``argparse.Namespace``, required.
-    model : ``OpenAIGPTLMHeadModel``, required.
-
-    Returns
-    -------
-    all_inputs : ``List[np.ndarray``.
-    all_outputs : ``List[np.ndarray``.
-    """
-    output_list: List[np.ndarray] = []
-    all_inputs = []
-    all_outputs = []
-
-    # Iterate in step sizes of 1 over ``input_array``.
-    # HARDCODE
-    start = random.randint(0, 100000 // 2)
-    start = start - start % args.max_seq_len
-    with open(args.dataset) as csvfile:
-        read_csv = csv.reader(csvfile, delimiter="\t")
-        seq: List[List[float]] = []
-        count = 0
-        seq_count = 0
-        last_val = [0.0]
-        for row in read_csv:
-            # Skip to the start row of the file.
-            if count < start:
-                count += 1
-                continue
-
-            float_row = [float(i) for i in row]
-            if len(seq) == args.max_seq_len and seq_count != 0:
-                # Get the next value in the sequence, i.e., the value we just predicted.
-                actual = float_row[0] - last_val[0]
-
-                all_inputs.append(actual)
-
-                if seq_count == args.width:
-                    break
-
-            seq.append(float_row)
-            if len(seq) == args.max_seq_len + 1:
-                seq_df = stationarize(
-                    pd.DataFrame(
-                        seq,
-                        columns=["Open", "High", "Low", "Close", "Volume"],
-                        dtype=float,
-                    )
-                )[1:]
-                input_array = np.array(seq_df)
-                pred = predict(args, model, input_array)
-                print("Prediction {} at time step {}".format(pred, count + 1))
-                print(seq_df)
-                # Step through the input one row at a time.
-                input()
-                if TERM_PRINT:
-                    output_list = term_print(args, output_list, pred)
-
-                # Append scalar arrays to lists.
-                all_outputs.append(pred)
-                last_val = seq[-1:][0]
-                seq = seq[1:][:]
-                seq_count += 1
-
-            count += 1
-
-    return all_inputs, all_outputs
-
-
 def main() -> None:
     """
     Make predictions on randomly chosen sequences whose concatenated length
@@ -404,6 +330,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    # HARDCODE
-    # sanity()
     main()
