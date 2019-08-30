@@ -31,7 +31,20 @@ CHECK_SANITY = False
 
 
 def get_model(args: argparse.Namespace) -> OpenAIGPTLMHeadModel:
-    """ Load the model specified by ``args.model_name``. """
+    """ 
+    Load the model specified by ``args.model_name``.
+    
+    Parameters
+    ----------
+    args : ``argparse.Namespace``, required.
+        Evaluation arguments. See ``arguments.py``.
+
+    Returns
+    -------
+    model : ``OpenAIGPTLMHeadModel``.
+        The loaded model, set to ``eval`` mode, and loaded onto the relevant
+        device.
+    """
     weights_name = args.model_name + ".bin"
     config_name = args.model_name + ".json"
 
@@ -56,11 +69,21 @@ def get_model(args: argparse.Namespace) -> OpenAIGPTLMHeadModel:
 
 def load_from_file(args: argparse.Namespace, debug: bool = False) -> np.ndarray:
     """
-    Returns a dataframe containing the data from ``data_filename``
-    ``stat``: Whether to stationarize the data
-    ``agg_size``: Size of aggregation bucket (1 means no aggregation)
-    ``norm``: Whether to normalize the data
-    ``debug``: Enables logging
+    Returns a dataframe containing the data from ``args.dataset: str``.
+    
+    Parameters
+    ----------
+    args : ``argparse.Namespace``, required.
+        Evaluation arguments. See ``arguments.py``.
+    debug : ``bool``.
+        Enables logging to stdout.
+
+    Returns
+    -------
+    input_array : ``np.ndarray``.
+        The entire dataset located at ``args.dataset``, optionally
+        stationarized, aggregated, and/or normalized.
+        Shape: (<rows_after_preprocessing>, vocab_size).    
     """
     data_filename = args.dataset
     stat = args.stationarize
@@ -93,14 +116,23 @@ def load_from_file(args: argparse.Namespace, debug: bool = False) -> np.ndarray:
 
 
 def predict(
-    args: argparse.Namespace, model: OpenAIGPTLMHeadModel, input_array: np.ndarray
+    args: argparse.Namespace, model: OpenAIGPTLMHeadModel, input_array_slice: np.ndarray
 ) -> np.ndarray:
     """
+    Parameters
+    ----------
+    args : ``argparse.Namespace``, required.
+        Evaluation arguments. See ``arguments.py``.
+    model : ``OpenAIGPTLMHeadModel``.
+        The loaded model, set to ``eval`` mode, and loaded onto the relevant device.
+    input_array_slice : ``np.ndarray``.
+        One sequence of ``input_array``.
+        Shape: (seq_len, vocab_size).
     Returns
     -------
     pred : ``np.ndarray``.
         The last prediction in the first (and only) batch.
-        Shape: <scalar>.
+        Shape: (,).
     """
     # Grab arguments from ``args``.
     max_seq_len = args.max_seq_len
@@ -112,9 +144,9 @@ def predict(
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     if seq_norm:
-        input_array, _target_array = seq_normalize(input_array)
+        input_array_slice, _target_array_slice = seq_normalize(input_array_slice)
 
-    tensor_data = torch.Tensor(input_array)
+    tensor_data = torch.Tensor(input_array_slice)
     inputs_raw = tensor_data.contiguous()
 
     # Create ``position_ids``.
@@ -158,7 +190,7 @@ def predict(
 
 
 def gen_plot(
-    all_in: np.ndarray, all_out: np.ndarray, graph_dir: np.ndarray, data_filename: str
+    all_in: np.ndarray, all_out: np.ndarray, graph_dir: str, data_filename: str
 ) -> None:
     """
     Graphs ``all_in`` and ``all_out`` on the same plot, and saves the figure
@@ -241,7 +273,7 @@ def prediction_loop(
         actual_array_slice = input_array[i + 1 : i + args.max_seq_len + 1, :]
         if args.seq_norm:
             actual_array_slice, _ = seq_normalize(actual_array_slice)
-        actual = actual_array_slice[-1] 
+        actual = actual_array_slice[-1]
 
         # Make prediction and get ``actual``: the value we want to predict.
         pred = predict(args, model, input_array_slice)
