@@ -22,12 +22,12 @@ def stationarize(input_df: pd.DataFrame) -> pd.DataFrame:
     input_df : ``pd.DataFrame``, required.
         A 2-dimensional matrix of input data, where the columns are model features
         and the rows are timesteps.
-        Shape: ``(total_data_len, vocab_size)``.
+        Shape: ``(input_df.shape[0], vocab_size)``.
 
     Returns
     -------
     df : ``pd.DataFrame``.
-        Shape: ``(total_data_len - 1, vocab_size)``.
+        Shape: ``(input_df.shape[0] - 1, vocab_size)``.
     """
     print("Stationarizing...\n")
     df = copy.deepcopy(input_df)
@@ -40,7 +40,21 @@ def stationarize(input_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def aggregate(input_df: pd.DataFrame, k: int) -> pd.DataFrame:
-    """ Returns an aggregated version of ``input_df`` with bucket size ``k``. """
+    """ 
+    Returns an aggregated version of ``input_df`` with bucket size ``k``.
+    
+    Parameters
+    ----------
+    input_df : ``pd.DataFrame``, required.
+        A 2-dimensional matrix of input data, where the columns are model features
+        and the rows are timesteps.
+        Shape: ``(input_df.shape[0], vocab_size)``.
+    
+    Returns
+    -------
+    df : ``pd.DataFrame``.
+        Shape: ``(input_df.shape[0], vocab_size)``.
+    """
     print("Aggregating...\n")
     if k == 1:
         return input_df
@@ -62,7 +76,21 @@ def aggregate(input_df: pd.DataFrame, k: int) -> pd.DataFrame:
 
 
 def normalize(input_df: pd.DataFrame) -> pd.DataFrame:
-    """ Fits a RobustScaler to ``input_df`` and normalizes the inputs. """
+    """ 
+    Fits a RobustScaler to ``input_df`` and normalizes the inputs.
+    
+    Parameters
+    ----------
+    input_df : ``pd.DataFrame``, required.
+        A 2-dimensional matrix of input data, where the columns are model features
+        and the rows are timesteps.
+        Shape: ``(input_df.shape[0], vocab_size)``.
+    
+    Returns
+    -------
+    df : ``pd.DataFrame``.
+        Shape: ``(input_df.shape[0], vocab_size)``.
+    """
     print("Normalizing...")
     input_array = np.array(input_df)
     scaler = RobustScaler()
@@ -76,7 +104,28 @@ def normalize(input_df: pd.DataFrame) -> pd.DataFrame:
 def seq_normalize(
     inputs_raw: np.ndarray, targets_raw: np.ndarray = None
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """ Fits a StandardScaler to ``inputs_raw`` and normalizes the inputs. """
+    """ 
+    Fits a StandardScaler to ``inputs_raw`` and normalizes the inputs, as well
+    as ``targets_raw`` if passed.
+    
+    Parameters
+    ----------
+    inputs_raw : ``np.ndarray``, required.
+        A 2-dimensional matrix of input data, where the columns are model features
+        and the rows are timesteps.
+        Shape: ``(seq_len, vocab_size)``.
+    targets_raw : ``np.ndarray``, required.
+        A 2-dimensional matrix of target data, where the columns are model features
+        and the rows are timesteps.
+        Shape: ``(seq_len, vocab_size)``.
+    
+    Returns
+    -------
+    inputs_raw : ``np.ndarray``. 
+        Shape: ``(seq_len, vocab_size)``.
+    targets_raw : ``np.ndarray``.
+        Shape: ``(seq_len, vocab_size)``.
+    """
     # Normalize ``inputs_raw`` and ``targets_raw``.
     scaler = StandardScaler()
     scaler.fit(inputs_raw)
@@ -111,6 +160,7 @@ class GPSTDataset(Dataset):
         self.seq_norm = seq_norm
 
         assert corpus_path[-4:] == ".csv"
+        # Shape: (total_data_len, vocab_size).
         input_df = pd.read_csv(corpus_path, sep="\t")
         print("Raw ``input_df`` shape:", input_df.shape)
 
@@ -146,8 +196,40 @@ class GPSTDataset(Dataset):
     def create_features(
         self, tensor_data: np.ndarray
     ) -> List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
-        """ Returns a list of features of the form
-        (input, input_raw, is_masked, target, seg_id, label).
+        """ 
+        Returns a list of features of the form 
+            ``(input, input_raw, is_masked, target, seg_id, label)``.
+
+        Parameters
+        ----------
+        tensor_data : ``np.ndarray``, required.
+            The 2-dimensional input data, after being optionally stationarized, 
+            aggregated, and/or normalized.
+            Shape: (original_data_len, vocab_size).
+
+        Returns
+        -------
+        features : ``List[Tuple[np.ndarray, ...]]``.
+            Shape: (num_seqs, 5).
+
+            Elements
+            --------
+            input_ids : ``np.ndarray``.
+                The index of the corresponding rows in ``inputs_raw`` in 
+                ``tensor_data``.
+                Shape: (seq_len,).
+            position_ids : ``np.ndarray``.
+                The index of the rows in ``inputs_raw`` relative to the current
+                sequence. 
+                Shape: (seq_len,).
+            lm_labels : ``np.ndarray``.
+                A copy of ``input_ids``.
+            inputs_raw : ``np.ndarray``.
+                A slice of ``tensor_data`` containing a sequence worth of
+                training data for the model.
+                Shape: (seq_len, vocab_size).
+            targets_raw : ``np.ndarray``.
+                A copy of ``inputs_raw``. 
         """
         original_data_len = tensor_data.shape[0]
         seq_len = self.seq_len
@@ -168,6 +250,7 @@ class GPSTDataset(Dataset):
         for i in tqdm(range(num_seqs), position=0, leave=True):
             inputs_raw = tensor_data[i * seq_len : (i + 1) * seq_len]
             input_ids = input_ids_all[i * seq_len : (i + 1) * seq_len]
+            # TODO: Should this always start from zero?
             position_ids = np.arange(0, seq_len)
             lm_labels = copy.deepcopy(input_ids)
             targets_raw = copy.deepcopy(inputs_raw)
