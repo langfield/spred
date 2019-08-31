@@ -63,9 +63,8 @@ def parse(parser: argparse.ArgumentParser) -> argparse.Namespace:
     return parser.parse_args()
 
 
-def drop_cols(df: pd.DataFrame, drop: list) -> pd.DataFrame:
+def drop_cols(df: pd.DataFrame, drop: List[str]) -> pd.DataFrame:
     """ Drop the specified columns and return the resultant ``pd.DataFrame``. """
-    # drop all columns specified in the comma separated list from args
     print("Dropping", drop)
     df = df.drop(columns=drop)
 
