@@ -1,6 +1,6 @@
 #!/bin/bash
 
-MODEL_ROOT="checkpoints"
+MODEL_ROOT="ckpts"
 GPST_MODEL="config.json"
 DATASET="../exchange/concatenated_price_data/ETHUSDT_prepro.csv"
 

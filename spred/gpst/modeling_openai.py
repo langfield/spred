@@ -33,7 +33,7 @@ from torch.nn.parameter import Parameter
 
 # ===MOD===
 if torch.__version__[:5] == "0.3.1":
-    from pytorch_transformers_addons.modeling_utils import (
+    from compat.pytorch_transformers.modeling_utils import (
         Conv1D,
         CONFIG_NAME,
         WEIGHTS_NAME,
@@ -461,12 +461,7 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         self._tie_or_clone_weights(self.pre_encoding, self.post_decoding)
 
     def forward(
-        self,
-        input_ids,
-        position_ids=None,
-        labels=None,
-        inputs_raw=None,
-        head_mask=None,
+        self, input_ids, position_ids=None, labels=None, inputs_raw=None, head_mask=None
     ):
         if position_ids is None:
             # This was used when we had a single embedding matrice from position and token embeddings
@@ -610,7 +605,7 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         )
         hidden_states = transformer_outputs[0]
         assert hidden_states.shape == inputs_raw.shape
-        
+
         lm_logits = self.target(hidden_states)[:, :, 0]
 
         outputs = (lm_logits,) + transformer_outputs[1:]
@@ -646,10 +641,12 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         else:
             device = true.device
             ones = torch.ones(true.shape).to(device)
-        summ = torch.max(torch.abs(true) + torch.abs(predicted) + epsilon, 0.5 + epsilon * ones)
+        summ = torch.max(
+            torch.abs(true) + torch.abs(predicted) + epsilon, 0.5 + epsilon * ones
+        )
         smape = torch.abs(predicted - true) / summ * 2.0
         smape = torch.mul(smape, smape)
         smape_shape = smape.shape
         smape = torch.sum(smape) / reduce((lambda x, y: x * y), smape_shape)
-         
+
         return smape

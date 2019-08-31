@@ -16,11 +16,11 @@ try:
 except ImportError:
     pass
 
-from plot import graph
+from plot.plot import graph
+from plot.termplt import plot_to_terminal
 from arguments import get_args
-from termplt import plot_to_terminal
-from dataset import aggregate, stationarize, normalize, seq_normalize
 from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
+from dataset import aggregate, stationarize, normalize, seq_normalize
 
 
 DEBUG = False

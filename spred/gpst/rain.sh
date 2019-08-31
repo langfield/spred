@@ -4,7 +4,7 @@ DATASET="../exchange/concatenated_price_data/ETHUSDT_prepro.csv"
 # DATASET="../exchange/ETHUSDT_small_prepro.csv"
 GPST_MODEL="config.json"
 MODEL_NAME="optuna_best_8_27"
-OUTPUT_DIR="checkpoints"
+OUTPUT_DIR="ckpts"
 
 # Hyperparameters:
 SEED="42"

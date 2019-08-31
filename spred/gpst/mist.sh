@@ -3,7 +3,7 @@
 DATASET="../exchange/gemini_prepro.csv"
 GPST_MODEL="config.json"
 MODEL_NAME="optuna"
-OUTPUT_DIR="checkpoints"
+OUTPUT_DIR="ckpts"
 
 # Hyperparameters:
 SEED="42"

@@ -35,8 +35,8 @@ from .file_utils import cached_path
 #===MOD===
 import itertools
 import numpy as np
-from torch_addons import nn_init
-from torch_addons.module import Module
+from compat.torch import nn_init
+from compat.torch.module import Module
 #===MOD===
 
 logger = logging.getLogger(__name__)

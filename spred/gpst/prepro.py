@@ -1,21 +1,20 @@
 """ Preprocess a raw time-series dataset from a ``.csv`` file. """
-import matplotlib
-
-matplotlib.use("Agg")
 import os
 import argparse
 from typing import List, Set
+
+# pylint: disable=wrong-import-position
+import matplotlib
+matplotlib.use("Agg")
 import numpy as np
 import pandas as pd
 import seaborn as sns
-from ta import add_all_ta_features
-
-# pylint: disable=wrong-import-position
 import matplotlib.pyplot as plt
+from ta import add_all_ta_features
 
 sns.set(style="white")
 
-kept_ind = [
+KEPT_IND = [
     "Open",
     "High",
     "Low",
@@ -50,6 +49,7 @@ kept_ind = [
     "others_dr",
     "others_cr",
 ]
+
 
 def parse(parser: argparse.ArgumentParser) -> argparse.Namespace:
     """ Parse preprocessing arguments. """
@@ -153,7 +153,7 @@ def main() -> None:
     if args.correlation:
         corr_cols = drop_correlation(corr)
     else:
-        corr_cols = [s for s in df.columns if s not in kept_ind]
+        corr_cols = [s for s in df.columns if s not in KEPT_IND]
     df = drop_cols(df, corr_cols)
 
     # Save dataframe to csv file
