@@ -1,6 +1,5 @@
 """ Evaluate a trained GPST model and graph its predictions. """
 import os
-import csv
 import copy
 import random
 import argparse
@@ -30,9 +29,9 @@ TERM_PRINT = False
 
 
 def get_model(args: argparse.Namespace) -> OpenAIGPTLMHeadModel:
-    """ 
+    """
     Load the model specified by ``args.model_name``.
-    
+
     Parameters
     ----------
     args : ``argparse.Namespace``, required.
@@ -69,7 +68,7 @@ def get_model(args: argparse.Namespace) -> OpenAIGPTLMHeadModel:
 def load_from_file(args: argparse.Namespace, debug: bool = False) -> np.ndarray:
     """
     Returns a dataframe containing the data from ``args.dataset: str``.
-    
+
     Parameters
     ----------
     args : ``argparse.Namespace``, required.
@@ -82,7 +81,7 @@ def load_from_file(args: argparse.Namespace, debug: bool = False) -> np.ndarray:
     input_array : ``np.ndarray``.
         The entire dataset located at ``args.dataset``, optionally
         stationarized, aggregated, and/or normalized.
-        Shape: (<rows_after_preprocessing>, vocab_size). 
+        Shape: (<rows_after_preprocessing>, vocab_size).
     """
     data_filename = args.dataset
     stat = args.stationarize
@@ -233,7 +232,7 @@ def gen_plot(
     filename = os.path.basename(data_filename)
     filename_no_ext = filename.split(".")[0]
     save_path = os.path.join(graph_dir, filename_no_ext + ".svg")
-    graph(dfs, y_labels, filename_no_ext, column_counts, None, save_path)
+    graph(dfs, y_labels, filename_no_ext, column_counts, save_path)
     print("Graph saved to:", save_path)
 
 
@@ -258,9 +257,9 @@ def term_print(
         Shape: (args.terminal_plot_width,).
     pred : ``np.ndarray``, required.
         The output of ``predict()``, the last prediction for the given
-        ``input_array_slice``. 
+        ``input_array_slice``.
         Shape: (,).
-    
+
     Returns
     -------
     output_list : ``List[np.ndarray]``.
@@ -285,7 +284,7 @@ def prediction_loop(
     Loops over the input array and makes predictions on slices of length
     ``args.seq_len``. Also optionally prints running set of outputs to
     the terminal via a ``term_print()`` call.
-    
+
     Parameters
     ----------
     args : ``argparse.Namespace``, required.
@@ -294,8 +293,8 @@ def prediction_loop(
         The loaded model, set to ``eval`` mode, and loaded onto the relevant device.
     input_array : ``np.ndarray``, required.
         The full array of input rows to predict on, read from file and preprocessed.
-        Shape: (<rows_after_preprocessing>, vocab_size). 
-    
+        Shape: (<rows_after_preprocessing>, vocab_size).
+
     Returns
     -------
     actuals_list : ``List[np.ndarray]``.
@@ -339,7 +338,7 @@ def prediction_loop(
 
 def main() -> None:
     """
-    Parse arguments, load model, set hyperparameters, load data, and 
+    Parse arguments, load model, set hyperparameters, load data, and
     make predictions on randomly chosen sequences whose concatenated length
     adds up to ``args.width``, starting from ``start``, a randomly chosen
     starting index. Generates matplotlib graph as an ``.svg`` file.

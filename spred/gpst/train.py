@@ -4,7 +4,6 @@
     Itself adapted from https://github.com/openai/finetune-transformer-lm/blob/master/train.py
 """
 import os
-import sys
 import time
 import random
 import logging
@@ -31,11 +30,8 @@ else:
     from torch.utils.data import RandomSampler
 
 # pylint: disable=wrong-import-position
-from dataset import GPSTDataset
 from arguments import get_args
-from cocob import COCOBBackprop
-from adabound import AdaBoundW
-
+from dataset import GPSTDataset
 from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
 
 DEBUG = False
@@ -52,6 +48,7 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.FileHandler("logs/rain_" + datestring + ".log"))
 
 
+# pylint: disable=protected-access
 def setup(
     args: argparse.Namespace = None
 ) -> Tuple[
@@ -127,10 +124,9 @@ def setup(
         },
     ]
 
-    #==========Optimizer===========
-    #==========vvvvvvvvv===========
+    # ==========Optimizer===========
+    # ==========vvvvvvvvv===========
 
-    # Old optimizer.
     optimizer = AdamW(
         optimizer_grouped_parameters,
         lr=args.learning_rate,
@@ -145,13 +141,8 @@ def setup(
         t_total=num_train_optimization_steps,
     )
 
-    # Trying new optimizer and scheduler.
-    """
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=150, gamma=0.1,
-                                          last_epoch=start_epoch)
-    """
-    #==========^^^^^^^^^===========
-    #==========Optimizer===========
+    # ==========^^^^^^^^^===========
+    # ==========Optimizer===========
 
     return args, model, optimizer, scheduler, train_dataloader
 
@@ -161,8 +152,8 @@ def train(args: argparse.Namespace = None) -> float:
         Should be run via ``rain.sh``.
     """
     args, model, optimizer, scheduler, train_dataloader = setup(args)
-   
-    # Define ``device``. 
+
+    # Define ``device``.
     if torch.__version__[:5] != "0.3.1":
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -222,6 +213,7 @@ def train(args: argparse.Namespace = None) -> float:
             outputs = model(input_ids, position_ids, lm_labels, inputs_raw, targets_raw)
             loss = outputs[0]
             loss.backward()
+            # pylint: disable=redefined-outer-name
             LOSS = float(loss)
 
             # Logging.

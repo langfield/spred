@@ -18,7 +18,7 @@ except ImportError:
 # pylint: disable=invalid-name, too-many-locals, too-many-statements
 
 
-def graph(dfs, ylabels, filename, column_counts, phase, save_path):
+def graph(dfs, ylabels, filename, column_counts, save_path):
     """ Generate graphs from a list of ``pd.DataFrame`` objects.
         Then save to file at ``save_path``. """
     # PLOTTING
@@ -40,7 +40,7 @@ def graph(dfs, ylabels, filename, column_counts, phase, save_path):
 
     # Text.
     title_text = filename
-    subtitle_text = phase
+    subtitle_text = "Predictions v. Actuals"
     xlabel = "x"
     banner_text = "©spred"
 
@@ -224,19 +224,9 @@ def main(args):
     assert os.path.isdir(GRAPHS_PATH)
     filename = os.path.basename(args.filepath)
     filename_no_ext = filename.split(".")[0]
-    if args.phase != "":
-        save_path = os.path.join(
-            GRAPHS_PATH, filename_no_ext + "_" + args.phase + ".svg"
-        )
-    else:
-        save_path = os.path.join(GRAPHS_PATH, filename_no_ext + ".svg")
-    if args.format == "csv":
-        dfs, ylabels, column_counts = preprocessing.read_csv(args.filepath)
-    elif args.format == "json":
-        dfs, ylabels, column_counts = preprocessing.read_json(args.filepath, args.phase)
-    else:
-        raise ValueError("Invalid --format format.")
-    graph(dfs, ylabels, filename_no_ext, column_counts, args.phase, save_path)
+    save_path = os.path.join(GRAPHS_PATH, filename_no_ext + ".svg")
+    dfs, ylabels, column_counts = preprocessing.read_csv(args.filepath)
+    graph(dfs, ylabels, filename_no_ext, column_counts, save_path)
     print("Graph saved to:", save_path)
 
 
@@ -245,13 +235,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Matplotlib 538-style plot generator.")
     parser.add_argument(
         "--filepath", type=str, help="File to parse and graph.", required=True
-    )
-    parser.add_argument("--format", type=str, default="csv", help="`csv` or `json`.")
-    parser.add_argument(
-        "--phase",
-        type=str,
-        default="",
-        help="The section to graph. One of 'train', 'validate', 'test'.",
     )
     parser.add_argument(
         "--graphs_path", type=str, default="graphs/", help="Where to save graphs."
