@@ -91,12 +91,12 @@ def setup(
         model.to(device)
 
     assert model.config.n_positions == model.config.n_ctx
-    args.max_seq_len = model.config.n_ctx
+    args.seq_len = model.config.n_ctx
     args.dim = model.config.vocab_size
 
     train_data = GPSTDataset(
         args.dataset,
-        args.max_seq_len,
+        args.seq_len,
         stationarization=args.stationarize,
         aggregation_size=args.aggregation_size,
         normalization=args.normalize,
@@ -203,11 +203,11 @@ def train(args: argparse.Namespace = None) -> float:
                 continue
             # ===HACK===
             bsz = args.train_batch_size
-            assert input_ids.shape == (bsz, args.max_seq_len)
-            assert position_ids.shape == (bsz, args.max_seq_len)
-            assert lm_labels.shape == (bsz, args.max_seq_len)
-            assert inputs_raw.shape == (bsz, args.max_seq_len, args.dim)
-            assert targets_raw.shape == (bsz, args.max_seq_len, args.dim)
+            assert input_ids.shape == (bsz, args.seq_len)
+            assert position_ids.shape == (bsz, args.seq_len)
+            assert lm_labels.shape == (bsz, args.seq_len)
+            assert inputs_raw.shape == (bsz, args.seq_len, args.dim)
+            assert targets_raw.shape == (bsz, args.seq_len, args.dim)
 
             # torch_0.3.1 casting.
             if torch.__version__[:5] == "0.3.1":
