@@ -25,7 +25,7 @@ from torch.utils.data import DataLoader
 
 if torch.__version__[:5] == "0.3.1":
     from torch.autograd import Variable
-    from torch_addons.sampler import RandomSampler
+    from compat.torch.sampler import RandomSampler
 else:
     from torch.utils.data import RandomSampler
 

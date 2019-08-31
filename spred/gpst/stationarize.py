@@ -6,25 +6,27 @@ from matplotlib import pyplot
 from statsmodels.tsa.stattools import adfuller
 
 
+
+
 class StationarityTests:
     """ Class for testing stationarity. """
 
     def __init__(self, significance=0.05):
-        self.SignificanceLevel = significance
-        self.pValue = None
-        self.isStationary = None
+        self.significance_level = significance
+        self.p_value = None
+        self.is_stationary = None
 
-    def ADF_Stationarity_Test(self, timeseries, printResults=True):
+    def adf_stationarity_test(self, timeseries, print_results=True):
         """ Dickey-Fuller test. """
-        adfTest = adfuller(timeseries, autolag="AIC")
-        self.pValue = adfTest[1]
-        if self.pValue < self.SignificanceLevel:
-            self.isStationary = True
+        adf_test = adfuller(timeseries, autolag="AIC")
+        self.p_value = adf_test[1]
+        if self.p_value < self.significance_level:
+            self.is_stationary = True
         else:
-            self.isStationary = False
-        if printResults:
-            dfResults = pd.Series(
-                adfTest[0:4],
+            self.is_stationary = False
+        if print_results:
+            df_results = pd.Series(
+                adf_test[0:4],
                 index=[
                     "ADF Test Statistic",
                     "P-Value",
@@ -33,22 +35,25 @@ class StationarityTests:
                 ],
             )
             # Add Critical Values
-            for key, value in adfTest[4].items():
-                dfResults["Critical Value (%s)" % key] = value
+            for key, value in adf_test[4].items():
+                df_results["Critical Value (%s)" % key] = value
             print("Augmented Dickey-Fuller Test Results:")
-            print(dfResults)
+            print(df_results)
 
 
 def main() -> None:
+    """ Read dataset, check stationarity, and optionally graph. """
     data = pd.read_csv("../../../ETHUSDT_ta_drop.csv", sep="\t")
+    # TODO: what is ``n``?
     n = 1
     data = data.iloc[::n, :]
     print(data.head())
 
+    # pylint: disable=invalid-name
     PLOT = True
     for col in data.columns:
         data[col] = data[col] - data[col].shift(1)
-        sTest = StationarityTests()
+        s_test = StationarityTests()
         series = pd.Series(data[col][1:], n * np.arange(1, len(data[col])))
         series_agg = []
         k = 30
@@ -57,17 +62,17 @@ def main() -> None:
             series_agg.append(series.iloc[i : i + k].values.sum())
         if PLOT:
             # print(series_agg)
-            plt_series = series_agg[:100]
+            # plt_series = series_agg[:100]
             # plt_series = pd.Series(plt_series, n * k * np.arange(0, len(plt_series)))
-            sTest.ADF_Stationarity_Test(series_agg, True)
+            s_test.adf_stationarity_test(series_agg, True)
             pyplot.show()
             PLOT = False
             break
-        sTest.ADF_Stationarity_Test(series, False)
-        if sTest.isStationary:
-            print("Column stationary:", col, "with p-value:", sTest.pValue)
+        s_test.adf_stationarity_test(series, False)
+        if s_test.is_stationary:
+            print("Column stationary:", col, "with p-value:", s_test.p_value)
         else:
-            print("Column not stationary:", col, "with p-value:", sTest.pValue)
+            print("Column not stationary:", col, "with p-value:", s_test.p_value)
 
 
 if __name__ == "__main__":

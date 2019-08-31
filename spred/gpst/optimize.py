@@ -20,7 +20,9 @@ def main() -> None:
     datestring = str(datetime.datetime.now())
     datestring = datestring.replace(" ", "_")
     logging.getLogger().setLevel(logging.INFO)  # Setup the root logger.
-    logging.getLogger().addHandler(logging.FileHandler("logs/optuna_" + datestring + ".log"))
+    logging.getLogger().addHandler(
+        logging.FileHandler("logs/optuna_" + datestring + ".log")
+    )
     optuna.logging.enable_propagation()  # Propagate logs to the root logger.
     optuna.logging.disable_default_handler()  # Stop showing logs in stderr.
 
@@ -51,15 +53,17 @@ def objective(trial: optuna.Trial) -> float:
     # batch_size = trial.suggest_discrete_uniform("train_batch_size", 32, 256, 32)
     batch_size = 192
     args.train_batch_size = int(batch_size)
-    # agg_size = trial.suggest_discrete_uniform("agg_size", 1, 40, 5) 
-    agg_size = 5 
+    # agg_size = trial.suggest_discrete_uniform("agg_size", 1, 40, 5)
+    agg_size = 5
     args.aggregation_size = int(agg_size)
     logging.getLogger().info(str(args))
 
     # Set config.
     config = {}
     config["initializer_range"] = 0.02
-    config["layer_norm_epsilon"] = trial.suggest_loguniform("layer_norm_eps", 1e-5, 1e-3)
+    config["layer_norm_epsilon"] = trial.suggest_loguniform(
+        "layer_norm_eps", 1e-5, 1e-3
+    )
     # config["n_ctx"] = int(trial.suggest_discrete_uniform("n_ctx", 10, 40, 5))
     config["n_ctx"] = 30
     config["n_positions"] = config["n_ctx"]

@@ -12,7 +12,7 @@ import matplotlib.font_manager as fm
 import matplotlib.transforms as transforms
 
 try:
-    import subplot
+    from plot import subplot
 except ImportError:
     from sergen import subplot
 # pylint: disable=invalid-name, too-many-locals, too-many-statements

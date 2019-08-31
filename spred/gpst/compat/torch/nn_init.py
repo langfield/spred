@@ -4,7 +4,7 @@ import math
 import warnings
 
 import torch
-from torch_addons.grad_mode import no_grad
+from compat.torch.grad_mode import no_grad
 
 # These no_grad_* functions are necessary as wrappers around the parts of these
 # functions that use `with no_grad()`. The JIT doesn't support context
