@@ -1,0 +1,80 @@
+Current best value is 0.989925742149353 with parameters: {'seed': 42, 'train_batch_size': 512.0, 'max_grad_norm': 1, 'learning_rate': 0.04974253508762439, 'warmup_steps': 10000.0, 'weight_decay': 0.0039976567141832, 'adam_epsilon': 1.5650621630559375e-08, 'initializer_range': 0.02672930131822099, 'layer_norm_epsilon': 1.1356774802077312e-11, 'n_ctx': 30.0, 'resid_pdrop': 0.14995835188216253, 'attn_pdrop': 0.1042379955768498}.
+
+# With new hidden dimension and scalar training objective.
+Training loss: 2.25e-05: 100%|██████████| 432/432 [00:20<00:00, 21.55it/s][I 2019-08-20 08:53:27,597] Finished trial#99 resulted in value: 2.0867522835033014e-05. Current best value is 7.632943379576318e-06 with parameters: {'seed': 42, 'train_batch_size': 32.0, 'max_grad_norm': 3, 'learning_rate': 4.1611368011568754e-05, 'warmup_steps': 10000.0, 'warmup_proportion': 0.31677440430367065, 'weight_decay': 0.006368695147754081, 'adam_epsilon': 1.03286922292212e-08, 'initializer_range': 0.023581137558402448, 'layer_norm_epsilon': 7.126849963035725e-11, 'n_ctx': 30.0, 'resid_pdrop': 0.09549734260318804, 'attn_pdrop': 0.0520418691858098, 'n_embd': 128.0}.
+{  
+    'seed':42,
+    'train_batch_size':32.0,
+    'max_grad_norm':3,
+    'learning_rate':4.1611368011568754e-05,
+    'warmup_steps':10000.0,
+    'warmup_proportion':0.31677440430367065,
+    'weight_decay':0.006368695147754081,
+    'adam_epsilon':1.03286922292212e-08,
+    'initializer_range':0.023581137558402448,
+    'layer_norm_epsilon':7.126849963035725e-11,
+    'n_ctx':30.0,
+    'resid_pdrop':0.09549734260318804,
+    'attn_pdrop':0.0520418691858098,
+    'n_embd':128.0
+}
+
+#=======================================================================================
+    # Optuna with following args:
+     # Set arguments.
+        args.num_train_epochs = 100000
+        args.stationarize = False
+        args.normalize = True
+        args.aggregation_size = 1
+        args.seed = 42
+        args.max_grad_norm = 3
+        args.warmup_steps = 10000
+        args.learning_rate = trial.suggest_loguniform("learning_rate", 1e-7, 1e-4)
+        args.warmup_proportion = trial.suggest_uniform("warmup_proportion", 0.05, 0.4)
+        args.weight_decay = trial.suggest_loguniform("weight_decay", 5e-4, 1e-2)
+        args.adam_epsilon = trial.suggest_loguniform("adam_epsilon", 1e-9, 1e-7)
+        batch_size = trial.suggest_discrete_uniform("train_batch_size", 64, 512, 64)
+        args.train_batch_size = int(batch_size)
+
+        # Set config.
+        config = {}
+        config["initializer_range"] = trial.suggest_uniform("initializer_range", 0.01, 0.05)
+        config["layer_norm_epsilon"] = trial.suggest_loguniform("lay_norm_eps", 1e-12, 5e-5)
+        config["n_ctx"] = int(trial.suggest_discrete_uniform("n_ctx", 5, 60, 5))
+        config["n_positions"] = config["n_ctx"]
+        config["resid_pdrop"] = trial.suggest_uniform("resid_pdrop", 0.02, 0.15)
+        config["attn_pdrop"] = trial.suggest_uniform("attn_pdrop", 0.02, 0.15)
+        config["n_embd"] = int(trial.suggest_discrete_uniform("n_embd", 32, 256, 16))
+        config["n_head"] = 16
+        config["vocab_size"] = 5
+    # Result: 
+    {  
+        'learning_rate':9.685250972146179e-05,
+        'warmup_proportion':0.050855007287121896,
+        'weight_decay':0.0021129116979843126,
+        'adam_epsilon':7.400879524874149e-08,
+        'train_batch_size':64.0,
+        'initializer_range':0.039589260915990014,
+        'lay_norm_eps':9.064249722000914e-11,
+        'n_ctx':30.0,
+        'resid_pdrop':0.14695906258276448,
+        'attn_pdrop':0.11111282488845922,
+        'n_embd':256.0
+    }
+#=======================================================================================
+
+# Halfway through next optuna run. 
+{  
+    'learning_rate':0.00035122230205223906,
+    'warmup_proportion':0.2602428372115338,
+    'train_batch_size':256.0,
+    'agg_size':15.0,
+    'n_ctx':5.0,
+    'n_embd':288.0
+}
+
+#=======================================================================================
+
+
+08/25/2019 14:11:46 - INFO - optuna.study -   Finished trial#0 resulted in value: 1.529729962348938. Current best value is 1.529729962348938 with parameters: {'learning_rate': 0.0001947484098758328, 'warmup_proportion': 0.07437113653007205, 'train_batch_size': 224.0, 'n_ctx': 20.0, 'n_embd': 480.0}.
+08/25/2019 14:11:46 - INFO - root -   Namespace(adam_epsilon=7.400879524874149e-08, aggregation_size=1, dataset='../exchange/concatenated_price_data/ETHUSDT_drop.csv', eval_batch_size=1, gpst_model='config.json', graph_dir='graphs/', learning_rate=2.358476419922232e-06, lr_schedule='warmup_linear', max_grad_norm=3, model_name='openai-gpt', normalize=False, num_train_epochs=100000, output_dir='checkpoints', save_freq=1, seed=42, seq_norm=True, stationarize=True, terminal_plot_width=50, timeout=5000.0, train_batch_size=256, warmup_proportion=0.058271710572604704, warmup_steps=10000, weight_decay=0.005, width=100)
