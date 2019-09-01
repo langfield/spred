@@ -1,6 +1,5 @@
 """ Evaluate a trained GPST model and graph its predictions. """
 import os
-import csv
 import copy
 import random
 import argparse
@@ -17,23 +16,22 @@ try:
 except ImportError:
     pass
 
-from plot import graph
+from plot.plot import graph
+from plot.termplt import plot_to_terminal
 from arguments import get_args
-from termplt import plot_to_terminal
-from dataset import aggregate, stationarize, normalize, seq_normalize
 from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
+from dataset import aggregate, stationarize, normalize, seq_normalize
 
 
 DEBUG = False
 TERM_PRINT = False
-CHECK_SANITY = False
 # pylint: disable=no-member
 
 
 def get_model(args: argparse.Namespace) -> OpenAIGPTLMHeadModel:
-    """ 
+    """
     Load the model specified by ``args.model_name``.
-    
+
     Parameters
     ----------
     args : ``argparse.Namespace``, required.
@@ -49,7 +47,7 @@ def get_model(args: argparse.Namespace) -> OpenAIGPTLMHeadModel:
     config_name = args.model_name + ".json"
 
     # HARDCODE
-    output_dir = "checkpoints/"
+    output_dir = "ckpts/"
     output_model_file = os.path.join(output_dir, weights_name)
     output_config_file = os.path.join(output_dir, config_name)
     loaded_config = OpenAIGPTConfig.from_json_file(output_config_file)
@@ -70,7 +68,7 @@ def get_model(args: argparse.Namespace) -> OpenAIGPTLMHeadModel:
 def load_from_file(args: argparse.Namespace, debug: bool = False) -> np.ndarray:
     """
     Returns a dataframe containing the data from ``args.dataset: str``.
-    
+
     Parameters
     ----------
     args : ``argparse.Namespace``, required.
@@ -83,14 +81,14 @@ def load_from_file(args: argparse.Namespace, debug: bool = False) -> np.ndarray:
     input_array : ``np.ndarray``.
         The entire dataset located at ``args.dataset``, optionally
         stationarized, aggregated, and/or normalized.
-        Shape: (<rows_after_preprocessing>, vocab_size).    
+        Shape: (<rows_after_preprocessing>, vocab_size).
     """
     data_filename = args.dataset
     stat = args.stationarize
     agg_size = args.aggregation_size
     norm = args.normalize
 
-    max_seq_len = args.max_seq_len
+    seq_len = args.seq_len
 
     input_df = pd.read_csv(data_filename, sep="\t")
     if debug:
@@ -111,7 +109,7 @@ def load_from_file(args: argparse.Namespace, debug: bool = False) -> np.ndarray:
         input_df = normalize(input_df)
 
     input_array = np.array(input_df)
-    assert len(input_array) >= max_seq_len
+    assert len(input_array) >= seq_len
     return input_array
 
 
@@ -123,9 +121,9 @@ def predict(
     ----------
     args : ``argparse.Namespace``, required.
         Evaluation arguments. See ``arguments.py``.
-    model : ``OpenAIGPTLMHeadModel``.
+    model : ``OpenAIGPTLMHeadModel``, required.
         The loaded model, set to ``eval`` mode, and loaded onto the relevant device.
-    input_array_slice : ``np.ndarray``.
+    input_array_slice : ``np.ndarray``, required.
         One sequence of ``input_array``.
         Shape: (seq_len, vocab_size).
     Returns
@@ -135,7 +133,7 @@ def predict(
         Shape: (,).
     """
     # Grab arguments from ``args``.
-    max_seq_len = args.max_seq_len
+    seq_len = args.seq_len
     dim = args.dim
     batch_size = args.eval_batch_size
     seq_norm = args.seq_norm
@@ -157,9 +155,9 @@ def predict(
     input_ids = copy.deepcopy(position_ids)
 
     # Reshape to add ``batch_size`` dimension.
-    inputs_raw = inputs_raw.view(batch_size, max_seq_len, dim)
-    input_ids = input_ids.view(batch_size, max_seq_len)
-    position_ids = position_ids.view(batch_size, max_seq_len)
+    inputs_raw = inputs_raw.view(batch_size, seq_len, dim)
+    input_ids = input_ids.view(batch_size, seq_len)
+    position_ids = position_ids.view(batch_size, seq_len)
 
     # Casting to correct ``torch.Tensor`` type.
     if torch.__version__[:5] == "0.3.1":
@@ -172,11 +170,11 @@ def predict(
         inputs_raw = inputs_raw.to(device)
 
     # Shape check.
-    assert input_ids.shape == (batch_size, max_seq_len)
-    assert position_ids.shape == (batch_size, max_seq_len)
-    assert inputs_raw.shape == (batch_size, max_seq_len, dim)
+    assert input_ids.shape == (batch_size, seq_len)
+    assert position_ids.shape == (batch_size, seq_len)
+    assert inputs_raw.shape == (batch_size, seq_len, dim)
 
-    # ``predictions`` shape: (batch_size, max_seq_len, dim).
+    # ``predictions`` shape: (batch_size, seq_len, dim).
     outputs = model(input_ids, position_ids, None, inputs_raw)
     predictions = outputs[0]
 
@@ -190,20 +188,36 @@ def predict(
 
 
 def gen_plot(
-    all_in: np.ndarray, all_out: np.ndarray, graph_dir: str, data_filename: str
+    actuals_array: np.ndarray,
+    preds_array: np.ndarray,
+    graph_dir: str,
+    data_filename: str,
 ) -> None:
     """
-    Graphs ``all_in`` and ``all_out`` on the same plot, and saves the figure
+    Graphs ``actuals_array`` and ``preds_array`` on the same plot, and saves the figure
     as an ``.svg`` file.
+
+    Parameters
+    ----------
+    actuals_array : ``np.ndarray``, required.
+        A 1-dimensional array of actual values.
+        Shape: (args.width,).
+    preds_array : ``np.ndarray``, required.
+        A 1-dimensional array of predicted values.
+        Shape: (args.width,).
+    graph_dir : ``str``, required.
+        Directory to which we save the resultant matplotlib graph.
+    data_filename : ``str``, required.
+        Filename of the source data, without extension.
     """
 
-    # Add a column dim to ``all_in`` and ``all_out`` so we may concat along it.
-    all_in = np.reshape(all_in, (all_in.shape[0], 1))
-    all_out = np.reshape(all_out, (all_out.shape[0], 1))
-    assert all_out.shape == all_in.shape
+    # Add a column dim to ``actuals_array`` and ``preds_array`` so we may concat along it.
+    actuals_array = np.reshape(actuals_array, (actuals_array.shape[0], 1))
+    preds_array = np.reshape(preds_array, (preds_array.shape[0], 1))
+    assert preds_array.shape == actuals_array.shape
 
     # Shape: ``(args.width, 2)``.
-    diff = np.concatenate((all_out, all_in), axis=1)
+    diff = np.concatenate((preds_array, actuals_array), axis=1)
     df = pd.DataFrame(diff)
     df.columns = ["pred", "actual"]
     print(df)
@@ -218,7 +232,7 @@ def gen_plot(
     filename = os.path.basename(data_filename)
     filename_no_ext = filename.split(".")[0]
     save_path = os.path.join(graph_dir, filename_no_ext + ".svg")
-    graph(dfs, y_labels, filename_no_ext, column_counts, None, save_path)
+    graph(dfs, y_labels, filename_no_ext, column_counts, save_path)
     print("Graph saved to:", save_path)
 
 
@@ -232,6 +246,25 @@ def term_print(
     ``width`` iterations, after which the shape is ``(width,)``.
     ``output_list`` is a running list of the ``args.terminal_plot_width``
     most recent outputs from the forward call.
+
+    Parameters
+    ----------
+    args : ``argparse.Namespace``, required.
+        Evaluation arguments. See ``arguments.py``.
+    output_list : ``List[np.ndarray]``, required.
+        A running list of the ``args.terminal_plot_width`` most recent predictions i
+        from the forward call. The ``np.ndarray``s it contains have shape (,).
+        Shape: (args.terminal_plot_width,).
+    pred : ``np.ndarray``, required.
+        The output of ``predict()``, the last prediction for the given
+        ``input_array_slice``.
+        Shape: (,).
+
+    Returns
+    -------
+    output_list : ``List[np.ndarray]``.
+        The populated list of predictions to be used as input to this function
+        on the next iteration.
     """
     output_list.append(pred)
     if len(output_list) >= args.terminal_plot_width:
@@ -248,29 +281,40 @@ def prediction_loop(
     args: argparse.Namespace, model: OpenAIGPTLMHeadModel, input_array: np.ndarray
 ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
     """
+    Loops over the input array and makes predictions on slices of length
+    ``args.seq_len``. Also optionally prints running set of outputs to
+    the terminal via a ``term_print()`` call.
+
     Parameters
     ----------
-    input_array : ``np.ndarray``, required.
     args : ``argparse.Namespace``, required.
+        Evaluation arguments. See ``arguments.py``.
     model : ``OpenAIGPTLMHeadModel``, required.
+        The loaded model, set to ``eval`` mode, and loaded onto the relevant device.
+    input_array : ``np.ndarray``, required.
+        The full array of input rows to predict on, read from file and preprocessed.
+        Shape: (<rows_after_preprocessing>, vocab_size).
 
     Returns
     -------
-    all_inputs : ``List[np.ndarray``.
-    all_outputs : ``List[np.ndarray``.
+    actuals_list : ``List[np.ndarray]``.
+        List of actual values for relevant predicted timestep. Each ``np.ndarray``
+        has shape (,).
+    preds_list : ``List[np.ndarray]``.
+        List of predictions. Each ``np.ndarray`` has shape (,).
     """
     output_list: List[np.ndarray] = []
-    all_inputs = []
-    all_outputs = []
+    actuals_list = []
+    preds_list = []
 
     # Iterate in step sizes of 1 over ``input_array``.
     start = random.randint(0, len(input_array) // 2)
     for i in range(start, start + args.width):
 
         # Grab the slice of ``input_array`` we wish to predict on.
-        assert i + args.max_seq_len <= len(input_array)
-        input_array_slice = input_array[i : i + args.max_seq_len, :]
-        actual_array_slice = input_array[i + 1 : i + args.max_seq_len + 1, :]
+        assert i + args.seq_len <= len(input_array)
+        input_array_slice = input_array[i : i + args.seq_len, :]
+        actual_array_slice = input_array[i + 1 : i + args.seq_len + 1, :]
         if args.seq_norm:
             actual_array_slice, _ = seq_normalize(actual_array_slice)
         actual = actual_array_slice[-1]
@@ -286,91 +330,18 @@ def prediction_loop(
             output_list = term_print(args, output_list, pred)
 
         # Append scalar arrays to lists.
-        all_inputs.append(actual)
-        all_outputs.append(pred)
+        actuals_list.append(actual)
+        preds_list.append(pred)
 
-    return all_inputs, all_outputs
-
-
-def sanity_loop(
-    args: argparse.Namespace, model: OpenAIGPTLMHeadModel, input_array: np.ndarray
-) -> Tuple[List[np.ndarray], List[np.ndarray]]:
-    """
-    Parameters
-    ----------
-    input_array : ``np.ndarray``, required.
-    args : ``argparse.Namespace``, required.
-    model : ``OpenAIGPTLMHeadModel``, required.
-
-    Returns
-    -------
-    all_inputs : ``List[np.ndarray``.
-    all_outputs : ``List[np.ndarray``.
-    """
-    output_list: List[np.ndarray] = []
-    all_inputs = []
-    all_outputs = []
-
-    # Iterate in step sizes of 1 over ``input_array``.
-    # HARDCODE
-    start = random.randint(0, 100000 // 2)
-    start = start - start % args.max_seq_len
-    with open(args.dataset) as csvfile:
-        read_csv = csv.reader(csvfile, delimiter="\t")
-        seq: List[List[float]] = []
-        count = 0
-        seq_count = 0
-        last_val = [0.0]
-        for row in read_csv:
-            # Skip to the start row of the file.
-            if count < start:
-                count += 1
-                continue
-
-            float_row = [float(i) for i in row]
-            if len(seq) == args.max_seq_len and seq_count != 0:
-                # Get the next value in the sequence, i.e., the value we just predicted.
-                actual = float_row[0] - last_val[0]
-
-                all_inputs.append(actual)
-
-                if seq_count == args.width:
-                    break
-
-            seq.append(float_row)
-            if len(seq) == args.max_seq_len + 1:
-                seq_df = stationarize(
-                    pd.DataFrame(
-                        seq,
-                        columns=["Open", "High", "Low", "Close", "Volume"],
-                        dtype=float,
-                    )
-                )[1:]
-                input_array = np.array(seq_df)
-                pred = predict(args, model, input_array)
-                print("Prediction {} at time step {}".format(pred, count + 1))
-                print(seq_df)
-                # Step through the input one row at a time.
-                input()
-                if TERM_PRINT:
-                    output_list = term_print(args, output_list, pred)
-
-                # Append scalar arrays to lists.
-                all_outputs.append(pred)
-                last_val = seq[-1:][0]
-                seq = seq[1:][:]
-                seq_count += 1
-
-            count += 1
-
-    return all_inputs, all_outputs
+    return actuals_list, preds_list
 
 
 def main() -> None:
     """
-    Make predictions on randomly chosen sequences whose concatenated length
+    Parse arguments, load model, set hyperparameters, load data, and
+    make predictions on randomly chosen sequences whose concatenated length
     adds up to ``args.width``, starting from ``start``, a randomly chosen
-    starting index.
+    starting index. Generates matplotlib graph as an ``.svg`` file.
     """
     # Set hyperparameters.
     parser = argparse.ArgumentParser()
@@ -380,29 +351,24 @@ def main() -> None:
     model = get_model(args)
 
     # Grab config arguments from model.
-    args.max_seq_len = model.config.n_positions
+    args.seq_len = model.config.n_positions
     args.dim = model.config.vocab_size
 
     print("Data dimensionality:", args.dim)
-    print("Max sequence length :", args.max_seq_len)
+    print("Max sequence length :", args.seq_len)
     print("Eval batch size:", args.eval_batch_size)
 
     input_array = load_from_file(args, debug=True)
 
-    if CHECK_SANITY:
-        all_inputs, all_outputs = sanity_loop(args, model, input_array)
-    else:
-        all_inputs, all_outputs = prediction_loop(args, model, input_array)
+    actuals_list, preds_list = prediction_loop(args, model, input_array)
 
     # Stack and cast to ``pd.DataFrame``.
-    # ``all_in`` and ``all_out`` shape: (args.width,)
-    all_in = np.stack(all_inputs)
-    all_out = np.stack(all_outputs)
+    # ``actuals_array`` and ``preds_array`` shape: (args.width,)
+    actuals_array = np.stack(actuals_list)
+    preds_array = np.stack(preds_list)
 
-    gen_plot(all_in, all_out, args.graph_dir, args.dataset)
+    gen_plot(actuals_array, preds_array, args.graph_dir, args.dataset)
 
 
 if __name__ == "__main__":
-    # HARDCODE
-    # sanity()
     main()

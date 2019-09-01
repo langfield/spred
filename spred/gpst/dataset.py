@@ -40,16 +40,16 @@ def stationarize(input_df: pd.DataFrame) -> pd.DataFrame:
 
 
 def aggregate(input_df: pd.DataFrame, k: int) -> pd.DataFrame:
-    """ 
+    """
     Returns an aggregated version of ``input_df`` with bucket size ``k``.
-    
+
     Parameters
     ----------
     input_df : ``pd.DataFrame``, required.
         A 2-dimensional matrix of input data, where the columns are model features
         and the rows are timesteps.
         Shape: ``(input_df.shape[0], vocab_size)``.
-    
+
     Returns
     -------
     df : ``pd.DataFrame``.
@@ -76,16 +76,16 @@ def aggregate(input_df: pd.DataFrame, k: int) -> pd.DataFrame:
 
 
 def normalize(input_df: pd.DataFrame) -> pd.DataFrame:
-    """ 
+    """
     Fits a RobustScaler to ``input_df`` and normalizes the inputs.
-    
+
     Parameters
     ----------
     input_df : ``pd.DataFrame``, required.
         A 2-dimensional matrix of input data, where the columns are model features
         and the rows are timesteps.
         Shape: ``(input_df.shape[0], vocab_size)``.
-    
+
     Returns
     -------
     df : ``pd.DataFrame``.
@@ -104,10 +104,10 @@ def normalize(input_df: pd.DataFrame) -> pd.DataFrame:
 def seq_normalize(
     inputs_raw: np.ndarray, targets_raw: np.ndarray = None
 ) -> Tuple[np.ndarray, np.ndarray]:
-    """ 
+    """
     Fits a StandardScaler to ``inputs_raw`` and normalizes the inputs, as well
     as ``targets_raw`` if passed.
-    
+
     Parameters
     ----------
     inputs_raw : ``np.ndarray``, required.
@@ -118,10 +118,10 @@ def seq_normalize(
         A 2-dimensional matrix of target data, where the columns are model features
         and the rows are timesteps.
         Shape: ``(seq_len, vocab_size)``.
-    
+
     Returns
     -------
-    inputs_raw : ``np.ndarray``. 
+    inputs_raw : ``np.ndarray``.
         Shape: ``(seq_len, vocab_size)``.
     targets_raw : ``np.ndarray``.
         Shape: ``(seq_len, vocab_size)``.
@@ -196,14 +196,14 @@ class GPSTDataset(Dataset):
     def create_features(
         self, tensor_data: np.ndarray
     ) -> List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
-        """ 
-        Returns a list of features of the form 
+        """
+        Returns a list of features of the form
             ``(input, input_raw, is_masked, target, seg_id, label)``.
 
         Parameters
         ----------
         tensor_data : ``np.ndarray``, required.
-            The 2-dimensional input data, after being optionally stationarized, 
+            The 2-dimensional input data, after being optionally stationarized,
             aggregated, and/or normalized.
             Shape: (original_data_len, vocab_size).
 
@@ -215,12 +215,12 @@ class GPSTDataset(Dataset):
             Elements
             --------
             input_ids : ``np.ndarray``.
-                The index of the corresponding rows in ``inputs_raw`` in 
+                The index of the corresponding rows in ``inputs_raw`` in
                 ``tensor_data``.
                 Shape: (seq_len,).
             position_ids : ``np.ndarray``.
                 The index of the rows in ``inputs_raw`` relative to the current
-                sequence. 
+                sequence.
                 Shape: (seq_len,).
             lm_labels : ``np.ndarray``.
                 A copy of ``input_ids``.
@@ -229,7 +229,7 @@ class GPSTDataset(Dataset):
                 training data for the model.
                 Shape: (seq_len, vocab_size).
             targets_raw : ``np.ndarray``.
-                A copy of ``inputs_raw``. 
+                A copy of ``inputs_raw``.
         """
         original_data_len = tensor_data.shape[0]
         seq_len = self.seq_len
