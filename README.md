@@ -1,5 +1,7 @@
 # spred
-Stock prediction via blind internet trust
+Stock prediction via blind internet trust.
+
+MT-DNN commit hash: 0096f0bff0a8f5c83ccb5562cfe96ddec4b04833
 
 ##	Web scraper
 * Go
@@ -41,6 +43,8 @@ Stock prediction via blind internet trust
     *	depends on target market(s)
 *	look into APIs
     * robinhood, binance, ...
+
+Finished web scraping, sentiment analysis model preliminary testing, and prediction model preliminary build.
 
 ## Additional Notes
 
