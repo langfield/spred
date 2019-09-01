@@ -17,9 +17,7 @@ import optuna
 from tqdm import tqdm, trange
 from pytorch_transformers import AdamW, WarmupLinearSchedule
 
-# pylint: disable=wrong-import-order
-# pylint: disable=no-name-in-module
-# pylint: ungrouped-imports
+# pylint: disable=no-name-in-module, wrong-import-order
 import torch
 from torch.utils.data import DataLoader
 
@@ -58,7 +56,27 @@ def setup(
     torch.optim.lr_scheduler._LRScheduler,
     DataLoader,
 ]:
-    """ Training model, dataset, and optimizer setup. """
+    """
+    Training model, dataset, and optimizer setup.
+
+    Parameters
+    ----------
+    args : ``args.Namespace``.
+        Training arguments.
+
+    Returns
+    -------
+    args : ``args.Namespace``.
+        Updated training arguments.
+    model : ``OpenAIGPTLMHeadModel``.
+        Loaded model, set to ``train`` mode.
+    optimizer : ``torch.optim.Optimizer``.
+        PyTorch optimizer for training.
+    scheduler : ``torch.optim.lr_scheduler._LRScheduler``.
+        Learning rate scheduler.
+    train_dataloader : ``DataLoader``.
+        PyTorch object we iterate over to get training examples.
+    """
 
     if args is None:
         parser = argparse.ArgumentParser()
@@ -124,9 +142,7 @@ def setup(
         },
     ]
 
-    # ==========Optimizer===========
-    # ==========vvvvvvvvv===========
-
+    # --------Optimizer--------
     optimizer = AdamW(
         optimizer_grouped_parameters,
         lr=args.learning_rate,
@@ -137,19 +153,27 @@ def setup(
     scheduler = WarmupLinearSchedule(
         optimizer,
         warmup_steps=(args.warmup_proportion * num_train_optimization_steps),
-        # warmup_steps=args.warmup_steps,
         t_total=num_train_optimization_steps,
     )
-
-    # ==========^^^^^^^^^===========
-    # ==========Optimizer===========
+    # --------Optimizer--------
 
     return args, model, optimizer, scheduler, train_dataloader
 
 
 def train(args: argparse.Namespace = None) -> float:
-    """ Train a GPST Model with the arguments parsed via ``arguments.py``.
-        Should be run via ``rain.sh``.
+    """
+    Train a GPST Model with the arguments parsed via ``arguments.py``.
+    Should be run via ``rain.sh``.
+
+    Parameters
+    ----------
+    args : ``argparse.Namespace``.
+        Training arguments with which we load dataset, create model.
+
+    Returns
+    -------
+    epoch_avg_loss : ``float``.
+        The average loss for the last epoch.
     """
     args, model, optimizer, scheduler, train_dataloader = setup(args)
 
@@ -211,9 +235,10 @@ def train(args: argparse.Namespace = None) -> float:
 
             # Forward call.
             outputs = model(input_ids, position_ids, lm_labels, inputs_raw, targets_raw)
+
+            # pylint: disable=redefined-outer-name
             loss = outputs[0]
             loss.backward()
-            # pylint: disable=redefined-outer-name
             LOSS = float(loss)
 
             # Logging.
@@ -247,7 +272,6 @@ def train(args: argparse.Namespace = None) -> float:
             # Stats.
             epoch_avg_loss = np.mean(losses)
             epoch_stddev_loss = np.std(losses)
-            # tqdm_bar.desc = "Training loss: {:.2e}".format(exp_average_loss)
             tqdm_bar.desc = "Epoch loss dist:: mean: {:.2e}".format(
                 epoch_avg_loss
             ) + " std: {:.2e}".format(epoch_stddev_loss)
@@ -259,7 +283,6 @@ def train(args: argparse.Namespace = None) -> float:
 
         # Save every ``args.save_freq`` epochs.
         elapsed_epochs += 1
-
         if elapsed_epochs % args.save_freq == 0:
             model_to_save = model.module if hasattr(model, "module") else model
             output_model_file = os.path.join(args.output_dir, weights_name)

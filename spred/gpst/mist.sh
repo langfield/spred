@@ -5,14 +5,15 @@ GPST_MODEL="config.json"
 MODEL_NAME="optuna"
 OUTPUT_DIR="ckpts"
 
-# Hyperparameters:
+# Hyperparameters.
 SEED="42"
 EVAL_BATCH_SIZE="1"
 AGGREGATION_SIZE="5"
 GRAPH_DIR="graphs/"
 WIDTH="250"
 TERMINAL_PLOT_WIDTH="50"
-# Following arguments are either ``--<argument_name>`` or empty string.
+
+# Format: ``--<argument_name>``.
 NORMALIZE=""
 STATIONARIZE="--stationarize"
 SEQ_NORM="--seq_norm"

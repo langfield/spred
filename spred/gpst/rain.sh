@@ -1,12 +1,11 @@
 #!/bin/bash
 
 DATASET="../exchange/concatenated_price_data/ETHUSDT_prepro.csv"
-# DATASET="../exchange/ETHUSDT_small_prepro.csv"
 GPST_MODEL="config.json"
 MODEL_NAME="optuna_best_8_27"
 OUTPUT_DIR="ckpts"
 
-# Hyperparameters:
+# Hyperparameters.
 SEED="42"
 TRAIN_BATCH_SIZE="1"
 NUM_TRAIN_EPOCHS="1000"
@@ -17,6 +16,8 @@ WARMUP_PROPORTION="0.05696"
 WEIGHT_DECAY="0.0007"
 ADAM_EPSILON="7.400879524874149e-08"
 AGGREGATION_SIZE="21"
+
+# Format: ``--<argument_name>``.
 STATIONARIZE=""
 NORMALIZE=""
 SEQ_NORM="--seq_norm"

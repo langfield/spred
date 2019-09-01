@@ -47,7 +47,7 @@ def get_model(args: argparse.Namespace) -> OpenAIGPTLMHeadModel:
     config_name = args.model_name + ".json"
 
     # HARDCODE
-    output_dir = "checkpoints/"
+    output_dir = "ckpts/"
     output_model_file = os.path.join(output_dir, weights_name)
     output_config_file = os.path.join(output_dir, config_name)
     loaded_config = OpenAIGPTConfig.from_json_file(output_config_file)

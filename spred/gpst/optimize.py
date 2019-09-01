@@ -32,7 +32,19 @@ def main() -> None:
 
 
 def objective(trial: optuna.Trial) -> float:
-    """ Optuna objective function. """
+    """ 
+    Optuna objective function. Should never be called explicitly. 
+
+    Parameters
+    ----------
+    trial : ``optuna.Trial``, required.
+        The trial with which we define our hyperparameter suggestions.
+
+    Returns
+    -------
+    loss : ``float``.
+        The output from the model call after the timeout value specified in ``snow.sh``.
+    """
     parser = argparse.ArgumentParser()
     parser = get_args(parser)
     args = parser.parse_args()
