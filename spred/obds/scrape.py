@@ -1,44 +1,50 @@
-import urllib.request as request
-import json
+""" Kraken orderbook scraper. """
 import time
+import json
+from urllib.request import urlopen
 
-delay = 1.0
-sec_per_file = 3600
 
-url_str = "https://api.cryptowat.ch/markets/kraken/ethusd/orderbook"
-index = 0
-out = {}
-start = time.time()
-file_count = 0
+def main() -> None:
+    """ Continuously scrape the specified orderbook and save to a json file. """
 
-while True:
-    url = request.urlopen(url_str)
-    content = url.read()
-    data = json.loads(content)
+    delay = 1.0
+    sec_per_file = 3600
 
-    seqNum = data["result"]["seqNum"]
-    allowance = data["allowance"]
-    cur_time = time.time()
-    asks = data["result"]["asks"]
-    bids = data["result"]["bids"]
+    url_str = "https://api.cryptowat.ch/markets/kraken/ethusd/orderbook"
+    index = 0
+    out = {}
+    start = time.time()
+    file_count = 0
 
-    d = {
-        "seq": seqNum,
-        "time": cur_time,
-        "asks": asks,
-        "bids": bids
-    }
+    while True:
+        url = urlopen(url_str)
+        content = url.read()
+        data = json.loads(content)
+        print("  Finished parsing index %d.\r" % index, end="")
 
-    out.update({index:d})
-    index += 1
+        seq_num = data["result"]["seqNum"]
+        _allowance = data["allowance"]
+        cur_time = time.time()
+        asks = data["result"]["asks"]
+        bids = data["result"]["bids"]
 
-    if index % sec_per_file == 0:
-        with open("results/out_{}.json".format(file_count), 'w') as fp:
-            json.dump(out, fp)
-        file_count += 1
-        index = 0
-        out = {}
+        order_dict = {"seq": seq_num, "time": cur_time, "asks": asks, "bids": bids}
 
-    time.sleep(delay - ((time.time() - start) % delay))
+        out.update({index: order_dict})
+        index += 1
 
-print(out)
+        if index % sec_per_file == 0:
+            with open("results/out_{}.json".format(file_count), "w") as file_path:
+                json.dump(out, file_path)
+                print("\n  Dumped file %d." % file_count)
+            file_count += 1
+            index = 0
+            out = {}
+
+        time.sleep(delay - ((time.time() - start) % delay))
+
+    print(out)
+
+
+if __name__ == "__main__":
+    main()
