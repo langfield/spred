@@ -12,3 +12,4 @@ spred/exchange/concatenated_price_data/*
 spred/gpst/checkpoints/*
 spred/gpst/ckpts/*
 *.mypy_cache/
+*results/
