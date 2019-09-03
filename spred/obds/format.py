@@ -46,7 +46,8 @@ def main() -> None:
                     # Graph.
                     print(ask_diffs)
                     num_bins = len(set(ask_diffs))
-                    sb.distplot(ask_diffs, bins=num_bins, kde = False)
+                    g = sb.distplot(ask_diffs, bins=num_bins, kde = False)
+                    g.set_yscale('log')
                     plt.savefig("ask_price_diff_dist.svg") 
                     
                     
