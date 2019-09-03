@@ -37,7 +37,11 @@ def main() -> None:
                         if j > 0:
                             diff = ask - asks[j - 1]
                             diff = round(diff, 2)
-                            ask_diffs.append(diff)
+                            if diff > 100:
+                                print("prev:", asks[j - 1])
+                                print("ask:", ask)
+                            else:
+                                ask_diffs.append(diff)
 
                     # Graph.
                     print(ask_diffs)
