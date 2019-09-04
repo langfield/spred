@@ -1,20 +1,20 @@
 """ Kraken orderbook scraper. """
-import time
 import json
 import numpy as np
 from tqdm import tqdm
-from urllib.request import urlopen
-import pandas as pd
+
 import matplotlib
-matplotlib.use('Agg')
+matplotlib.use("Agg")
+
+# pylint: disable=wrong-import-position, ungrouped-imports
 import seaborn as sb
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
 
 
 def main() -> None:
     """ Continuously scrape the specified orderbook and save to a json file. """
 
-    with open('results/out_0.json') as json_file:
+    with open("results/out_0.json") as json_file:
         data = json.load(json_file)
         print("Loaded json.")
 
@@ -23,12 +23,16 @@ def main() -> None:
 
     # Loop over timesteps.
     for i, key_value in tqdm(enumerate(data.items())):
-        key, value = key_value
+        _, value = key_value
 
         # Loop over orderbook key-value pairs.
         for subkey, subvalue in value.items():
             if subkey == "asks":
-                print("Length of value corresponding to %s is %d.\r" % (subkey, len(subvalue)), end="")
+                print(
+                    "Length of value corresponding to %s is %d.\r"
+                    % (subkey, len(subvalue)),
+                    end="",
+                )
                 ask_lens.append(len(subvalue))
 
                 if i == 0:
@@ -49,12 +53,16 @@ def main() -> None:
                             else:
                                 ask_diffs.append(diff)
                     num_bins = len(set(ask_diffs))
-                    g = sb.distplot(ask_diffs, bins=num_bins, kde = False)
-                    # g.set_yscale('log')
+                    sb_ax = sb.distplot(ask_diffs, bins=num_bins, kde=False)
+                    sb_ax.set_yscale('log')
                     plt.savefig("ask_price_diff_dist.svg")
 
             if subkey == "bids":
-                print("Length of value corresponding to %s is %d.\r" % (subkey, len(subvalue)), end="")
+                print(
+                    "Length of value corresponding to %s is %d.\r"
+                    % (subkey, len(subvalue)),
+                    end="",
+                )
                 bid_lens.append(len(subvalue))
 
     print("Min of bids:", min(bid_lens))
@@ -66,6 +74,7 @@ def main() -> None:
     print("Max of asks:", max(ask_lens))
     print("Mean of asks:", np.mean(ask_lens))
     print("Standard deviation of asks:", np.std(ask_lens))
+
 
 if __name__ == "__main__":
     main()
