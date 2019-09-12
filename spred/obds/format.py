@@ -1,9 +1,10 @@
-""" Kraken orderbook scraper. """
+""" Kraken orderbook plot utility. """
 import json
 import numpy as np
 from tqdm import tqdm
 
 import matplotlib
+
 matplotlib.use("Agg")
 
 # pylint: disable=wrong-import-position, ungrouped-imports
@@ -12,7 +13,10 @@ import matplotlib.pyplot as plt
 
 
 def main() -> None:
-    """ Continuously scrape the specified orderbook and save to a json file. """
+    """
+    Reads the specified orderbook json file and outputs statistics on the
+    bid and ask distribution. Plots the ask price difference distribution.
+    """
 
     with open("results/out_0.json") as json_file:
         data = json.load(json_file)
@@ -22,6 +26,7 @@ def main() -> None:
     ask_lens = []
 
     # Loop over timesteps.
+    # pylint: disable=too-many-nested-blocks
     for i, key_value in tqdm(enumerate(data.items())):
         _, value = key_value
 
@@ -54,7 +59,7 @@ def main() -> None:
                                 ask_diffs.append(diff)
                     num_bins = len(set(ask_diffs))
                     sb_ax = sb.distplot(ask_diffs, bins=num_bins, kde=False)
-                    sb_ax.set_yscale('log')
+                    sb_ax.set_yscale("log")
                     plt.savefig("ask_price_diff_dist.svg")
 
             if subkey == "bids":
