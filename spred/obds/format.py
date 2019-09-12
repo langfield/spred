@@ -103,7 +103,8 @@ def main() -> None:
     _, axes = plt.subplots(2, 2, figsize=(7, 7), sharex=True)
 
     # Seaborn setup.
-    sns.set(style="white", palette=sns.color_palette("cubehelix", 8), color_codes=False)
+    # sns.set(style="white", palette=sns.color_palette("cubehelix", 8), color_codes=False)
+    sns.set_palette(sns.color_palette("cubehelix", 8))
 
     # Generate histogram of the gaps between ask prices in orderbook.
     num_bins = len(set(ask_gaps))
