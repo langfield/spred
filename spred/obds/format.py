@@ -1,5 +1,7 @@
 """ Kraken orderbook plot utility. """
 import json
+from typing import List
+
 import numpy as np
 from tqdm import tqdm
 
@@ -10,6 +12,35 @@ matplotlib.use("Agg")
 # pylint: disable=wrong-import-position, ungrouped-imports
 import seaborn as sb
 import matplotlib.pyplot as plt
+
+
+def collect_gaps(subbook: List[List[float]]) -> List[float]:
+    """
+    Computes the list of consecutive differences for price levels in a subbook.
+    Removes gaps greater than 100 for plotting purposes.
+
+    Parameters
+    ----------
+    subbook : ``List[List[float]], required.
+        Either askbook or bidbook, each element is a two-element list
+        where the first item is the price level, and the second item is
+        the volume.
+
+    Returns
+    -------
+    gaps : ``List[float]``.
+        The consecutive price differences in the list, computed from level 0
+        outward (from best price to worst).
+    """
+    gaps = []
+    levels = [pair[0] for pair in subbook]
+    for j, level in enumerate(levels):
+        if j > 0:
+            gap = level - levels[j - 1]
+            gap = round(gap, 2)
+            if gap <= 100:
+                gaps.append(gap)
+    return gaps
 
 
 def main() -> None:
@@ -24,39 +55,32 @@ def main() -> None:
 
     bid_lens = []
     ask_lens = []
-    ask_diffs = []
+    ask_gaps = []
+    bid_gaps = []
 
     # Loop over timesteps.
     # pylint: disable=too-many-nested-blocks
     for _, key_value in tqdm(enumerate(data.items())):
-        _, value = key_value
+        _, book = key_value
 
         # Loop over orderbook key-value pairs.
-        for subkey, subvalue in value.items():
+        for side, subbook in book.items():
 
-            if subkey == "asks":
-                ask_lens.append(len(subvalue))
-                asks = [pair[0] for pair in subvalue]
-                for j, ask in enumerate(asks):
-                    if j > 0:
-                        diff = ask - asks[j - 1]
-                        diff = round(diff, 2)
-                        # Remove extreme values for plotting purposes.
-                        if diff > 100:
-                            # print("prev:", asks[j - 1])
-                            # print("ask:", ask)
-                            pass
-                        else:
-                            ask_diffs.append(diff)
+            if side == "asks":
+                askbook = subbook
+                ask_lens.append(len(askbook))
+                ask_gaps.extend(collect_gaps(askbook))
 
-            elif subkey == "bids":
-                bid_lens.append(len(subvalue))
+            elif side == "bids":
+                bidbook = subbook
+                bid_lens.append(len(bidbook))
+                bid_gaps.extend(collect_gaps(bidbook))
 
-    # Generate histogram of the diffs between ask prices in orderbook.
-    num_bins = len(set(ask_diffs))
-    sb_ax = sb.distplot(ask_diffs, bins=num_bins, kde=False)
+    # Generate histogram of the gaps between ask prices in orderbook.
+    num_bins = len(set(ask_gaps))
+    sb_ax = sb.distplot(ask_gaps, bins=num_bins, kde=False)
     sb_ax.set_yscale("log")
-    plt.savefig("ask_price_diff_dist.svg")
+    plt.savefig("ask_price_gap_dist.svg")
 
     print("Min of bids:", min(bid_lens))
     print("Max of bids:", max(bid_lens))
