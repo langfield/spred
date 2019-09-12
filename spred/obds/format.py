@@ -102,9 +102,7 @@ def main() -> None:
     # Matplotlib setup.
     _, axes = plt.subplots(2, 2, figsize=(7, 7), sharex=True)
 
-    # Seaborn setup.
-    # sns.set(style="white", palette=sns.color_palette("cubehelix", 8), color_codes=False)
-    sns.set_palette("cubehelix", 8)
+    hex_cube = sns.color_palette("cubehelix", 8).as_hex()
 
     # Generate histogram of the gaps between ask prices in orderbook.
     num_bins = len(set(ask_gaps))
@@ -113,7 +111,7 @@ def main() -> None:
 
     # Generate histogram of the gaps between bid prices in orderbook.
     num_bins = len(set(bid_gaps))
-    sb_ax = sns.distplot(bid_gaps, bins=num_bins, kde=False, ax=axes[0, 0])
+    sb_ax = sns.distplot(bid_gaps, bins=num_bins, kde=False, ax=axes[0, 0], color=hex_cube[0])
     sb_ax.set_yscale("log")
 
     # Generate histogram of the gaps between bid prices in orderbook.
