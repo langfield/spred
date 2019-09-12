@@ -10,7 +10,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 # pylint: disable=wrong-import-position, ungrouped-imports
-import seaborn as sb
+import seaborn as sns
 import matplotlib.pyplot as plt
 
 
@@ -99,17 +99,28 @@ def main() -> None:
                     best_bid_delta = round(best_bid_delta, 2)
                     best_bid_deltas.append(best_bid_delta)
 
+    # Matplotlib setup.
+    _, axes = plt.subplots(2, 2, figsize=(7, 7), sharex=True)
+
+    # Seaborn setup.
+    sns.set(style="white", palette=sns.color_palette("cubehelix", 8), color_codes=False)
+
     # Generate histogram of the gaps between ask prices in orderbook.
     num_bins = len(set(ask_gaps))
-    sb_ax = sb.distplot(ask_gaps, bins=num_bins, kde=False)
+    sb_ax = sns.distplot(ask_gaps, bins=num_bins, kde=False, ax=axes[0, 0])
     sb_ax.set_yscale("log")
-    plt.savefig("ask_price_gap_dist.svg")
 
     # Generate histogram of the gaps between bid prices in orderbook.
     num_bins = len(set(bid_gaps))
-    sb_ax = sb.distplot(bid_gaps, bins=num_bins, kde=False)
+    sb_ax = sns.distplot(bid_gaps, bins=num_bins, kde=False, ax=axes[0, 0])
     sb_ax.set_yscale("log")
-    plt.savefig("bid_price_gap_dist.svg")
+
+    # Generate histogram of the gaps between bid prices in orderbook.
+    num_bins = len(set(bid_gaps))
+    sb_ax = sns.distplot(bid_gaps, bins=num_bins, kde=False, ax=axes[0, 1])
+    sb_ax.set_yscale("log")
+
+    plt.savefig("bid_ask_price_gap_dist.svg")
 
     print("Min of bids:", min(bid_lens))
     print("Max of bids:", max(bid_lens))
