@@ -32,7 +32,7 @@ def collect_gaps(subbook: List[List[float]]) -> List[float]:
         The consecutive price differences in the list, computed from level 0
         outward (from best price to worst).
     """
-    gaps = []
+    gaps: List[float] = []
     levels = [pair[0] for pair in subbook]
     for j, level in enumerate(levels):
         if j > 0:
@@ -50,18 +50,25 @@ def main() -> None:
     """
 
     with open("results/out_0.json") as json_file:
-        data = json.load(json_file)
+        raw_books = json.load(json_file)
         print("Loaded json.")
 
-    bid_lens = []
-    ask_lens = []
-    ask_gaps = []
-    bid_gaps = []
+    # Convert the keys (str) of ``raw_books`` to integers.
+    books = {}
+    for i, index_book_pair in tqdm(enumerate(raw_books.items())):
+        book_index_str, book = index_book_pair
+        books.update({i: book})
+        assert i == int(book_index_str)
+
+    bid_lens: List[int] = []
+    ask_lens: List[int] = []
+    ask_gaps: List[float] = []
+    bid_gaps: List[float] = []
+    best_ask_deltas: List[float] = []
+    best_bid_deltas: List[float] = []
 
     # Loop over timesteps.
-    # pylint: disable=too-many-nested-blocks
-    for _, key_value in tqdm(enumerate(data.items())):
-        _, book = key_value
+    for i, book in tqdm(books.items()):
 
         # Loop over orderbook key-value pairs.
         for side, subbook in book.items():
@@ -71,16 +78,38 @@ def main() -> None:
                 ask_lens.append(len(askbook))
                 ask_gaps.extend(collect_gaps(askbook))
 
+                if i > 0:
+                    prev_askbook = books[i - 1]["asks"]
+                    best_ask = askbook[0][0]
+                    prev_best_ask = prev_askbook[0][0]
+                    best_ask_delta = best_ask - prev_best_ask
+                    best_ask_delta = round(best_ask_delta, 2)
+                    best_ask_deltas.append(best_ask_delta)
+
             elif side == "bids":
                 bidbook = subbook
                 bid_lens.append(len(bidbook))
                 bid_gaps.extend(collect_gaps(bidbook))
+
+                if i > 0:
+                    prev_bidbook = books[i - 1]["bids"]
+                    best_bid = bidbook[0][0]
+                    prev_best_bid = prev_bidbook[0][0]
+                    best_bid_delta = best_bid - prev_best_bid
+                    best_bid_delta = round(best_bid_delta, 2)
+                    best_bid_deltas.append(best_bid_delta)
 
     # Generate histogram of the gaps between ask prices in orderbook.
     num_bins = len(set(ask_gaps))
     sb_ax = sb.distplot(ask_gaps, bins=num_bins, kde=False)
     sb_ax.set_yscale("log")
     plt.savefig("ask_price_gap_dist.svg")
+
+    # Generate histogram of the gaps between bid prices in orderbook.
+    num_bins = len(set(bid_gaps))
+    sb_ax = sb.distplot(bid_gaps, bins=num_bins, kde=False)
+    sb_ax.set_yscale("log")
+    plt.savefig("bid_price_gap_dist.svg")
 
     print("Min of bids:", min(bid_lens))
     print("Max of bids:", max(bid_lens))
