@@ -24,51 +24,39 @@ def main() -> None:
 
     bid_lens = []
     ask_lens = []
+    ask_diffs = []
 
     # Loop over timesteps.
     # pylint: disable=too-many-nested-blocks
-    for i, key_value in tqdm(enumerate(data.items())):
+    for _, key_value in tqdm(enumerate(data.items())):
         _, value = key_value
 
         # Loop over orderbook key-value pairs.
         for subkey, subvalue in value.items():
+
             if subkey == "asks":
-                print(
-                    "Length of value corresponding to %s is %d.\r"
-                    % (subkey, len(subvalue)),
-                    end="",
-                )
                 ask_lens.append(len(subvalue))
+                asks = [pair[0] for pair in subvalue]
+                for j, ask in enumerate(asks):
+                    if j > 0:
+                        diff = ask - asks[j - 1]
+                        diff = round(diff, 2)
+                        # Remove extreme values for plotting purposes.
+                        if diff > 100:
+                            # print("prev:", asks[j - 1])
+                            # print("ask:", ask)
+                            pass
+                        else:
+                            ask_diffs.append(diff)
 
-                if i == 0:
-                    with open("results/out_sample.json", "w") as file_path:
-                        json.dump(value, file_path, indent=4)
-
-                    # Generate histogram of the diffs between ask prices in orderbook.
-                    asks = [pair[0] for pair in subvalue]
-                    ask_diffs = []
-                    for j, ask in enumerate(asks):
-                        if j > 0:
-                            diff = ask - asks[j - 1]
-                            diff = round(diff, 2)
-                            # Remove extreme values for plotting purposes.
-                            if diff > 100:
-                                print("prev:", asks[j - 1])
-                                print("ask:", ask)
-                            else:
-                                ask_diffs.append(diff)
-                    num_bins = len(set(ask_diffs))
-                    sb_ax = sb.distplot(ask_diffs, bins=num_bins, kde=False)
-                    sb_ax.set_yscale("log")
-                    plt.savefig("ask_price_diff_dist.svg")
-
-            if subkey == "bids":
-                print(
-                    "Length of value corresponding to %s is %d.\r"
-                    % (subkey, len(subvalue)),
-                    end="",
-                )
+            elif subkey == "bids":
                 bid_lens.append(len(subvalue))
+
+    # Generate histogram of the diffs between ask prices in orderbook.
+    num_bins = len(set(ask_diffs))
+    sb_ax = sb.distplot(ask_diffs, bins=num_bins, kde=False)
+    sb_ax.set_yscale("log")
+    plt.savefig("ask_price_diff_dist.svg")
 
     print("Min of bids:", min(bid_lens))
     print("Max of bids:", max(bid_lens))
