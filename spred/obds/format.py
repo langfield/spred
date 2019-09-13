@@ -111,7 +111,8 @@ def main() -> None:
 
     # Generate histogram of the gaps between bid prices in orderbook.
     num_bins = len(set(bid_gaps))
-    sb_ax = sns.distplot(bid_gaps, bins=num_bins, kde=False, ax=axes, color=hex_cube[6], label="Bid/Ask Gap Distribution")
+    sb_ax = sns.distplot(bid_gaps, bins=num_bins, kde=False, ax=axes, color=hex_cube[6])
+    sb_ax.set_title("Bid/Ask Gap Distribution")
     sb_ax.set_yscale("log")
     
     plt.savefig("bid_ask_price_gap_dist.svg")
@@ -122,7 +123,8 @@ def main() -> None:
     num_bins = len(set(best_ask_deltas))
     print("Num bins:", num_bins)
     print("Best ask deltas:", best_ask_deltas)
-    sb_ax = sns.distplot(best_ask_deltas, bins=None, kde=False, ax=axes, color=hex_cube[4], label="Best Ask Delta Distribution")
+    sb_ax = sns.distplot(best_ask_deltas, bins=None, kde=False, ax=axes, color=hex_cube[4])
+    sb_ax.set_title("Best Ask Delta Distribution")
     sb_ax.set_yscale("log")
 
     plt.savefig("best_ask_deltas.svg")
