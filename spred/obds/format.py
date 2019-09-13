@@ -43,6 +43,60 @@ def collect_gaps(subbook: List[List[float]]) -> List[float]:
     return gaps
 
 
+def generate_plots(
+    ask_gaps: List[float],
+    bid_gaps: List[float],
+    best_ask_deltas: List[float],
+    best_bid_deltas: List[float],
+) -> None:
+    """
+    Generates seaborn plots for the given variables, which are hardcoded for now.
+
+    Parameters
+    ----------
+    ask_gaps : ``List[float]``, required.
+        The gap sizes between consecutive ask prices in all orderbooks.
+    bid_gaps : ``List[float]``, required.
+        The gap sizes between consecutive bid prices in all orderbooks.
+    best_ask_deltas : ``List[float], required.
+        The deltas (scalar differences) between best ask prices in consecutive orderbooks.
+    best_bid_deltas : ``List[float], required.
+        The deltas (scalar differences) between best bid prices in consecutive orderbooks.
+    """
+
+    # Get color palette.
+    hex_cube = sns.color_palette("cubehelix", 8).as_hex()
+
+    # Generate histogram of the gaps between bid/ask prices in orderbook.
+    _, axes = plt.subplots(1, 1, figsize=(7, 7), sharex=True)
+    num_bins = len(set(ask_gaps))
+    sb_ax = sns.distplot(ask_gaps, bins=num_bins, kde=False, ax=axes, color=hex_cube[5])
+    sb_ax.set_yscale("log")
+    num_bins = len(set(bid_gaps))
+    sb_ax = sns.distplot(bid_gaps, bins=num_bins, kde=False, ax=axes, color=hex_cube[6])
+    sb_ax.set_title("Bid/Ask Gap Distribution")
+    sb_ax.set_yscale("log")
+    plt.savefig("bid_ask_price_gap_dist.svg")
+    plt.clf()
+
+    # Generate histogram of the deltas between best ask prices in consecutive orderbooks.
+    _, axes = plt.subplots(1, 1, figsize=(7, 7), sharex=True)
+    num_bins = len(set(best_ask_deltas))
+    sb_ax = sns.distplot(best_ask_deltas, kde=False, ax=axes, color=hex_cube[4])
+    sb_ax.set_title("Best Ask Delta Distribution")
+    sb_ax.set_yscale("log")
+    plt.savefig("best_ask_deltas.svg")
+    plt.clf()
+
+    # Generate histogram of the deltas between best bid prices in consecutive orderbooks.
+    _, axes = plt.subplots(1, 1, figsize=(7, 7), sharex=True)
+    num_bins = len(set(best_bid_deltas))
+    sb_ax = sns.distplot(best_bid_deltas, kde=False, ax=axes, color=hex_cube[4])
+    sb_ax.set_title("Best Bid Delta Distribution")
+    sb_ax.set_yscale("log")
+    plt.savefig("best_bid_deltas.svg")
+
+
 def main() -> None:
     """
     Reads the specified orderbook json file and outputs statistics on the
@@ -99,32 +153,7 @@ def main() -> None:
                     best_bid_delta = round(best_bid_delta, 2)
                     best_bid_deltas.append(best_bid_delta)
 
-    # Matplotlib setup.
-    _, axes = plt.subplots(1, 1, figsize=(7, 7), sharex=True)
-    hex_cube = sns.color_palette("cubehelix", 8).as_hex()
-
-    # Generate histogram of the gaps between ask prices in orderbook.
-    num_bins = len(set(ask_gaps))
-    sb_ax = sns.distplot(ask_gaps, bins=num_bins, kde=False, ax=axes, color=hex_cube[5])
-    sb_ax.set_yscale("log")
-
-    # Generate histogram of the gaps between bid prices in orderbook.
-    num_bins = len(set(bid_gaps))
-    sb_ax = sns.distplot(bid_gaps, bins=num_bins, kde=False, ax=axes, color=hex_cube[6])
-    sb_ax.set_title("Bid/Ask Gap Distribution")
-    sb_ax.set_yscale("log")
-    plt.savefig("bid_ask_price_gap_dist.svg")
-
-    # Matplotlib setup.
-    plt.clf()
-    _, axes = plt.subplots(1, 1, figsize=(7, 7), sharex=True)
-
-    # Generate histogram of the deltas between best ask prices in consecutive orderbooks.
-    num_bins = len(set(best_ask_deltas))
-    sb_ax = sns.distplot(best_ask_deltas, bins=None, kde=False, ax=axes, color=hex_cube[4])
-    sb_ax.set_title("Best Ask Delta Distribution")
-    sb_ax.set_yscale("log")
-    plt.savefig("best_ask_deltas.svg")
+    generate_plots(ask_gaps, bid_gaps, best_ask_deltas, best_bid_deltas)
 
     num_zero_deltas = 0
     num_pos_deltas = 0
@@ -157,7 +186,6 @@ def main() -> None:
     print("Max of asks:", max(ask_lens))
     print("Mean of asks:", np.mean(ask_lens))
     print("Standard deviation of asks:", np.std(ask_lens))
-
 
 
 if __name__ == "__main__":
