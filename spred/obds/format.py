@@ -49,7 +49,7 @@ def main() -> None:
     bid and ask distribution. Plots the ask price difference distribution.
     """
 
-    with open("results/out_0.json") as json_file:
+    with open("results/out_35.json") as json_file:
         raw_books = json.load(json_file)
         print("Loaded json.")
 
@@ -101,7 +101,6 @@ def main() -> None:
 
     # Matplotlib setup.
     _, axes = plt.subplots(1, 1, figsize=(7, 7), sharex=True)
-
     hex_cube = sns.color_palette("cubehelix", 8).as_hex()
 
     # Generate histogram of the gaps between ask prices in orderbook.
@@ -114,21 +113,41 @@ def main() -> None:
     sb_ax = sns.distplot(bid_gaps, bins=num_bins, kde=False, ax=axes, color=hex_cube[6])
     sb_ax.set_title("Bid/Ask Gap Distribution")
     sb_ax.set_yscale("log")
-    
     plt.savefig("bid_ask_price_gap_dist.svg")
+
+    # Matplotlib setup.
     plt.clf()
     _, axes = plt.subplots(1, 1, figsize=(7, 7), sharex=True)
 
-    # Generate histogram of the gaps between bid prices in orderbook.
+    # Generate histogram of the deltas between best ask prices in consecutive orderbooks.
     num_bins = len(set(best_ask_deltas))
-    print("Num bins:", num_bins)
-    print("Best ask deltas:", best_ask_deltas)
     sb_ax = sns.distplot(best_ask_deltas, bins=None, kde=False, ax=axes, color=hex_cube[4])
     sb_ax.set_title("Best Ask Delta Distribution")
     sb_ax.set_yscale("log")
-
     plt.savefig("best_ask_deltas.svg")
 
+    num_zero_deltas = 0
+    num_pos_deltas = 0
+    num_neg_deltas = 0
+    for delta in best_ask_deltas:
+        if delta == 0:
+            num_zero_deltas += 1
+        elif delta > 0:
+            num_pos_deltas += 1
+        elif delta < 0:
+            num_neg_deltas += 1
+
+    zero_delta_proportion = num_zero_deltas / len(best_ask_deltas)
+    pos_delta_proportion = num_pos_deltas / len(best_ask_deltas)
+    neg_delta_proportion = num_neg_deltas / len(best_ask_deltas)
+
+    print("")
+    print("Zero best ask delta proportion:", zero_delta_proportion)
+    print("Positive best ask delta proportion:", pos_delta_proportion)
+    print("Negative best ask delta proportion:", neg_delta_proportion)
+    print("Positive best ask deltas:", num_pos_deltas)
+    print("Negative best ask deltas:", num_neg_deltas)
+    print("")
     print("Min of bids:", min(bid_lens))
     print("Max of bids:", max(bid_lens))
     print("Mean of bids:", np.mean(bid_lens))
@@ -138,6 +157,7 @@ def main() -> None:
     print("Max of asks:", max(ask_lens))
     print("Mean of asks:", np.mean(ask_lens))
     print("Standard deviation of asks:", np.std(ask_lens))
+
 
 
 if __name__ == "__main__":
