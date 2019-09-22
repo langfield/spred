@@ -1,6 +1,6 @@
 """ Kraken orderbook plot utility. """
 import json
-from typing import List
+from typing import List, Set, Dict
 
 import numpy as np
 from tqdm import tqdm
@@ -14,7 +14,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 
-def collect_gaps(subbook: List[List[float]]) -> List[float]:
+def collect_gaps(subbook: List[List[float]], depth: int = -1) -> List[float]:
     """
     Computes the list of consecutive differences for price levels in a subbook.
     Removes gaps greater than 100 for plotting purposes.
@@ -25,6 +25,8 @@ def collect_gaps(subbook: List[List[float]]) -> List[float]:
         Either askbook or bidbook, each element is a two-element list
         where the first item is the price level, and the second item is
         the volume.
+    depth : ``int``, optional.
+        How far in the subbook from best price to go. Passing ``-1`` takes all gaps.
 
     Returns
     -------
@@ -34,6 +36,8 @@ def collect_gaps(subbook: List[List[float]]) -> List[float]:
     """
     gaps: List[float] = []
     levels = [pair[0] for pair in subbook]
+    if depth >= 0:
+        levels = levels[: min(depth, len(levels))]
     for j, level in enumerate(levels):
         if j > 0:
             gap = level - levels[j - 1]
@@ -43,26 +47,83 @@ def collect_gaps(subbook: List[List[float]]) -> List[float]:
     return gaps
 
 
+def print_subbook_stats(
+    gap_list: Dict[str, List[List[float]]],
+    best_deltas: Dict[str, List[float]],
+    best_in_prev: Dict[str, List[bool]],
+    book_lens: Dict[str, List[int]],
+) -> None:
+    """
+    Computes and prints subbook statistics.
+
+    Parameters
+    ----------
+    best_deltas : ``Dict[str, List[float]]``.
+        List of changes in best price from time ``t`` to time ``t + 1``.
+    best_in_prev : ``Dict[str, List[bool]]``.
+        Maps subbook side to list of booleans telling whether or not the current
+        best price level existed in the previous orderbook.
+    book_lens : ``Dict[str, List[bool]]``.
+        Maps subbook sides to their lengths.
+    """
+    for side, best_side_deltas in best_deltas.items():
+
+        num_zero_deltas = 0
+        num_pos_deltas = 0
+        num_neg_deltas = 0
+        for delta in best_side_deltas:
+            if delta == 0:
+                num_zero_deltas += 1
+            elif delta > 0:
+                num_pos_deltas += 1
+            elif delta < 0:
+                num_neg_deltas += 1
+
+        num_nonzero_deltas = num_pos_deltas + num_neg_deltas
+        zero_delta_prop = num_zero_deltas / len(best_side_deltas)
+        pos_delta_prop = num_pos_deltas / len(best_side_deltas)
+        neg_delta_prop = num_neg_deltas / len(best_side_deltas)
+
+        num_new_bests = len([status for status in best_in_prev[side] if not status])
+        new_best_percent = 100 * num_new_bests / len(best_in_prev[side])
+        new_best_change_percent = 100 * num_new_bests / num_nonzero_deltas
+
+        print("\n%s statistics" % side[:-1])
+        print("--------------")
+        print("%% of best %s at prev zero-vol lvl: %f%%" % (side, new_best_percent))
+        print("%% of best %s at prev zero-vol lvl " % side, end="")
+        print("given change: %f%%\n" % new_best_change_percent)
+
+        print("Zero best %s delta proportion: %f" % (side[:-1], zero_delta_prop))
+        print("Positive best %s delta proportion: %f" % (side[:-1], pos_delta_prop))
+        print("Negative best %s delta proportion: %f" % (side[:-1], neg_delta_prop))
+        print("Positive best %s deltas: %d" % (side[:-1], num_pos_deltas))
+        print("Negative best %s deltas: %d" % (side[:-1], num_neg_deltas))
+        print("Total best %s deltas: %d\n" % (side[:-1], len(best_side_deltas)))
+
+        print("Min of %s: %d" % (side, min(book_lens[side])))
+        print("Max of %s: %d" % (side, max(book_lens[side])))
+        print("Mean of %s: %f" % (side, np.mean(book_lens[side])))
+        print("Standard deviation of %s: %f\n" % (side, np.std(book_lens[side])))
+
+
 def generate_plots(
-    ask_gaps: List[float],
-    bid_gaps: List[float],
-    best_ask_deltas: List[float],
-    best_bid_deltas: List[float],
+    gaps: Dict[str, List[float]], best_deltas: Dict[str, List[float]]
 ) -> None:
     """
     Generates seaborn plots for the given variables, which are hardcoded for now.
 
     Parameters
     ----------
-    ask_gaps : ``List[float]``, required.
-        The gap sizes between consecutive ask prices in all orderbooks.
-    bid_gaps : ``List[float]``, required.
-        The gap sizes between consecutive bid prices in all orderbooks.
-    best_ask_deltas : ``List[float], required.
-        The deltas (scalar differences) between best ask prices in consecutive orderbooks.
-    best_bid_deltas : ``List[float], required.
-        The deltas (scalar differences) between best bid prices in consecutive orderbooks.
+    gaps : ``Dict[str, List[float]]``, required.
+        The gap sizes between consecutive prices in all subbooks in all orderbooks.
+    best_deltas : ``Dict[str, List[float]]``, required.
+        The deltas (scalar differences) between best prices in consecutive orderbooks.
     """
+    ask_gaps: List[float] = gaps["asks"]
+    bid_gaps: List[float] = gaps["bids"]
+    best_ask_deltas: List[float] = best_deltas["asks"]
+    best_bid_deltas: List[float] = best_deltas["bids"]
 
     # Get color palette.
     hex_cube = sns.color_palette("cubehelix", 8).as_hex()
@@ -114,12 +175,11 @@ def main() -> None:
         books.update({i: book})
         assert i == int(book_index_str)
 
-    bid_lens: List[int] = []
-    ask_lens: List[int] = []
-    ask_gaps: List[float] = []
-    bid_gaps: List[float] = []
-    best_ask_deltas: List[float] = []
-    best_bid_deltas: List[float] = []
+    book_lens: Dict[str, List[int]] = {"bids": [], "asks": []}
+    gaps: Dict[str, List[float]] = {"bids": [], "asks": []}
+    best_deltas: Dict[str, List[float]] = {"bids": [], "asks": []}
+    best_in_prev: Dict[str, List[bool]] = {"bids": [], "asks": []}
+    gap_list: Dict[str, List[List[float]]] = {"bids": [], "asks": []}
 
     # Loop over timesteps.
     for i, book in tqdm(books.items()):
@@ -127,65 +187,23 @@ def main() -> None:
         # Loop over orderbook key-value pairs.
         for side, subbook in book.items():
 
-            if side == "asks":
-                askbook = subbook
-                ask_lens.append(len(askbook))
-                ask_gaps.extend(collect_gaps(askbook))
+            if side in ("asks", "bids"):
+                book_lens[side].append(len(subbook))
+                gaps[side].extend(collect_gaps(subbook))
+                gap_list[side].append(collect_gaps(subbook))
 
                 if i > 0:
-                    prev_askbook = books[i - 1]["asks"]
-                    best_ask = askbook[0][0]
-                    prev_best_ask = prev_askbook[0][0]
-                    best_ask_delta = best_ask - prev_best_ask
-                    best_ask_delta = round(best_ask_delta, 2)
-                    best_ask_deltas.append(best_ask_delta)
+                    prev_subbook: List[List[float]] = books[i - 1][side]
+                    prev_lvls: Set[float] = {order[0] for order in prev_subbook}
+                    best = subbook[0][0]
+                    prev_best = prev_subbook[0][0]
+                    best_delta = best - prev_best
+                    best_delta = round(best_delta, 2)
+                    best_deltas[side].append(best_delta)
+                    best_in_prev[side].append(best in prev_lvls)
 
-            elif side == "bids":
-                bidbook = subbook
-                bid_lens.append(len(bidbook))
-                bid_gaps.extend(collect_gaps(bidbook))
-
-                if i > 0:
-                    prev_bidbook = books[i - 1]["bids"]
-                    best_bid = bidbook[0][0]
-                    prev_best_bid = prev_bidbook[0][0]
-                    best_bid_delta = best_bid - prev_best_bid
-                    best_bid_delta = round(best_bid_delta, 2)
-                    best_bid_deltas.append(best_bid_delta)
-
-    generate_plots(ask_gaps, bid_gaps, best_ask_deltas, best_bid_deltas)
-
-    num_zero_deltas = 0
-    num_pos_deltas = 0
-    num_neg_deltas = 0
-    for delta in best_ask_deltas:
-        if delta == 0:
-            num_zero_deltas += 1
-        elif delta > 0:
-            num_pos_deltas += 1
-        elif delta < 0:
-            num_neg_deltas += 1
-
-    zero_delta_proportion = num_zero_deltas / len(best_ask_deltas)
-    pos_delta_proportion = num_pos_deltas / len(best_ask_deltas)
-    neg_delta_proportion = num_neg_deltas / len(best_ask_deltas)
-
-    print("")
-    print("Zero best ask delta proportion:", zero_delta_proportion)
-    print("Positive best ask delta proportion:", pos_delta_proportion)
-    print("Negative best ask delta proportion:", neg_delta_proportion)
-    print("Positive best ask deltas:", num_pos_deltas)
-    print("Negative best ask deltas:", num_neg_deltas)
-    print("")
-    print("Min of bids:", min(bid_lens))
-    print("Max of bids:", max(bid_lens))
-    print("Mean of bids:", np.mean(bid_lens))
-    print("Standard deviation of bids:", np.std(bid_lens))
-    print("")
-    print("Min of asks:", min(ask_lens))
-    print("Max of asks:", max(ask_lens))
-    print("Mean of asks:", np.mean(ask_lens))
-    print("Standard deviation of asks:", np.std(ask_lens))
+    generate_plots(gaps, best_deltas)
+    print_subbook_stats(gap_list, best_deltas, best_in_prev, book_lens)
 
 
 if __name__ == "__main__":

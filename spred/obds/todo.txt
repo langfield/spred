@@ -1,0 +1,4 @@
+Done:   Finished generating preliminary graphs.
+        Move best delta proportion calculations into their own function.
+
+Todo:   Compute something involving a sequence of all gaps on each side.
