@@ -1,5 +1,6 @@
 """ Kraken orderbook plot utility. """
 import json
+import collections
 from typing import List, Set, Dict
 
 import numpy as np
@@ -135,7 +136,16 @@ def print_subbook_stats(
             mean = level_stats["mean"]
             std = level_stats["std"]
             print("\tlevel %d:\t mean: %f    \tstandard deviation: %f" % (i, mean, std))
-        print("\n")
+
+        # DEBUG
+        # HARDCODE
+        for i, level_dist in enumerate(level_dists[:3]):
+            print("\nLevel %d distribution:" % i)
+            gap_freqs = collections.Counter(level_dist)
+            gap_freq_items = sorted(gap_freqs.items(), key=lambda x: x[1], reverse=True)
+            for gap, freq in gap_freq_items[:5]:
+                print("Gap: %f \t Freq: %d" % (gap, freq))
+        print("")
 
 
 def generate_plots(
@@ -195,7 +205,7 @@ def main() -> None:
     bid and ask distribution. Plots the ask price difference distribution.
     """
 
-    with open("results/out_35.json") as json_file:
+    with open("results/out_0.json") as json_file:
         raw_books = json.load(json_file)
         print("Loaded json.")
 
