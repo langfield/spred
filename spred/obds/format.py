@@ -84,6 +84,15 @@ def print_subbook_stats(
             elif delta < 0:
                 num_neg_deltas += 1
 
+        best_delta_mean = np.mean(best_side_deltas)
+        best_delta_stddev = np.std(best_side_deltas)
+        two_sigma_lower = best_delta_mean - (2 * best_delta_stddev)
+        two_sigma_upper = best_delta_mean + (2 * best_delta_stddev)
+        three_sigma_lower = best_delta_mean - (3 * best_delta_stddev)
+        three_sigma_upper = best_delta_mean + (3 * best_delta_stddev)
+        three_sigma_width = max(abs(three_sigma_lower), abs(three_sigma_upper))
+        three_sigma_k = round(100 * three_sigma_width)
+
         # The i-th list in ``level_dists`` is all gaps at level i of this subbook.
         analysis_depth = 10
         level_dists: List[List[float]] = [[] for i in range(analysis_depth)]
@@ -125,6 +134,14 @@ def print_subbook_stats(
         print("Positive best %s deltas: %d" % (side[:-1], num_pos_deltas))
         print("Negative best %s deltas: %d" % (side[:-1], num_neg_deltas))
         print("Total best %s deltas: %d\n" % (side[:-1], len(best_side_deltas)))
+
+        print("Best delta mean: %f" % best_delta_mean)
+        print("Best delta stddev: %f" % best_delta_stddev)
+        print("Two sigma confidence interval: ", end="")
+        print("[%f, %f]" % (two_sigma_lower, two_sigma_upper))
+        print("Three sigma confidence interval: ", end="")
+        print("[%f, %f]" % (three_sigma_lower, three_sigma_upper))
+        print("Three sigma k-value: %d\n" % three_sigma_k) 
 
         print("Min of %s: %d" % (side, min(book_lens[side])))
         print("Max of %s: %d" % (side, max(book_lens[side])))
