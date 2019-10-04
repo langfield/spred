@@ -58,6 +58,10 @@ def print_subbook_stats(
 
     Parameters
     ----------
+    gap_list : ``Dict[str, List[List[float]]]``.
+        The keys are "bids" or "asks", and the values are a list whose
+        length is the number of timesteps. Each item of a value is a list
+        of all gaps starting at level 0 for that side.
     best_deltas : ``Dict[str, List[float]]``.
         List of changes in best price from time ``t`` to time ``t + 1``.
     best_in_prev : ``Dict[str, List[bool]]``.
@@ -78,6 +82,26 @@ def print_subbook_stats(
                 num_pos_deltas += 1
             elif delta < 0:
                 num_neg_deltas += 1
+
+        # The i-th list in ``level_dists`` is all gaps at level i of this subbook.
+        analysis_depth = 10
+        level_dists: List[List[float]] = [[] for i in range(analysis_depth)]
+        subbook_gap_lists = gap_list[side]
+
+        # Iterate over timesteps. Note ``gap`` is a float.
+        for subbook_gap_list in subbook_gap_lists:
+            for i, gap in enumerate(subbook_gap_list[:analysis_depth]):
+                level_dists[i].append(gap)
+
+        # Contains the mean and stddev of each set of gaps at level i of this subbook.
+        level_dist_stats = []
+
+        # Iterate over levels in a subbook.
+        for level_dist in level_dists:
+            stats = {}
+            stats["mean"] = np.mean(level_dist)
+            stats["std"] = np.std(level_dist)
+            level_dist_stats.append(stats)
 
         num_nonzero_deltas = num_pos_deltas + num_neg_deltas
         zero_delta_prop = num_zero_deltas / len(best_side_deltas)
@@ -105,6 +129,13 @@ def print_subbook_stats(
         print("Max of %s: %d" % (side, max(book_lens[side])))
         print("Mean of %s: %f" % (side, np.mean(book_lens[side])))
         print("Standard deviation of %s: %f\n" % (side, np.std(book_lens[side])))
+
+        print("Gap statistics for each level in subbook:")
+        for i, level_stats in enumerate(level_dist_stats):
+            mean = level_stats["mean"]
+            std = level_stats["std"]
+            print("\tlevel %d:\t mean: %f    \tstandard deviation: %f" % (i, mean, std))
+        print("\n")
 
 
 def generate_plots(
