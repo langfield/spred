@@ -1,10 +1,14 @@
 """ Kraken orderbook plot utility. """
+import sys
+import math
+import time
 import json
 import collections
+import multiprocessing as mp
+from functools import partial
 from typing import List, Set, Dict
 
 import numpy as np
-from tqdm import tqdm
 
 import matplotlib
 
@@ -46,6 +50,28 @@ def collect_gaps(subbook: List[List[float]], depth: int = -1) -> List[float]:
             if gap <= 100:
                 gaps.append(gap)
     return gaps
+
+
+def compute_confidence_intervals(
+    best_deltas: Dict[str, List[float]], sigma: int
+) -> Dict[str, float]:
+    """
+    Computes and prints subbook statistics.
+
+    Parameters
+    ----------
+    best_deltas : ``Dict[str, List[float]]``.
+        List of changes in best price from time ``t`` to time ``t + 1``.
+    """
+    interval_radii: Dict[str, float] = {}
+    for side, best_side_deltas in best_deltas.items():
+        best_delta_mean = np.mean(best_side_deltas)
+        best_delta_stddev = np.std(best_side_deltas)
+        sigma_lower = best_delta_mean - (sigma * best_delta_stddev)
+        sigma_upper = best_delta_mean + (sigma * best_delta_stddev)
+        sigma_radius = max(abs(sigma_lower), abs(sigma_upper))
+        interval_radii[side] = sigma_radius
+    return interval_radii
 
 
 def print_subbook_stats(
@@ -141,7 +167,7 @@ def print_subbook_stats(
         print("[%f, %f]" % (two_sigma_lower, two_sigma_upper))
         print("Three sigma confidence interval: ", end="")
         print("[%f, %f]" % (three_sigma_lower, three_sigma_upper))
-        print("Three sigma k-value: %d\n" % three_sigma_k) 
+        print("Three sigma k-value: %d\n" % three_sigma_k)
 
         print("Min of %s: %d" % (side, min(book_lens[side])))
         print("Max of %s: %d" % (side, max(book_lens[side])))
@@ -216,19 +242,51 @@ def generate_plots(
     plt.savefig("best_bid_deltas.svg")
 
 
-def main() -> None:
+def compute_k(hour: int, sigma: int) -> None:
+    """
+    Reads in a range of hour orderbook json files and computes a 3-sigma confidence
+    interval for the random variable Y representing the max of RVs Y_1 and Y_2, which
+    are the best ask and best bid prices at the next time step.
+    """
+
+    print("Computing confidence interval over %d hours of tick-level data." % hour)
+    start = time.time()
+    pool = mp.Pool()
+    hours = range(hour)
+    agg_deltas: Dict[str, List[float]] = {"bids": [], "asks": []}
+    get_deltas = partial(compute_stats, plot=False, stats=False)
+
+    for i, best_deltas in enumerate(pool.imap_unordered(get_deltas, hours), 1):
+        sys.stderr.write("\rdone {0:%}".format(i / hour))
+        agg_deltas["bids"].extend(best_deltas["bids"])
+        agg_deltas["asks"].extend(best_deltas["asks"])
+    print("")
+
+    interval_radii = compute_confidence_intervals(agg_deltas, sigma)
+
+    aggregate_bid_radius = interval_radii["bids"]
+    aggregate_ask_radius = interval_radii["asks"]
+    print("%d-sigma best bid delta level radius: %f" % (sigma, aggregate_bid_radius))
+    print("%d-sigma best ask delta level radius: %f" % (sigma, aggregate_ask_radius))
+    bid_k = math.ceil(100 * aggregate_bid_radius)
+    ask_k = math.ceil(100 * aggregate_ask_radius)
+    print("%d-sigma bid k-value: %d" % (sigma, bid_k))
+    print("%d-sigma ask k-value: %d" % (sigma, ask_k))
+    print("Finished in %fs" % (time.time() - start))
+
+
+def compute_stats(hour: int, plot: bool, stats: bool) -> Dict[str, List[float]]:
     """
     Reads the specified orderbook json file and outputs statistics on the
     bid and ask distribution. Plots the ask price difference distribution.
     """
 
-    with open("results/out_0.json") as json_file:
+    with open("results/out_%d.json" % hour) as json_file:
         raw_books = json.load(json_file)
-        print("Loaded json.")
 
     # Convert the keys (str) of ``raw_books`` to integers.
     books = {}
-    for i, index_book_pair in tqdm(enumerate(raw_books.items())):
+    for i, index_book_pair in enumerate(raw_books.items()):
         book_index_str, book = index_book_pair
         books.update({i: book})
         assert i == int(book_index_str)
@@ -240,7 +298,7 @@ def main() -> None:
     gap_list: Dict[str, List[List[float]]] = {"bids": [], "asks": []}
 
     # Loop over timesteps.
-    for i, book in tqdm(books.items()):
+    for i, book in books.items():
 
         # Loop over orderbook key-value pairs.
         for side, subbook in book.items():
@@ -260,8 +318,19 @@ def main() -> None:
                     best_deltas[side].append(best_delta)
                     best_in_prev[side].append(best in prev_lvls)
 
-    generate_plots(gaps, best_deltas)
-    print_subbook_stats(gap_list, best_deltas, best_in_prev, book_lens)
+    if plot:
+        generate_plots(gaps, best_deltas)
+    if stats:
+        print_subbook_stats(gap_list, best_deltas, best_in_prev, book_lens)
+
+    return best_deltas
+
+
+def main() -> None:
+    """ Compute statistics. """
+    # HARDCODE
+    # compute_stats(0, 3, True, True)
+    compute_k(100, 3)
 
 
 if __name__ == "__main__":
