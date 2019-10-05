@@ -1,4 +1,6 @@
-Done:   Finished generating preliminary graphs.
+Done:   #================================DONE================================== 
+        
+        Finished generating preliminary graphs.
 
         Moved best delta proportion calculations into their own function.
 
@@ -20,8 +22,10 @@ Done:   Finished generating preliminary graphs.
         tell us valuable information about the number of zero-volume
         levels we need to compute the conditional probability of using
         Sirignano's model.
+        
+        Create a ``figs/`` directory.
 
-Todo:   Create a ``graphs/`` directory.
+Todo:   #================================TODO================================== 
 
         Move hardcoded arguments from the bottom of ``format.py`` into
         a bash script with arguments.
