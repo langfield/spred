@@ -37,12 +37,15 @@ Boosting tools:
     LightGBM
 
 Good script names:
-aurora
-wind
-sleet
-graupel
-drizzle
-monsoon
 gale
+monsoon
 fog
+wind
+aurora
+
+Used script names:
+rain
+snow
+mist
+sleet
 hail

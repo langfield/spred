@@ -1,0 +1,11 @@
+optuna
+pytorch==0.3.1
+tqdm
+pytorch_transformers==1.0.0
+sklearn
+matplotlib
+seaborn
+terminalplot
+black
+pylint
+mypy

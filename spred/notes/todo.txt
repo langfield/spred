@@ -1,0 +1,7 @@
+Todo:   Merge ``obds/`` from dev into master (and all the things in the 
+        ``obds/todo.txt`` file.
+
+        Create new dev branch for gpst modifications to implement 
+        ``orderbook_notes.tex``.
+
+        Begin implementing new model.
