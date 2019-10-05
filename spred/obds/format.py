@@ -53,17 +53,18 @@ def collect_gaps(subbook: List[List[float]], depth: int, bound: float) -> List[f
     return gaps
 
 
-def compute_confidence_intervals(
-    best_deltas: Dict[str, List[float]], sigma: int
-) -> Dict[str, float]:
+def compute_radii(best_deltas: Dict[str, List[float]], sigma: int) -> Dict[str, float]:
     """
-    Computes and prints subbook statistics.
+    Computes interval radii.
 
     Parameters
     ----------
     best_deltas : ``Dict[str, List[float]]``.
         List of changes in best price from time ``t`` to time ``t + 1``.
+    sigma : ``int``.
+        How many standard deviations of confidence to use in computing ``k``.
     """
+
     interval_radii: Dict[str, float] = {}
     for side, best_side_deltas in best_deltas.items():
         best_delta_mean = np.mean(best_side_deltas)
@@ -72,6 +73,7 @@ def compute_confidence_intervals(
         sigma_upper = best_delta_mean + (sigma * best_delta_stddev)
         sigma_radius = max(abs(sigma_lower), abs(sigma_upper))
         interval_radii[side] = sigma_radius
+
     return interval_radii
 
 
@@ -198,9 +200,7 @@ def print_subbook_stats(
         print("")
 
 
-def generate_plots(
-    gaps: Dict[str, List[float]], best_deltas: Dict[str, List[float]]
-) -> None:
+def genplots(gaps: Dict[str, List[float]], best_deltas: Dict[str, List[float]]) -> None:
     """
     Generates seaborn plots for the given variables, which are hardcoded for now.
 
@@ -261,11 +261,6 @@ def compute_k(hour: int, sigma: int) -> None:
         Function reads in all hour orderbook files from 0 to ``hour`` via filename.
     sigma : ``int``.
         How many standard deviations of confidence to use in computing ``k``.
-    depth : ``int``.
-        How far in the subbook from best price to go. Passing ``-1`` takes all gaps.
-    bound : ``float``.
-        Gaps larger than this value will be ignored to ensure the histogram
-        plots are readable.
     """
 
     print("Computing confidence interval over %d hours of tick-level data." % hour)
@@ -281,7 +276,7 @@ def compute_k(hour: int, sigma: int) -> None:
         agg_deltas["asks"].extend(best_deltas["asks"])
     print("")
 
-    interval_radii = compute_confidence_intervals(agg_deltas, sigma)
+    interval_radii = compute_radii(agg_deltas, sigma)
 
     aggregate_bid_radius = interval_radii["bids"]
     aggregate_ask_radius = interval_radii["asks"]
@@ -395,7 +390,7 @@ def print_stats(
                     best_deltas[side].append(best_delta)
                     best_in_prev[side].append(best in prev_lvls)
 
-    generate_plots(gaps, best_deltas)
+    genplots(gaps, best_deltas)
     print_subbook_stats(
         gap_list,
         best_deltas,
