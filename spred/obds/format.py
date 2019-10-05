@@ -1,13 +1,16 @@
 """ Kraken orderbook plot utility. """
+import os
 import sys
 import math
 import time
 import json
+import argparse
 import collections
 import multiprocessing as mp
 from typing import List, Set, Dict
 
 import numpy as np
+from tqdm import tqdm
 
 import matplotlib
 
@@ -15,6 +18,7 @@ matplotlib.use("Agg")
 # pylint: disable=wrong-import-position, ungrouped-imports
 import seaborn as sns
 import matplotlib.pyplot as plt
+from arguments import get_args
 
 
 def collect_gaps(subbook: List[List[float]], depth: int, bound: float) -> List[float]:
@@ -200,7 +204,9 @@ def print_subbook_stats(
         print("")
 
 
-def genplots(gaps: Dict[str, List[float]], best_deltas: Dict[str, List[float]]) -> None:
+def generate_plots(
+    gaps: Dict[str, List[float]], best_deltas: Dict[str, List[float]], fig_dir: str
+) -> None:
     """
     Generates seaborn plots for the given variables, which are hardcoded for now.
 
@@ -228,7 +234,7 @@ def genplots(gaps: Dict[str, List[float]], best_deltas: Dict[str, List[float]]) 
     sb_ax = sns.distplot(bid_gaps, bins=num_bins, kde=False, ax=axes, color=hex_cube[6])
     sb_ax.set_title("Bid/Ask Gap Distribution")
     sb_ax.set_yscale("log")
-    plt.savefig("bid_ask_price_gap_dist.svg")
+    plt.savefig(os.path.join(fig_dir, "bid_ask_price_gap_dist.svg"))
     plt.clf()
 
     # Generate histogram of the deltas between best ask prices in consecutive orderbooks.
@@ -237,7 +243,7 @@ def genplots(gaps: Dict[str, List[float]], best_deltas: Dict[str, List[float]]) 
     sb_ax = sns.distplot(best_ask_deltas, kde=False, ax=axes, color=hex_cube[4])
     sb_ax.set_title("Best Ask Delta Distribution")
     sb_ax.set_yscale("log")
-    plt.savefig("best_ask_deltas.svg")
+    plt.savefig(os.path.join(fig_dir, "best_ask_deltas.svg"))
     plt.clf()
 
     # Generate histogram of the deltas between best bid prices in consecutive orderbooks.
@@ -246,10 +252,10 @@ def genplots(gaps: Dict[str, List[float]], best_deltas: Dict[str, List[float]]) 
     sb_ax = sns.distplot(best_bid_deltas, kde=False, ax=axes, color=hex_cube[4])
     sb_ax.set_title("Best Bid Delta Distribution")
     sb_ax.set_yscale("log")
-    plt.savefig("best_bid_deltas.svg")
+    plt.savefig(os.path.join(fig_dir, "best_bid_deltas.svg"))
 
 
-def compute_k(hour: int, sigma: int) -> None:
+def compute_k(hours: int, sigma: int) -> None:
     """
     Reads in a range of hour orderbook json files and computes a 3-sigma confidence
     interval for the random variable Y representing the max of RVs Y_1 and Y_2, which
@@ -257,21 +263,21 @@ def compute_k(hour: int, sigma: int) -> None:
 
     Parameters
     ----------
-    hour : ``int``.
-        Function reads in all hour orderbook files from 0 to ``hour`` via filename.
+    hours : ``int``.
+        Function reads in all hour orderbook files from 0 to ``hours`` via filename.
     sigma : ``int``.
         How many standard deviations of confidence to use in computing ``k``.
     """
 
-    print("Computing confidence interval over %d hours of tick-level data." % hour)
+    print("Computing confidence interval over %d hours of tick-level data." % hours)
     start = time.time()
     pool = mp.Pool()
-    hours = range(hour)
+    hrs = range(hours)
 
     agg_deltas: Dict[str, List[float]] = {"bids": [], "asks": []}
 
-    for i, best_deltas in enumerate(pool.imap_unordered(compute_deltas, hours), 1):
-        sys.stderr.write("\rdone {0:%}".format(i / hour))
+    for i, best_deltas in enumerate(pool.imap_unordered(compute_deltas, hrs), 1):
+        sys.stderr.write("\rdone {0:%}".format(i / hours))
         agg_deltas["bids"].extend(best_deltas["bids"])
         agg_deltas["asks"].extend(best_deltas["asks"])
     print("")
@@ -331,6 +337,7 @@ def print_stats(
     analysis_depth: int,
     num_gap_freq_levels: int,
     num_gap_freq_sizes: int,
+    fig_dir: str,
 ) -> None:
     """
     Reads the specified orderbook json file and outputs statistics on the
@@ -353,8 +360,11 @@ def print_stats(
         Number of gap sizes for which we print frequency info for each level.
     """
 
+    assert os.path.isdir("results/")
     with open("results/out_%d.json" % hour) as json_file:
         raw_books = json.load(json_file)
+    if not os.path.isdir(fig_dir):
+        os.mkdir(fig_dir)
 
     # Convert the keys (str) of ``raw_books`` to integers.
     books = {}
@@ -370,7 +380,7 @@ def print_stats(
     gap_list: Dict[str, List[List[float]]] = {"bids": [], "asks": []}
 
     # Loop over timesteps.
-    for i, book in books.items():
+    for i, book in tqdm(books.items()):
 
         # Loop over orderbook key-value pairs.
         for side, subbook in book.items():
@@ -390,7 +400,7 @@ def print_stats(
                     best_deltas[side].append(best_delta)
                     best_in_prev[side].append(best in prev_lvls)
 
-    genplots(gaps, best_deltas)
+    generate_plots(gaps, best_deltas, fig_dir)
     print_subbook_stats(
         gap_list,
         best_deltas,
@@ -404,16 +414,24 @@ def print_stats(
 
 def main() -> None:
     """ Compute statistics. """
-    # HARDCODE
-    print_stats(
-        hour=0,
-        depth=-1,
-        bound=100.0,
-        analysis_depth=10,
-        num_gap_freq_levels=3,
-        num_gap_freq_sizes=5,
-    )
-    compute_k(hour=240, sigma=3)
+    parser = argparse.ArgumentParser()
+    parser = get_args(parser)
+    args = parser.parse_args()
+
+    if args.print_stats:
+        print_stats(
+            hour=args.hour,
+            depth=args.depth,
+            bound=args.bound,
+            analysis_depth=args.analysis_depth,
+            num_gap_freq_levels=args.num_gap_freq_levels,
+            num_gap_freq_sizes=args.num_gap_freq_sizes,
+            fig_dir=args.fig_dir,
+        )
+
+    print(args.compute_k)
+    if args.compute_k:
+        compute_k(hours=args.hours, sigma=args.sigma)
 
 
 if __name__ == "__main__":

@@ -16,7 +16,6 @@ def get_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser : ``argparse.ArgumentParser``.
         The same parser as was passed in as a parameter, but with all
         the arguments below added.
-
     """
 
     # Required.
