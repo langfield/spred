@@ -24,14 +24,14 @@ Done:   #================================DONE==================================
         Sirignano's model.
         
         Create a ``figs/`` directory.
-
-Todo:   #================================TODO================================== 
-
+        
         Move hardcoded arguments from the bottom of ``format.py`` into
         a bash script with arguments.
 
         Add argparser to ``format.py``.
 
         Merge ``obds`` to master.
-
+        
         Create new dev branch.
+
+Todo:   #================================TODO================================== 
