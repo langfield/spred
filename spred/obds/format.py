@@ -5,7 +5,6 @@ import time
 import json
 import collections
 import multiprocessing as mp
-from functools import partial
 from typing import List, Set, Dict
 
 import numpy as np
@@ -13,25 +12,27 @@ import numpy as np
 import matplotlib
 
 matplotlib.use("Agg")
-
 # pylint: disable=wrong-import-position, ungrouped-imports
 import seaborn as sns
 import matplotlib.pyplot as plt
 
 
-def collect_gaps(subbook: List[List[float]], depth: int = -1) -> List[float]:
+def collect_gaps(subbook: List[List[float]], depth: int, bound: float) -> List[float]:
     """
     Computes the list of consecutive differences for price levels in a subbook.
     Removes gaps greater than 100 for plotting purposes.
 
     Parameters
     ----------
-    subbook : ``List[List[float]], required.
+    subbook : ``List[List[float]].
         Either askbook or bidbook, each element is a two-element list
         where the first item is the price level, and the second item is
         the volume.
-    depth : ``int``, optional.
+    depth : ``int``.
         How far in the subbook from best price to go. Passing ``-1`` takes all gaps.
+    bound : ``float``.
+        Gaps larger than this value will be ignored to ensure the histogram
+        plots are readable.
 
     Returns
     -------
@@ -47,7 +48,7 @@ def collect_gaps(subbook: List[List[float]], depth: int = -1) -> List[float]:
         if j > 0:
             gap = level - levels[j - 1]
             gap = round(gap, 2)
-            if gap <= 100:
+            if gap <= bound:
                 gaps.append(gap)
     return gaps
 
@@ -79,6 +80,9 @@ def print_subbook_stats(
     best_deltas: Dict[str, List[float]],
     best_in_prev: Dict[str, List[bool]],
     book_lens: Dict[str, List[int]],
+    analysis_depth: int,
+    num_gap_freq_levels: int,
+    num_gap_freq_sizes: int,
 ) -> None:
     """
     Computes and prints subbook statistics.
@@ -96,6 +100,12 @@ def print_subbook_stats(
         best price level existed in the previous orderbook.
     book_lens : ``Dict[str, List[bool]]``.
         Maps subbook sides to their lengths.
+    analysis_dept : ``int``.
+        Depth to which we compute level distributions.
+    num_gap_freq_levels : ``int``.
+        Number of levels starting from 0 for which we print gap frequency stats.
+    num_gap_freq_sizes : ``int``.
+        Number of gap sizes for which we print frequency info for each level.
     """
     for side, best_side_deltas in best_deltas.items():
 
@@ -120,7 +130,6 @@ def print_subbook_stats(
         three_sigma_k = round(100 * three_sigma_width)
 
         # The i-th list in ``level_dists`` is all gaps at level i of this subbook.
-        analysis_depth = 10
         level_dists: List[List[float]] = [[] for i in range(analysis_depth)]
         subbook_gap_lists = gap_list[side]
 
@@ -180,13 +189,11 @@ def print_subbook_stats(
             std = level_stats["std"]
             print("\tlevel %d:\t mean: %f    \tstandard deviation: %f" % (i, mean, std))
 
-        # DEBUG
-        # HARDCODE
-        for i, level_dist in enumerate(level_dists[:3]):
+        for i, level_dist in enumerate(level_dists[:num_gap_freq_levels]):
             print("\nLevel %d distribution:" % i)
             gap_freqs = collections.Counter(level_dist)
             gap_freq_items = sorted(gap_freqs.items(), key=lambda x: x[1], reverse=True)
-            for gap, freq in gap_freq_items[:5]:
+            for gap, freq in gap_freq_items[:num_gap_freq_sizes]:
                 print("Gap: %f \t Freq: %d" % (gap, freq))
         print("")
 
@@ -247,16 +254,28 @@ def compute_k(hour: int, sigma: int) -> None:
     Reads in a range of hour orderbook json files and computes a 3-sigma confidence
     interval for the random variable Y representing the max of RVs Y_1 and Y_2, which
     are the best ask and best bid prices at the next time step.
+
+    Parameters
+    ----------
+    hour : ``int``.
+        Function reads in all hour orderbook files from 0 to ``hour`` via filename.
+    sigma : ``int``.
+        How many standard deviations of confidence to use in computing ``k``.
+    depth : ``int``.
+        How far in the subbook from best price to go. Passing ``-1`` takes all gaps.
+    bound : ``float``.
+        Gaps larger than this value will be ignored to ensure the histogram
+        plots are readable.
     """
 
     print("Computing confidence interval over %d hours of tick-level data." % hour)
     start = time.time()
     pool = mp.Pool()
     hours = range(hour)
-    agg_deltas: Dict[str, List[float]] = {"bids": [], "asks": []}
-    get_deltas = partial(compute_stats, plot=False, stats=False)
 
-    for i, best_deltas in enumerate(pool.imap_unordered(get_deltas, hours), 1):
+    agg_deltas: Dict[str, List[float]] = {"bids": [], "asks": []}
+
+    for i, best_deltas in enumerate(pool.imap_unordered(compute_deltas, hours), 1):
         sys.stderr.write("\rdone {0:%}".format(i / hour))
         agg_deltas["bids"].extend(best_deltas["bids"])
         agg_deltas["asks"].extend(best_deltas["asks"])
@@ -275,10 +294,68 @@ def compute_k(hour: int, sigma: int) -> None:
     print("Finished in %fs" % (time.time() - start))
 
 
-def compute_stats(hour: int, plot: bool, stats: bool) -> Dict[str, List[float]]:
+def compute_deltas(hour: int) -> Dict[str, List[float]]:
     """
     Reads the specified orderbook json file and outputs statistics on the
     bid and ask distribution. Plots the ask price difference distribution.
+
+    Parameters
+    ----------
+    hour : ``int``.
+        The set of 3600 timesteps of orderbooks to read in, indexed from 0 in filename.
+    """
+
+    with open("results/out_%d.json" % hour) as json_file:
+        raw_books = json.load(json_file)
+
+    # Convert the keys (str) of ``raw_books`` to integers.
+    books = {}
+    for i, index_book_pair in enumerate(raw_books.items()):
+        book_index_str, book = index_book_pair
+        books.update({i: book})
+        assert i == int(book_index_str)
+
+    best_deltas: Dict[str, List[float]] = {"bids": [], "asks": []}
+    for i, book in books.items():
+        for side, subbook in book.items():
+            if side in ("asks", "bids") and i > 0:
+                prev_subbook: List[List[float]] = books[i - 1][side]
+                best = subbook[0][0]
+                prev_best = prev_subbook[0][0]
+                best_delta = best - prev_best
+                best_delta = round(best_delta, 2)
+                best_deltas[side].append(best_delta)
+
+    return best_deltas
+
+
+def print_stats(
+    hour: int,
+    depth: int,
+    bound: float,
+    analysis_depth: int,
+    num_gap_freq_levels: int,
+    num_gap_freq_sizes: int,
+) -> None:
+    """
+    Reads the specified orderbook json file and outputs statistics on the
+    bid and ask distribution. Plots the ask price difference distribution.
+
+    Parameters
+    ----------
+    hour : ``int``.
+        The set of 3600 timesteps of orderbooks to read in, indexed from 0 in filename.
+    depth : ``int``.
+        How far in the subbook from best price to go. Passing ``-1`` takes all gaps.
+    bound : ``float``.
+        Gaps larger than this value will be ignored to ensure the histogram
+        plots are readable.
+    analysis_dept : ``int``.
+        Depth to which we compute level distributions.
+    num_gap_freq_levels : ``int``.
+        Number of levels starting from 0 for which we print gap frequency stats.
+    num_gap_freq_sizes : ``int``.
+        Number of gap sizes for which we print frequency info for each level.
     """
 
     with open("results/out_%d.json" % hour) as json_file:
@@ -305,8 +382,8 @@ def compute_stats(hour: int, plot: bool, stats: bool) -> Dict[str, List[float]]:
 
             if side in ("asks", "bids"):
                 book_lens[side].append(len(subbook))
-                gaps[side].extend(collect_gaps(subbook))
-                gap_list[side].append(collect_gaps(subbook))
+                gaps[side].extend(collect_gaps(subbook, depth, bound))
+                gap_list[side].append(collect_gaps(subbook, depth, bound))
 
                 if i > 0:
                     prev_subbook: List[List[float]] = books[i - 1][side]
@@ -318,19 +395,30 @@ def compute_stats(hour: int, plot: bool, stats: bool) -> Dict[str, List[float]]:
                     best_deltas[side].append(best_delta)
                     best_in_prev[side].append(best in prev_lvls)
 
-    if plot:
-        generate_plots(gaps, best_deltas)
-    if stats:
-        print_subbook_stats(gap_list, best_deltas, best_in_prev, book_lens)
-
-    return best_deltas
+    generate_plots(gaps, best_deltas)
+    print_subbook_stats(
+        gap_list,
+        best_deltas,
+        best_in_prev,
+        book_lens,
+        analysis_depth,
+        num_gap_freq_levels,
+        num_gap_freq_sizes,
+    )
 
 
 def main() -> None:
     """ Compute statistics. """
     # HARDCODE
-    # compute_stats(0, 3, True, True)
-    compute_k(100, 3)
+    print_stats(
+        hour=0,
+        depth=-1,
+        bound=100.0,
+        analysis_depth=10,
+        num_gap_freq_levels=3,
+        num_gap_freq_sizes=5,
+    )
+    compute_k(hour=240, sigma=3)
 
 
 if __name__ == "__main__":

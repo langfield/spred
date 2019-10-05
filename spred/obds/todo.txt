@@ -1,5 +1,12 @@
 Done:   Finished generating preliminary graphs.
-        Move best delta proportion calculations into their own function.
+
+        Moved best delta proportion calculations into their own function.
+
+        Generated per-level statistics, gap-frequency table, and three-
+        sigma confidence intervals for the randon variable Y representing
+        the future best price on both sides.
+
+        Cleaned up the function structure in ``format.py``.
 
 Todo:   Compute something involving a sequence of all gaps on each side. 
         We currently compute a distribution of all nonzero volume level
