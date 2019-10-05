@@ -8,7 +8,7 @@ Done:   Finished generating preliminary graphs.
 
         Cleaned up the function structure in ``format.py``.
 
-Todo:   Compute something involving a sequence of all gaps on each side. 
+        Compute something involving a sequence of all gaps on each side. 
         We currently compute a distribution of all nonzero volume level
         gaps on both sides of the orderbook and generate a histogram for
         both on the same plot. This means that we see gaps from all depths
@@ -20,3 +20,14 @@ Todo:   Compute something involving a sequence of all gaps on each side.
         tell us valuable information about the number of zero-volume
         levels we need to compute the conditional probability of using
         Sirignano's model.
+
+Todo:   Create a ``graphs/`` directory.
+
+        Move hardcoded arguments from the bottom of ``format.py`` into
+        a bash script with arguments.
+
+        Add argparser to ``format.py``.
+
+        Merge ``obds`` to master.
+
+        Create new dev branch.
