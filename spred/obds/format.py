@@ -136,12 +136,13 @@ def print_subbook_stats(
         three_sigma_k = round(100 * three_sigma_width)
 
         # The i-th list in ``level_dists`` is all gaps at level i of this subbook.
-        level_dists: List[List[float]] = [[] for i in range(analysis_depth)]
+        depth = max(analysis_depth, num_gap_freq_levels)
+        level_dists: List[List[float]] = [[] for i in range(depth)]
         subbook_gap_lists = gap_list[side]
 
         # Iterate over timesteps. Note ``gap`` is a float.
         for subbook_gap_list in subbook_gap_lists:
-            for i, gap in enumerate(subbook_gap_list[:analysis_depth]):
+            for i, gap in enumerate(subbook_gap_list[:depth]):
                 level_dists[i].append(gap)
 
         # Contains the mean and stddev of each set of gaps at level i of this subbook.
@@ -189,14 +190,14 @@ def print_subbook_stats(
         print("Mean of %s: %f" % (side, np.mean(book_lens[side])))
         print("Standard deviation of %s: %f\n" % (side, np.std(book_lens[side])))
 
-        print("Gap statistics for each level in subbook:")
+        print("Gap statistics for each nonzero-volume level in subbook:")
         for i, level_stats in enumerate(level_dist_stats):
             mean = level_stats["mean"]
             std = level_stats["std"]
             print("\tlevel %d:\t mean: %f    \tstandard deviation: %f" % (i, mean, std))
 
         for i, level_dist in enumerate(level_dists[:num_gap_freq_levels]):
-            print("\nLevel %d distribution:" % i)
+            print("\nNonzero-volume level %d distribution:" % i)
             gap_freqs = collections.Counter(level_dist)
             gap_freq_items = sorted(gap_freqs.items(), key=lambda x: x[1], reverse=True)
             for gap, freq in gap_freq_items[:num_gap_freq_sizes]:
@@ -373,6 +374,8 @@ def print_stats(
         books.update({i: book})
         assert i == int(book_index_str)
 
+    print("Printing orderbook statistics for file ``results/out_%d.json``." % hour)
+
     book_lens: Dict[str, List[int]] = {"bids": [], "asks": []}
     gaps: Dict[str, List[float]] = {"bids": [], "asks": []}
     best_deltas: Dict[str, List[float]] = {"bids": [], "asks": []}
@@ -428,8 +431,6 @@ def main() -> None:
             num_gap_freq_sizes=args.num_gap_freq_sizes,
             fig_dir=args.fig_dir,
         )
-
-    print(args.compute_k)
     if args.compute_k:
         compute_k(hours=args.hours, sigma=args.sigma)
 
