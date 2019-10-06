@@ -300,11 +300,19 @@ def compute_deltas(hour: int) -> Dict[str, List[float]]:
     """
     Reads the specified orderbook json file and outputs statistics on the
     bid and ask distribution. Plots the ask price difference distribution.
+    The ``subbook`` is a list of lists where the inner list has two elements.
+    The first element is the price, and the second is the volume.
 
     Parameters
     ----------
     hour : ``int``.
         The set of 3600 timesteps of orderbooks to read in, indexed from 0 in filename.
+
+    Returns
+    -------
+    best_deltas : ``Dict[str, List[float]]``.
+        Maps sides of orderbook to a list of floats representing the differences
+        between best prices from time t - 1 to time t.
     """
 
     with open("results/out_%d.json" % hour) as json_file:
