@@ -1,5 +1,5 @@
-Done:   #================================DONE================================== 
-        
+Done:   #================================DONE==================================
+
         Finished generating preliminary graphs.
 
         Moved best delta proportion calculations into their own function.
@@ -10,28 +10,31 @@ Done:   #================================DONE==================================
 
         Cleaned up the function structure in ``format.py``.
 
-        Compute something involving a sequence of all gaps on each side. 
+        Compute something involving a sequence of all gaps on each side.
         We currently compute a distribution of all nonzero volume level
         gaps on both sides of the orderbook and generate a histogram for
         both on the same plot. This means that we see gaps from all depths
         of the orderbook at all timesteps all on the same plot. This is
         a start, but we don't really care about really deep gaps. We only
         care about maybe the first 5-10 or so. More importantly, it is
-        important that we can see the distribution of gaps for just the 
+        important that we can see the distribution of gaps for just the
         best nonzero level to the second best nonzero level. This will
         tell us valuable information about the number of zero-volume
         levels we need to compute the conditional probability of using
         Sirignano's model.
-        
+
         Create a ``figs/`` directory.
-        
+
         Move hardcoded arguments from the bottom of ``format.py`` into
         a bash script with arguments.
 
         Add argparser to ``format.py``.
 
         Merge ``obds`` to master.
-        
+
         Create new dev branch.
 
-Todo:   #================================TODO================================== 
+Todo:   #================================TODO==================================
+
+        Create a script to convert raw orderbook hour json files into
+        monolithic csv files with dimension 300.
