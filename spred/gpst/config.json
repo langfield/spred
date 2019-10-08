@@ -2,7 +2,7 @@
     "initializer_range":  0.02,
     "layer_norm_epsilon": 4.064249722000914e-05,
     "n_ctx": 30,
-    "n_embd": 160,
+    "n_embd": 40,
     "n_head": 8,
     "n_layer": 6,
     "n_positions": 30,
