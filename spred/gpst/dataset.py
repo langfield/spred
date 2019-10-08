@@ -142,6 +142,8 @@ class GPSTDataset(Dataset):
         self,
         corpus_path: str,
         seq_len: int,
+        input_dim: int,
+        orderbook_depth: int,
         encoding: str = "utf-8",
         on_memory: bool = True,
         stationarization: bool = False,
@@ -152,6 +154,8 @@ class GPSTDataset(Dataset):
     ) -> None:
 
         self.seq_len = seq_len
+        self.input_dim = input_dim
+        self.depth = orderbook_depth
 
         self.on_memory = on_memory
         self.corpus_path = corpus_path
@@ -161,7 +165,7 @@ class GPSTDataset(Dataset):
 
         assert corpus_path[-4:] == ".csv"
         # Shape: (total_data_len, vocab_size).
-        input_df = pd.read_csv(corpus_path, sep="\t")
+        input_df = pd.read_csv(corpus_path, sep=",")
         print("Raw ``input_df`` shape:", input_df.shape)
 
         if stationarization:
@@ -195,7 +199,19 @@ class GPSTDataset(Dataset):
 
     def create_features(
         self, tensor_data: np.ndarray
-    ) -> List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
+    ) -> List[
+        Tuple[
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+            np.ndarray,
+        ]
+    ]:
         """
         Returns a list of features of the form
             ``(input, input_raw, is_masked, target, seg_id, label)``.
@@ -222,14 +238,12 @@ class GPSTDataset(Dataset):
                 The index of the rows in ``inputs_raw`` relative to the current
                 sequence.
                 Shape: (seq_len,).
-            lm_labels : ``np.ndarray``.
-                A copy of ``input_ids``.
+            labels_dict : ``Dict[str, np.ndarray]``.
+                Labels for conditional distribution computation.
             inputs_raw : ``np.ndarray``.
                 A slice of ``tensor_data`` containing a sequence worth of
                 training data for the model.
                 Shape: (seq_len, vocab_size).
-            targets_raw : ``np.ndarray``.
-                A copy of ``inputs_raw``.
         """
         original_data_len = tensor_data.shape[0]
         seq_len = self.seq_len
@@ -245,20 +259,91 @@ class GPSTDataset(Dataset):
         )
         input_ids_all = np.arange(0, num_seqs * seq_len)
 
+        # ===MOD===
+        bid_col = 0
+        ask_col = int(self.input_dim / 2)
+        depth_range = 2 * self.depth + 1
+
+        def relu(x: np.ndarray) -> np.ndarray:
+            """ Numpy array relu function. """
+            return np.maximum(x, 0)
+
+        # ===MOD===
+
         features = []
         print("Creating features...")
         for i in tqdm(range(num_seqs), position=0, leave=True):
             inputs_raw = tensor_data[i * seq_len : (i + 1) * seq_len]
             input_ids = input_ids_all[i * seq_len : (i + 1) * seq_len]
-            # TODO: Should this always start from zero?
             position_ids = np.arange(0, seq_len)
-            lm_labels = copy.deepcopy(input_ids)
-            targets_raw = copy.deepcopy(inputs_raw)
+
+            # ===MOD===
+            # Compute labels.
+            bid_delta_indices = 100 * inputs_raw[..., bid_col]
+            bid_delta_indices = bid_delta_indices.astype(int)
+            bid_delta_indices[bid_delta_indices > self.depth] = self.depth
+            bid_delta_indices[bid_delta_indices < (-1 * self.depth)] = -1 * self.depth
+
+            bid_increase_labels = copy.deepcopy(relu(100 * inputs_raw[..., bid_col]))
+            bid_decrease_labels = copy.deepcopy(relu(-100 * inputs_raw[..., bid_col]))
+            bid_increase_labels[bid_increase_labels == 0] = -1
+            bid_decrease_labels[bid_decrease_labels == 0] = -1
+            bid_increase_labels[bid_increase_labels > self.depth] = self.depth
+            bid_decrease_labels[bid_decrease_labels > self.depth] = self.depth
+
+            bid_classif_labels = copy.deepcopy(inputs_raw[..., bid_col])
+            bid_classif_labels[bid_classif_labels < 0] = 1
+            bid_classif_labels[bid_classif_labels > 0] = 2
+
+            ask_increase_mat = copy.deepcopy(relu(100 * inputs_raw[..., ask_col]))
+            ask_decrease_mat = copy.deepcopy(relu(-100 * inputs_raw[..., ask_col]))
+            ask_increase_mat[ask_increase_mat == 0] = -1
+            ask_decrease_mat[ask_decrease_mat == 0] = -1
+            ask_increase_mat[ask_increase_mat > self.depth] = self.depth
+            ask_decrease_mat[ask_decrease_mat > self.depth] = self.depth
+            ask_increase_labels = -1 * np.ones((seq_len, depth_range))
+            ask_decrease_labels = -1 * np.ones((seq_len, depth_range))
+            ask_increase_labels[np.arange(seq_len), bid_delta_indices] = ask_increase_mat
+            ask_decrease_labels[np.arange(seq_len), bid_delta_indices] = ask_decrease_mat
+
+            ask_classif_mat = copy.deepcopy(inputs_raw[..., ask_col])
+            ask_classif_mat[ask_classif_mat < 0] = 1
+            ask_classif_mat[ask_classif_mat > 0] = 2
+            ask_classif_labels = -1 * np.ones((ask_classif_mat.shape[0], depth_range))
+            ask_classif_labels[np.arange(seq_len), bid_delta_indices] = ask_classif_mat
+
+            assert bid_increase_labels.shape == (seq_len,)
+            assert bid_decrease_labels.shape == (seq_len,)
+            assert bid_classif_labels.shape == (seq_len,)
+            assert ask_increase_labels.shape == (seq_len, depth_range)
+            assert ask_decrease_labels.shape == (seq_len, depth_range)
+            assert ask_classif_labels.shape == (seq_len, depth_range)
+
+            """
+            labels_dict: Dict[str, np.ndarray] = {}
+            labels_dict["bid_classification"] = bid_classif_labels
+            labels_dict["bid_increase"] = bid_increase_labels
+            labels_dict["bid_decrease"] = bid_decrease_labels
+            labels_dict["ask_classification"] = ask_classif_labels
+            labels_dict["ask_increase"] = ask_increase_labels
+            labels_dict["ask_decrease"] = ask_decrease_labels
+            """
+            # ===MOD===
             if self.seq_norm:
-                inputs_raw, targets_raw = seq_normalize(inputs_raw, targets_raw)
+                inputs_raw = seq_normalize(inputs_raw)
 
             features.append(
-                (input_ids, position_ids, lm_labels, inputs_raw, targets_raw)
+                (
+                    input_ids,
+                    position_ids,
+                    bid_classif_labels,
+                    bid_increase_labels,
+                    bid_decrease_labels,
+                    ask_classif_labels,
+                    ask_increase_labels,
+                    ask_decrease_labels,
+                    inputs_raw,
+                )
             )
         print("Done creating features.")
         return features

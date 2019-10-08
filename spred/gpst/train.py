@@ -5,35 +5,27 @@
 """
 import os
 import time
+import copy
 import random
 import logging
 import argparse
 import datetime
-from typing import Tuple
+from typing import Tuple, Dict, List
 
-import numpy as np
+# Third-party imports.
 import optuna
-
+import numpy as np
 from tqdm import tqdm, trange
-from pytorch_transformers import AdamW, WarmupLinearSchedule
-
-# pylint: disable=no-name-in-module, wrong-import-order
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, RandomSampler
 
-if torch.__version__[:5] == "0.3.1":
-    from torch.autograd import Variable
-    from compat.torch.sampler import RandomSampler
-else:
-    from torch.utils.data import RandomSampler
-
-# pylint: disable=wrong-import-position
+# External module imports.
 from arguments import get_args
 from dataset import GPSTDataset
 from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
+from pytorch_transformers import AdamW, WarmupLinearSchedule
 
 DEBUG = False
-LOSS = 0
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
     datefmt="%m/%d/%Y %H:%M:%S",
@@ -49,13 +41,7 @@ logger.addHandler(logging.FileHandler("logs/rain_" + datestring + ".log"))
 # pylint: disable=protected-access
 def setup(
     args: argparse.Namespace = None
-) -> Tuple[
-    argparse.Namespace,
-    OpenAIGPTLMHeadModel,
-    torch.optim.Optimizer,
-    torch.optim.lr_scheduler._LRScheduler,
-    DataLoader,
-]:
+) -> Tuple[argparse.Namespace, OpenAIGPTConfig, torch.device, DataLoader]:
     """
     Training model, dataset, and optimizer setup.
 
@@ -88,30 +74,25 @@ def setup(
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
 
-    if torch.__version__[:5] != "0.3.1":
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     n_gpu = torch.cuda.device_count()
-    if torch.__version__[:5] != "0.3.1":
-        logging.info("device: %s, n_gpu %d", str(device), n_gpu)
+    logging.info("device: %s, n_gpu %d", str(device), n_gpu)
 
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
-    config = OpenAIGPTConfig.from_pretrained(args.gpst_model)
-    model = OpenAIGPTLMHeadModel(config)
-
-    if torch.__version__[:5] == "0.3.1":
-        model.cuda()
-    else:
-        model.to(device)
-
-    assert model.config.n_positions == model.config.n_ctx
-    args.seq_len = model.config.n_ctx
-    args.dim = model.config.vocab_size
+    # ===MOD===
+    global_config = OpenAIGPTConfig.from_pretrained(args.gpst_model)
+    assert global_config.n_positions == global_config.n_ctx
+    args.seq_len = global_config.n_ctx
+    args.dim = global_config.input_dim
+    args.orderbook_depth = global_config.orderbook_depth
 
     train_data = GPSTDataset(
         args.dataset,
         args.seq_len,
+        args.dim,
+        args.orderbook_depth,
         stationarization=args.stationarize,
         aggregation_size=args.aggregation_size,
         normalization=args.normalize,
@@ -123,41 +104,60 @@ def setup(
     train_dataloader = DataLoader(
         train_data, sampler=train_sampler, batch_size=args.train_batch_size
     )
+    # ===MOD===
 
-    # Prepare optimizer.
-    param_optimizer = list(model.named_parameters())
-    no_decay = ["bias", "LayerNorm.bias", "LayerNorm.weight"]
-    optimizer_grouped_parameters = [
-        {
-            "params": [
-                p for n, p in param_optimizer if not any(nd in n for nd in no_decay)
-            ],
-            "weight_decay": 0.01,
-        },
-        {
-            "params": [
-                p for n, p in param_optimizer if any(nd in n for nd in no_decay)
-            ],
-            "weight_decay": 0.0,
-        },
-    ]
+    return args, global_config, device, train_dataloader
 
-    # --------Optimizer--------
-    optimizer = AdamW(
-        optimizer_grouped_parameters,
-        lr=args.learning_rate,
-        weight_decay=args.weight_decay,
-        eps=args.adam_epsilon,
-    )
-    num_train_optimization_steps = len(train_dataloader) * args.num_train_epochs
-    scheduler = WarmupLinearSchedule(
-        optimizer,
-        warmup_steps=(args.warmup_proportion * num_train_optimization_steps),
-        t_total=num_train_optimization_steps,
-    )
-    # --------Optimizer--------
 
-    return args, model, optimizer, scheduler, train_dataloader
+def spin_models(
+    args: argparse.Namespace,
+    global_config: OpenAIGPTConfig,
+    device: torch.device,
+    train_dataloader: DataLoader,
+) -> Tuple[torch.nn.ModuleDict, Dict[str, AdamW], Dict[str, WarmupLinearSchedule]]:
+    """ Spins up models for different modes. """
+
+    model_dict: torch.nn.ModuleDict = torch.nn.ModuleDict()
+    optimizer_dict: Dict[str, AdamW] = {}
+    scheduler_dict: Dict[str, WarmupLinearSchedule] = {}
+
+    for mode in global_config.modes:
+        config = copy.deepcopy(global_config)
+        config.mode = mode
+        model = OpenAIGPTLMHeadModel(config)
+
+        # Prepare optimizer.
+        param_optimizer = list(model.named_parameters())
+        no_decay = ["bias", "LayerNorm.bias", "LayerNorm.weight"]
+        dec = [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)]
+        no_dec = [p for n, p in param_optimizer if any(nd in n for nd in no_decay)]
+        optimizer_grouped_parameters = [
+            {"params": dec, "weight_decay": 0.01},
+            {"params": no_dec, "weight_decay": 0.0},
+        ]
+
+        # --------Optimizer--------
+        optimizer = AdamW(
+            optimizer_grouped_parameters,
+            lr=args.learning_rate,
+            weight_decay=args.weight_decay,
+            eps=args.adam_epsilon,
+        )
+        num_train_optimization_steps = len(train_dataloader) * args.num_train_epochs
+        scheduler = WarmupLinearSchedule(
+            optimizer,
+            warmup_steps=(args.warmup_proportion * num_train_optimization_steps),
+            t_total=num_train_optimization_steps,
+        )
+        # --------Optimizer--------
+
+        model_dict[mode] = model
+        optimizer_dict[mode] = optimizer
+        scheduler_dict[mode] = scheduler
+
+    model_dict.to(device)
+
+    return model_dict, optimizer_dict, scheduler_dict
 
 
 def train(args: argparse.Namespace = None) -> float:
@@ -175,25 +175,32 @@ def train(args: argparse.Namespace = None) -> float:
     epoch_avg_loss : ``float``.
         The average loss for the last epoch.
     """
-    args, model, optimizer, scheduler, train_dataloader = setup(args)
-
-    # Define ``device``.
-    if torch.__version__[:5] != "0.3.1":
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # args, model, optimizer, scheduler, train_dataloader = setup(args)
+    args, global_config, device, train_dataloader = setup(args)
+    model_dict, optimizer_dict, scheduler_dict = spin_models(
+        args, global_config, device, train_dataloader
+    )
 
     # Optuna early stopping.
     if "trial" in args:
         trial = args.trial
 
     # Save names.
-    weights_name = args.model_name + ".bin"
-    config_name = args.model_name + ".json"
+    weights_names: Dict[str, str] = {}
+    config_names: Dict[str, str] = {}
+    for mode, _ in model_dict.items():
+        weights_names[mode] = "%s_%s.bin" % (args.model_name, mode)
+        config_names[mode] = "%s_%s.json" % (args.model_name, mode)
+
+    # Local variables for shape check.
+    bsz = args.train_batch_size
+    depth_range = 2 * args.orderbook_depth + 1
 
     # Main training loop.
     start = time.time()
     nb_tr_steps, tr_loss, exp_average_loss = 0.0, 0.0, 0.0
     completed_first_iteration = False
-    model.train()
+    model_dict.train()
     elapsed_epochs = 0
     for _ in trange(int(args.num_train_epochs), desc="Epoch"):
         tr_loss = 0.0
@@ -202,69 +209,73 @@ def train(args: argparse.Namespace = None) -> float:
         tqdm_bar = tqdm(train_dataloader, desc="Training", position=0, leave=True)
         for _, batch in enumerate(tqdm_bar):
 
-            if torch.__version__[:5] == "0.3.1":
-                batch = tuple(t.cuda() for t in batch)
-            else:
-                batch = tuple(t.to(device) for t in batch)
-            input_ids, position_ids, lm_labels, inputs_raw, targets_raw = batch
-            inputs_raw = inputs_raw.float()
-            targets_raw = targets_raw.float()
+            batch = tuple(t.to(device) for t in batch)
 
-            # Shape check.
-            # ===HACK===
-            # Compensates for lack of batch size data truncation in
-            # ``SAMPLE`` branch of ``GPSTDatatset`` class.
+            input_ids = batch[0]
+            position_ids = batch[1]
+            bid_classif_labels = batch[2]
+            bid_increase_labels = batch[3]
+            bid_decrease_labels = batch[4]
+            ask_classif_labels = batch[5]
+            ask_increase_labels = batch[6]
+            ask_decrease_labels = batch[7]
+            inputs_raw = batch[8]
+            inputs_raw = inputs_raw.float()
+
+            labels_dict: Dict[str, torch.Tensor] = {}
+            labels_dict["bid_classification"] = bid_classif_labels
+            labels_dict["bid_increase"] = bid_increase_labels
+            labels_dict["bid_decrease"] = bid_decrease_labels
+            labels_dict["ask_classification"] = ask_classif_labels
+            labels_dict["ask_increase"] = ask_increase_labels
+            labels_dict["ask_decrease"] = ask_decrease_labels
+
+            # Handles lack of batch size data truncation in dataset class.
             if not args.stationarize and input_ids.shape[0] < args.train_batch_size:
                 continue
-            # ===HACK===
-            bsz = args.train_batch_size
+
+            # Shape check.
             assert input_ids.shape == (bsz, args.seq_len)
             assert position_ids.shape == (bsz, args.seq_len)
-            assert lm_labels.shape == (bsz, args.seq_len)
+            # ===MOD===
+            # ===MOD===
             assert inputs_raw.shape == (bsz, args.seq_len, args.dim)
-            assert targets_raw.shape == (bsz, args.seq_len, args.dim)
 
-            # torch_0.3.1 casting.
-            if torch.__version__[:5] == "0.3.1":
-                position_ids = Variable(position_ids).contiguous()
-                targets_raw = Variable(targets_raw.contiguous())
-                inputs_raw = Variable(inputs_raw.contiguous())
+            # Forward calls.
+            model_losses: List[float] = []
+            for mode, model in model_dict.items():
 
-            # Get only fourth column (close).
-            targets_raw = targets_raw[:, :, 3]
+                labels = labels_dict[mode].long()
+                if mode[:3] == "bid":
+                    assert labels.shape == (bsz, args.seq_len)
+                elif mode[:3] == "ask":
+                    assert labels.shape == (bsz, args.seq_len, depth_range)
+                else:
+                    # TODO: fix error message.
+                    raise ValueError("Mode has invalid value")
 
-            # Forward call.
-            outputs = model(input_ids, position_ids, lm_labels, inputs_raw, targets_raw)
+                outputs = model(input_ids, position_ids, labels, inputs_raw)
 
-            # pylint: disable=redefined-outer-name
-            loss = outputs[0]
-            loss.backward()
-            LOSS = float(loss)
+                loss = outputs[0]
+                loss.backward()
+                loss_scalar = float(loss)
+                model_losses.append(loss_scalar)
+
+                torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
+                scheduler_dict[mode].step()
+                optimizer_dict[mode].step()
+                optimizer_dict[mode].zero_grad()
 
             # Logging.
-            losses.append(LOSS)
+            sum_loss = sum(model_losses)
+            losses.append(sum_loss)
 
-            if torch.__version__[:5] != "0.3.1":
-                torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-            scheduler.step()
-            optimizer.step()
-            optimizer.zero_grad()
-
-            if torch.__version__[:5] == "0.3.1":
-                loss_data = float(loss.data)
-                tr_loss += loss_data
-                exp_average_loss = (
-                    loss_data
-                    if completed_first_iteration
-                    else 0.7 * exp_average_loss + 0.3 * loss_data
-                )
-            else:
-                tr_loss += loss.item()
-                exp_average_loss = (
-                    loss.item()
-                    if completed_first_iteration
-                    else 0.7 * exp_average_loss + 0.3 * loss.item()
-                )
+            tr_loss += sum_loss
+            exp_average_loss = (
+                sum_loss
+                if completed_first_iteration
+                else 0.7 * exp_average_loss + 0.3 * sum_loss
+            )
 
             completed_first_iteration = True
             nb_tr_steps += 1
@@ -284,12 +295,13 @@ def train(args: argparse.Namespace = None) -> float:
         # Save every ``args.save_freq`` epochs.
         elapsed_epochs += 1
         if elapsed_epochs % args.save_freq == 0:
-            model_to_save = model.module if hasattr(model, "module") else model
-            output_model_file = os.path.join(args.output_dir, weights_name)
-            output_config_file = os.path.join(args.output_dir, config_name)
+            for mode, model in model_dict.items():
+                model_to_save = model.module if hasattr(model, "module") else model
+                output_model_file = os.path.join(args.output_dir, weights_names[mode])
+                output_config_file = os.path.join(args.output_dir, config_names[mode])
 
-            torch.save(model_to_save.state_dict(), output_model_file)
-            model_to_save.config.to_json_file(output_config_file)
+                torch.save(model_to_save.state_dict(), output_model_file)
+                model_to_save.config.to_json_file(output_config_file)
 
         if args.timeout > 0 and time.time() - start >= args.timeout:
             break
