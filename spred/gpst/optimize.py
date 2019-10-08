@@ -90,8 +90,8 @@ def objective(trial: optuna.Trial) -> float:
     n_positions = 30
 
     # Commented-out trial suggestions should be placed at top of block.
+    # n_positions = int(trial.suggest_discrete_uniform("n_ctx", 10, 40, 5))
     # config["n_head"] = int(trial.suggest_discrete_uniform("n_head", 4, 16, 4))
-    n_positions = int(trial.suggest_discrete_uniform("n_ctx", 10, 40, 5))
     config["layer_norm_epsilon"] = trial.suggest_loguniform("layer_eps", 1e-5, 1e-3)
     config["resid_pdrop"] = trial.suggest_loguniform("resid_pdrop", 0.01, 0.15)
     config["attn_pdrop"] = trial.suggest_loguniform("attn_pdrop", 0.1, 0.3)
