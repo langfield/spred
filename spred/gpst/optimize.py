@@ -51,23 +51,24 @@ def objective(trial: optuna.Trial) -> float:
 
     # Set arguments.
     args.num_train_epochs = 10000
-    args.stationarize = True
+    args.stationarize = False
     args.normalize = False
-    args.seq_norm = True
+    args.seq_norm = False
     args.seed = 42
     args.max_grad_norm = 3
     args.adam_epsilon = 7.400879524874149e-08
+    args.warmup_proportion = 0.0
 
     batch_size = 192
-    agg_size = 5
+    agg_size = 1
 
     # Commented-out trial suggestions should be placed at top of block.
     # args.stationarize = trial.suggest_categorical("stationarize", [True, False])
-    # batch_size = trial.suggest_discrete_uniform("train_batch_size", 32, 256, 32)
     # agg_size = trial.suggest_discrete_uniform("agg_size", 1, 40, 5)
+    # args.warmup_proportion = trial.suggest_uniform("warmup_proportion", 0.05, 0.4)
+    batch_size = trial.suggest_discrete_uniform("train_batch_size", 32, 1024, 32)
     args.weight_decay = trial.suggest_loguniform("weight_decay", 0.0001, 0.01)
     args.learning_rate = trial.suggest_loguniform("learning_rate", 8e-7, 5e-4)
-    args.warmup_proportion = trial.suggest_uniform("warmup_proportion", 0.05, 0.4)
     args.train_batch_size = int(batch_size)
     args.aggregation_size = int(agg_size)
     logging.getLogger().info(str(args))
@@ -76,12 +77,21 @@ def objective(trial: optuna.Trial) -> float:
     config = {}
     config["initializer_range"] = 0.02
     config["n_head"] = 8
-    config["vocab_size"] = 33
+    config["input_dim"] = 300
+    config["orderbook_depth"] = 6
+    config["modes"] = [
+        "bid_classification", 
+        "bid_increase", 
+        "bid_decrease",
+        "ask_classification", 
+        "ask_increase", 
+        "ask_decrease"
+    ]
     n_positions = 30
 
     # Commented-out trial suggestions should be placed at top of block.
-    # n_positions = int(trial.suggest_discrete_uniform("n_ctx", 10, 40, 5))
     # config["n_head"] = int(trial.suggest_discrete_uniform("n_head", 4, 16, 4))
+    n_positions = int(trial.suggest_discrete_uniform("n_ctx", 10, 40, 5))
     config["layer_norm_epsilon"] = trial.suggest_loguniform("layer_eps", 1e-5, 1e-3)
     config["resid_pdrop"] = trial.suggest_loguniform("resid_pdrop", 0.01, 0.15)
     config["attn_pdrop"] = trial.suggest_loguniform("attn_pdrop", 0.1, 0.3)
