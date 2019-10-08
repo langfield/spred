@@ -4,6 +4,7 @@
     Itself adapted from https://github.com/openai/finetune-transformer-lm/blob/master/train.py
 """
 import os
+import sys
 import time
 import copy
 import random
@@ -151,9 +152,15 @@ def spin_models(
         )
         # --------Optimizer--------
 
-        model_dict[mode] = model
+        if torch.cuda.device_count() > 1 and False:
+            model_dict[mode] = torch.nn.DataParallel(model)
+        else:
+            model_dict[mode] = model
         optimizer_dict[mode] = optimizer
         scheduler_dict[mode] = scheduler
+
+    if torch.cuda.device_count() > 1:
+        print("Let's use", torch.cuda.device_count(), "GPUs!")
 
     model_dict.to(device)
 
@@ -195,6 +202,9 @@ def train(args: argparse.Namespace = None) -> float:
     # Local variables for shape check.
     bsz = args.train_batch_size
     depth_range = 2 * args.orderbook_depth + 1
+
+    # Flush output before we begin training.
+    sys.stdout.flush()
 
     # Main training loop.
     start = time.time()
