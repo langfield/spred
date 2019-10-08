@@ -419,8 +419,6 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         )
 
         # Pre-encoding layer performs a dense encoding from ``vocab_size`` -> ``n_embd``.
-        print("\n")
-        print("Input dimension:", config.input_dim)
         self.pre_encoding = nn.Linear(config.input_dim, config.n_embd, bias=True)
         self.post_decoding = nn.Linear(config.n_embd, config.input_dim, bias=True)
 
@@ -621,20 +619,22 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         #   ``1 <= label <= config.orderbook_depth`` or ``-1`` (mask) for F networks.
         if labels is not None:
             # Shift so that tokens < n predict n.
-            shift_logits = logits[..., :-1, :].contiguous()
             if self.mode[:3] == "bid":
                 assert labels.shape == (bsz, seq_len)
+                shift_logits = logits[..., :-1, :].contiguous()
                 shift_labels = labels[..., 1:].contiguous()
             elif self.mode[:3] == "ask":
                 assert labels.shape == (bsz, seq_len, self.depth_range)
+                shift_logits = logits_matrix[..., :-1, :, :].contiguous()
                 shift_labels = labels[..., 1:, :].contiguous()
             else:
                 # TODO: fix error message.
                 raise ValueError("Mode has invalid value")
             # Flatten the tokens.
             loss_fct = CrossEntropyLoss(ignore_index=-1)
-            loss = loss_fct(shift_logits.view(-1, shift_logits.size(-1)),
-                            shift_labels.view(-1))
+            loss_input = shift_logits.view(-1, shift_logits.size(-1))
+            loss_target = shift_labels.view(-1)
+            loss = loss_fct(loss_input, loss_target)
             outputs = (loss,) + outputs
 
         return outputs  # (loss), logits, (all hidden states), (all attentions)

@@ -281,15 +281,16 @@ class GPSTDataset(Dataset):
             # Compute labels.
             bid_delta_indices = 100 * inputs_raw[..., bid_col]
             bid_delta_indices = bid_delta_indices.astype(int)
-            bid_delta_indices[bid_delta_indices > self.depth] = self.depth
-            bid_delta_indices[bid_delta_indices < (-1 * self.depth)] = -1 * self.depth
+            bid_delta_indices[bid_delta_indices >= self.depth] = self.depth - 1
+            bid_delta_indices[bid_delta_indices <= (-1 * self.depth)] = -1 * (self.depth - 1)
+            bid_delta_indices = bid_delta_indices + self.depth - 1
 
             bid_increase_labels = copy.deepcopy(relu(100 * inputs_raw[..., bid_col]))
             bid_decrease_labels = copy.deepcopy(relu(-100 * inputs_raw[..., bid_col]))
             bid_increase_labels[bid_increase_labels == 0] = -1
             bid_decrease_labels[bid_decrease_labels == 0] = -1
-            bid_increase_labels[bid_increase_labels > self.depth] = self.depth
-            bid_decrease_labels[bid_decrease_labels > self.depth] = self.depth
+            bid_increase_labels[bid_increase_labels >= self.depth] = self.depth - 1
+            bid_decrease_labels[bid_decrease_labels >= self.depth] = self.depth - 1
 
             bid_classif_labels = copy.deepcopy(inputs_raw[..., bid_col])
             bid_classif_labels[bid_classif_labels < 0] = 1
@@ -299,8 +300,8 @@ class GPSTDataset(Dataset):
             ask_decrease_mat = copy.deepcopy(relu(-100 * inputs_raw[..., ask_col]))
             ask_increase_mat[ask_increase_mat == 0] = -1
             ask_decrease_mat[ask_decrease_mat == 0] = -1
-            ask_increase_mat[ask_increase_mat > self.depth] = self.depth
-            ask_decrease_mat[ask_decrease_mat > self.depth] = self.depth
+            ask_increase_mat[ask_increase_mat >= self.depth] = self.depth - 1
+            ask_decrease_mat[ask_decrease_mat >= self.depth] = self.depth - 1
             ask_increase_labels = -1 * np.ones((seq_len, depth_range))
             ask_decrease_labels = -1 * np.ones((seq_len, depth_range))
             ask_increase_labels[np.arange(seq_len), bid_delta_indices] = ask_increase_mat

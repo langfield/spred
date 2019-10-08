@@ -262,9 +262,9 @@ def train(args: argparse.Namespace = None) -> float:
                 model_losses.append(loss_scalar)
 
                 torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-                scheduler_dict[mode].step()
                 optimizer_dict[mode].step()
                 optimizer_dict[mode].zero_grad()
+                scheduler_dict[mode].step()
 
             # Logging.
             sum_loss = sum(model_losses)
