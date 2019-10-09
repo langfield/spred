@@ -15,18 +15,16 @@ Done:   #================================DONE==================================
         
         If the jump is larger than 6, set the label to the most extreme, i.e. 
         change to level 6.
-
-Todo:   #================================TODO==================================
-
+        
         Only train the loss of the network when the correct conditions apply
         (if we condition on Y > 0, then only in that case, checking ground
-        truth from the labels).
+        truth from the labels). (Achieved via masking.)
 
-        Building on this, we needs a mask for the ask labels, since we are
-        computing logits of Y_2 given Y_1 = y_1, and we should only train this
+        building on this, we needs a mask for the ask labels, since we are
+        computing logits of y_2 given y_1 = y_1, and we should only train this
         classification network for the true value of y_1 for each orderbook.
-        Therefore all others must be masked out.
-
+        therefore all others must be masked out.
+        
         Make the other 6 model instances in ``train.py``.
 
         Figure out how to compute logits for classification loss.
@@ -34,5 +32,13 @@ Todo:   #================================TODO==================================
         Add `torch.Tensor.view()`` call to reshape model forward output into
         a matrix for estimation of ``Y_2``.
 
+Todo:   #================================TODO==================================
+
         Add activation functions to pre-encoding, post-decoding, and lm_head
         layers in ``modeling_openai.py``.
+
+        Fix loss computation for optuna.
+
+        Figure out how to parallelize model.
+
+        Get XLA working.

@@ -66,7 +66,7 @@ def objective(trial: optuna.Trial) -> float:
     # args.stationarize = trial.suggest_categorical("stationarize", [True, False])
     # agg_size = trial.suggest_discrete_uniform("agg_size", 1, 40, 5)
     # args.warmup_proportion = trial.suggest_uniform("warmup_proportion", 0.05, 0.4)
-    batch_size = trial.suggest_discrete_uniform("train_batch_size", 32, 1024, 32)
+    batch_size = trial.suggest_discrete_uniform("train_batch_size", 32, 320, 32)
     args.weight_decay = trial.suggest_loguniform("weight_decay", 0.0001, 0.01)
     args.learning_rate = trial.suggest_loguniform("learning_rate", 8e-7, 5e-4)
     args.train_batch_size = int(batch_size)
@@ -95,8 +95,8 @@ def objective(trial: optuna.Trial) -> float:
     config["layer_norm_epsilon"] = trial.suggest_loguniform("layer_eps", 1e-5, 1e-3)
     config["resid_pdrop"] = trial.suggest_loguniform("resid_pdrop", 0.01, 0.15)
     config["attn_pdrop"] = trial.suggest_loguniform("attn_pdrop", 0.1, 0.3)
-    config["n_embd"] = int(trial.suggest_discrete_uniform("n_embd", 32, 768, 64))
-    config["n_layer"] = trial.suggest_int("n_layer", 4, 10)
+    config["n_embd"] = int(trial.suggest_discrete_uniform("n_embd", 32, 384, 32))
+    config["n_layer"] = trial.suggest_int("n_layer", 4, 8)
     config["n_positions"] = n_positions
     config["n_ctx"] = n_positions
 
