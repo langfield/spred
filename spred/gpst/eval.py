@@ -10,11 +10,7 @@ import numpy as np
 import pandas as pd
 
 import torch
-
-try:
-    from torch.autograd import Variable
-except ImportError:
-    pass
+from torch import nn
 
 from plot.plot import graph
 from plot.termplt import plot_to_terminal
@@ -28,7 +24,7 @@ TERM_PRINT = False
 # pylint: disable=no-member
 
 
-def get_model(args: argparse.Namespace) -> OpenAIGPTLMHeadModel:
+def get_models(args: argparse.Namespace) -> nn.ModuleDict:
     """
     Load the model specified by ``args.model_name``.
 
@@ -43,23 +39,29 @@ def get_model(args: argparse.Namespace) -> OpenAIGPTLMHeadModel:
         The loaded model, set to ``eval`` mode, and loaded onto the relevant
         device.
     """
-    weights_name = args.model_name + ".bin"
-    config_name = args.model_name + ".json"
+    model_dict: nn.ModuleDict = nn.ModuleDict()
+    global_config = OpenAIGPTConfig.from_pretrained(args.gpst_model)
+    weights_names: Dict[str, str] = {}
+    config_names: Dict[str, str] = {}
+    for mode in global_config.modes:
+        weights_names[mode] = "%s_%s.bin" % (args.model_name, mode)
+        config_names[mode] = "%s_%s.json" % (args.model_name, mode)
 
-    # HARDCODE
-    output_dir = "ckpts/"
-    output_model_file = os.path.join(output_dir, weights_name)
-    output_config_file = os.path.join(output_dir, config_name)
-    loaded_config = OpenAIGPTConfig.from_json_file(output_config_file)
-    model = OpenAIGPTLMHeadModel(loaded_config)
-    model.load_state_dict(torch.load(output_model_file))
+        # HARDCODE
+        output_dir = "ckpts/"
+        output_model_file = os.path.join(output_dir, weights_names[mode])
+        output_config_file = os.path.join(output_dir, config_names[mode])
+        loaded_config = OpenAIGPTConfig.from_json_file(output_config_file)
+        model = OpenAIGPTLMHeadModel(loaded_config)
+        model.load_state_dict(torch.load(output_model_file))
+        model_dict[mode] = model
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model.to(device)
-    model.eval()
-    print("Is model training:", model.training)
+    model_dict.to(device)
+    model_dict.eval()
+    print("Is model training:", model_dict.training)
 
-    return model
+    return model_dict
 
 
 def load_from_file(args: argparse.Namespace, debug: bool = False) -> np.ndarray:
@@ -336,11 +338,11 @@ def main() -> None:
     parser = get_args(parser)
     args = parser.parse_args()
 
-    model = get_model(args)
+    model_dict: nn.ModuleDict = get_models(args)
 
     # Grab config arguments from model.
     args.seq_len = model.config.n_positions
-    args.dim = model.config.vocab_size
+    args.dim = model.config.input_dim
 
     print("Data dimensionality:", args.dim)
     print("Max sequence length :", args.seq_len)
