@@ -54,11 +54,8 @@ def get_model(args: argparse.Namespace) -> OpenAIGPTLMHeadModel:
     model = OpenAIGPTLMHeadModel(loaded_config)
     model.load_state_dict(torch.load(output_model_file))
 
-    if torch.__version__[:5] == "0.3.1":
-        model.cuda()
-    else:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model.to(device)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model.to(device)
     model.eval()
     print("Is model training:", model.training)
 
@@ -138,8 +135,7 @@ def predict(
     batch_size = args.eval_batch_size
     seq_norm = args.seq_norm
 
-    if torch.__version__[:5] != "0.3.1":
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     if seq_norm:
         input_array_slice, _target_array_slice = seq_normalize(input_array_slice)
@@ -160,14 +156,9 @@ def predict(
     position_ids = position_ids.view(batch_size, seq_len)
 
     # Casting to correct ``torch.Tensor`` type.
-    if torch.__version__[:5] == "0.3.1":
-        input_ids = input_ids.long().cuda()
-        position_ids = Variable(position_ids.long().cuda()).contiguous()
-        inputs_raw = Variable(inputs_raw.cuda()).contiguous()
-    else:
-        input_ids = input_ids.to(device)
-        position_ids = position_ids.to(device)
-        inputs_raw = inputs_raw.to(device)
+    input_ids = input_ids.to(device)
+    position_ids = position_ids.to(device)
+    inputs_raw = inputs_raw.to(device)
 
     # Shape check.
     assert input_ids.shape == (batch_size, seq_len)
@@ -179,10 +170,7 @@ def predict(
     predictions = outputs[0]
 
     # Casting to correct ``torch.Tensor`` type.
-    if torch.__version__[:5] == "0.3.1":
-        pred = np.array(predictions[0, -1].data)[0]
-    else:
-        pred = np.array(predictions[0, -1].data)
+    pred = np.array(predictions[0, -1].data)
 
     return pred
 
