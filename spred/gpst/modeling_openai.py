@@ -20,218 +20,24 @@
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import logging
-import math
 from functools import reduce
 
 import torch
 import torch.nn as nn
 from torch.nn import CrossEntropyLoss
 
-from transformers.file_utils import add_start_docstrings
-from transformers.configuration_openai import OpenAIGPTConfig
-from transformers.modeling_bert import BertLayerNorm as LayerNorm
-from transformers.modeling_utils import PreTrainedModel, prune_conv1d_layer, Conv1D
+from transformers.modeling_openai import Block
+from transformers.modeling_openai import OpenAIGPTPreTrainedModel
 
 DEBUG = False
 
 logger = logging.getLogger(__name__)
 
-HUGGINGFACE_MODELS_URL = "https://s3.amazonaws.com/models.huggingface.co/"
-OPENAI_GPT_PRETRAINED_MODEL_ARCHIVE_MAP = {
-    "openai-gpt": HUGGINGFACE_MODELS_URL + "bert/openai-gpt-pytorch_model.bin"
-}
-OPENAI_GPT_PRETRAINED_CONFIG_ARCHIVE_MAP = {
-    "openai-gpt": HUGGINGFACE_MODELS_URL + "bert/openai-gpt-config.json"
-}
 
-
-def gelu(x):
-    factor = x + 0.044715 * torch.pow(x, 3)
-    return 0.5 * x * (1 + torch.tanh(math.sqrt(2 / math.pi) * factor))
-
-
-def swish(x):
-    return x * torch.sigmoid(x)
-
-
-ACT_FNS = {"relu": nn.ReLU, "swish": swish, "gelu": gelu}
-
-
-class Attention(nn.Module):
-    def __init__(self, nx, n_ctx, config, scale=False):
-        super(Attention, self).__init__()
-        n_state = nx  # in Attention: n_state=768 (nx=n_embd)
-        # [switch nx => n_state from Block to Attention to keep identical to TF implem]
-        assert n_state % config.n_head == 0  # ``n_heads`` | ``n_embd``.
-        self.register_buffer(
-            "bias", torch.tril(torch.ones(n_ctx, n_ctx)).view(1, 1, n_ctx, n_ctx)
-        )
-        self.n_head = config.n_head
-        self.split_size = n_state
-        self.scale = scale
-
-        self.output_attentions = config.output_attentions
-
-        self.c_attn = Conv1D(n_state * 3, nx)
-        self.c_proj = Conv1D(n_state, nx)
-        self.attn_dropout = nn.Dropout(config.attn_pdrop)
-        self.resid_dropout = nn.Dropout(config.resid_pdrop)
-
-    def prune_heads(self, heads):
-        if len(heads) == 0:
-            return
-        mask = torch.ones(self.n_head, self.split_size // self.n_head)
-        for head in heads:
-            mask[head] = 0
-        mask = mask.view(-1).contiguous().eq(1)
-        index = torch.arange(len(mask))[mask].long()
-        index_attn = torch.cat(
-            [index, index + self.split_size, index + (2 * self.split_size)]
-        )
-        # Prune conv1d layers
-        self.c_attn = prune_conv1d_layer(self.c_attn, index_attn, dim=1)
-        self.c_proj = prune_conv1d_layer(self.c_proj, index, dim=0)
-        # Update hyper params
-        self.split_size = (self.split_size // self.n_head) * (self.n_head - len(heads))
-        self.n_head = self.n_head - len(heads)
-
-    def _attn(self, q, k, v, head_mask=None):
-        w = torch.matmul(q, k)
-        if self.scale:
-            w = w / math.sqrt(v.size(-1))
-        # w = w * self.bias + -1e9 * (1 - self.bias)
-        # TF implem method: mask_attn_weights
-        # XD: self.b may be larger than w, so we need to crop it
-        b = self.bias[:, :, : w.size(-2), : w.size(-1)]
-        w = w * b + -1e9 * (1 - b)
-
-        w = nn.Softmax(dim=-1)(torch.autograd.Variable(w))
-        w = self.attn_dropout(w)
-
-        # Mask heads if we want to
-        if head_mask is not None:
-            w = w * head_mask
-
-        outputs = [torch.matmul(w, v)]
-        if self.output_attentions:
-            outputs.append(w)
-        return outputs
-
-    def merge_heads(self, x):
-        x = x.permute(0, 2, 1, 3).contiguous()
-        new_x_shape = x.size()[:-2] + (x.size(-2) * x.size(-1),)
-        return x.view(*new_x_shape)  # in Tensorflow implem: fct merge_states
-
-    def split_heads(self, x, k=False):
-        new_x_shape = x.size()[:-1] + (self.n_head, x.size(-1) // self.n_head)
-        x = x.contiguous()
-        x = x.view(*new_x_shape)  # in Tensorflow implem: fct split_states
-        if k:
-            return x.permute(0, 2, 3, 1)
-        else:
-            return x.permute(0, 2, 1, 3)
-
-    def forward(self, x, head_mask=None):
-        x = self.c_attn(x)
-        query, key, value = x.split(self.split_size, dim=2)
-        query = self.split_heads(query)
-        key = self.split_heads(key, k=True)
-        value = self.split_heads(value)
-
-        attn_outputs = self._attn(query, key, value, head_mask)
-        a = attn_outputs[0]
-
-        a = self.merge_heads(a)
-        a = self.c_proj(a)
-        a = self.resid_dropout(a)
-
-        outputs = [a] + attn_outputs[1:]
-        return outputs  # a, (attentions)
-
-
-class MLP(nn.Module):
-    def __init__(self, n_state, config):  # in MLP: n_state=3072 (4 * n_embd)
-        super(MLP, self).__init__()
-        nx = config.n_embd
-        self.c_fc = Conv1D(n_state, nx)
-        self.c_proj = Conv1D(nx, n_state)
-        self.act = ACT_FNS[config.afn]
-        self.dropout = nn.Dropout(config.resid_pdrop)
-
-    def forward(self, x):
-        h = self.act(self.c_fc(x))
-        h2 = self.c_proj(h)
-        return self.dropout(h2)
-
-
-class Block(nn.Module):
-    def __init__(self, n_ctx, config, scale=False):
-        super(Block, self).__init__()
-        nx = config.n_embd
-        self.attn = Attention(nx, n_ctx, config, scale)
-        self.ln_1 = LayerNorm(nx, eps=config.layer_norm_epsilon)
-        self.mlp = MLP(4 * nx, config)
-        self.ln_2 = LayerNorm(nx, eps=config.layer_norm_epsilon)
-
-    def forward(self, x, head_mask=None):
-        attn_outputs = self.attn(x, head_mask=head_mask)
-        a = attn_outputs[0]
-
-        n = self.ln_1(x + a)
-        m = self.mlp(n)
-        h = self.ln_2(n + m)
-
-        outputs = [h] + attn_outputs[1:]
-        return outputs
-
-
-class OpenAIGPTPreTrainedModel(PreTrainedModel):
-    """ An abstract class to handle weights initialization and
-        a simple interface for dowloading and loading pretrained models.
+class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
     """
-
-    config_class = OpenAIGPTConfig
-    pretrained_model_archive_map = OPENAI_GPT_PRETRAINED_MODEL_ARCHIVE_MAP
-    base_model_prefix = "transformer"
-
-    def __init__(self, *inputs, **kwargs):
-        super(OpenAIGPTPreTrainedModel, self).__init__(*inputs, **kwargs)
-
-    def init_weights(self, module):
-        """ Initialize the weights. """
-        if isinstance(module, (nn.Linear, nn.Embedding, Conv1D)):
-            # Slightly different from the TF version which uses truncated_normal for
-            # initialization cf https://github.com/pytorch/pytorch/pull/5617.
-            module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
-            if isinstance(module, (nn.Linear, Conv1D)) and module.bias is not None:
-                module.bias.data.zero_()
-        elif isinstance(module, LayerNorm):
-            module.bias.data.zero_()
-            module.weight.data.fill_(1.0)
-
-
-OPENAI_GPT_START_DOCSTRING = r"""    OpenAI GPT model was proposed in
-    `Improving Language Understanding by Generative Pre-Training`_
-    by Alec Radford, Karthik Narasimhan, Tim Salimans and Ilya Sutskever.
-    It's a causal (unidirectional) transformer pre-trained using language modeling on
-    a large corpus will long range dependencies, the Toronto Book Corpus.
-
-    This model is a PyTorch `torch.nn.Module`_ sub-class. Use it as a regular PyTorch
-    Module and refer to the PyTorch documentation for all matter related to general
-    usage and behavior.
-
-    .. _`Improving Language Understanding by Generative Pre-Training`:
-        https://openai.com/blog/language-unsupervised/
-
-    .. _`torch.nn.Module`:
-        https://pytorch.org/docs/stable/nn.html#module
-
-    Parameters:
-        config (:class:`~pytorch_transformers.OpenAIGPTConfig`): Model configuration
-            class with all the parameters of the model.
-"""
-
-OPENAI_GPT_INPUTS_DOCSTRING = r"""    Inputs:
+    Parameters
+    ----------
     input_ids : ``torch.LongTensor``.
         Shape: ``(batch_size, sequence_length)``.
         Indices of input sequence tokens in the vocabulary.
@@ -261,17 +67,7 @@ OPENAI_GPT_INPUTS_DOCSTRING = r"""    Inputs:
         Mask values selected in ``[0, 1]``:
             ``1`` indicates the head is **not masked**,
             ``0`` indicates the head is **masked**.
-"""
 
-
-@add_start_docstrings(
-    "The bare OpenAI GPT transformer model outputing raw hidden-states without"
-    + "any specific head on top.",
-    OPENAI_GPT_START_DOCSTRING,
-    OPENAI_GPT_INPUTS_DOCSTRING,
-)
-class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
-    """
     Returns
     -------
     last_hidden_state : ``torch.FloatTensor``
@@ -307,7 +103,7 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         self.pre_encoding = nn.Linear(config.input_dim, config.n_embd, bias=True)
         self.post_decoding = nn.Linear(config.n_embd, config.input_dim, bias=True)
 
-        self.apply(self.init_weights)
+        self.init_weights()
         # self.tie_weights()
 
     def _resize_token_embeddings(self, new_num_tokens):
@@ -400,12 +196,6 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         return outputs  # last hidden state, (all hidden states), (all attentions)
 
 
-@add_start_docstrings(
-    """OpenAI GPT Model transformer with a language modeling head on top
-(linear layer with weights tied to the input embeddings). """,
-    OPENAI_GPT_START_DOCSTRING,
-    OPENAI_GPT_INPUTS_DOCSTRING,
-)
 class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
     """
     Parameters
@@ -458,7 +248,7 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
             config.input_dim, 3 * self.depth_range, bias=False
         )
 
-        self.apply(self.init_weights)
+        self.init_weights()
 
     def forward(
         self,
