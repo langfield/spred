@@ -49,18 +49,6 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         Indices of positions of each input sequence tokens in the position embeddings.
         Selected in the range ``[0, config.max_position_embeddings - 1]``.
         Shape: ``(batch_size, sequence_length)``.
-    token_type_ids : ``torch.LongTensor``, optional.
-        A parallel sequence of tokens (can be used to indicate various portions of the
-        inputs). The embeddings from these tokens will be summed with the respective
-        token embeddings. Indices are selected in the vocabulary (unlike BERT which
-        has a specific vocabulary for segment indices).
-        Shape: ``(batch_size, sequence_length)``.
-    attention_mask : ``torch.FloatTensor``, optional.
-        Mask to avoid performing attention on padding token indices.
-        Shape: ``(batch_size, sequence_length)``.
-        Mask values selected in ``[0, 1]``:
-            ``1`` for tokens that are NOT MASKED,
-            ``0`` for MASKED tokens.
     head_mask : ``torch.FloatTensor``, optional.
         Mask to nullify selected heads of the self-attention modules.
         Shape: ``(num_heads,)`` or ``(num_layers, num_heads)``.
@@ -313,27 +301,3 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
             outputs = (loss,) + outputs
 
         return outputs  # (loss), logits, (all hidden states), (all attentions)
-
-    def regression_loss(self, hidden, labels):
-        logits = hidden
-        diff = logits - labels
-        loss = torch.mul(diff, diff)
-
-        # Make a scalar.
-        loss = torch.mean(loss)
-
-        return loss
-
-    def smape(self, predicted, true):
-        epsilon = 0.1
-        device = true.device
-        ones = torch.ones(true.shape).to(device)
-        summ = torch.max(
-            torch.abs(true) + torch.abs(predicted) + epsilon, 0.5 + epsilon * ones
-        )
-        smape = torch.abs(predicted - true) / summ * 2.0
-        smape = torch.mul(smape, smape)
-        smape_shape = smape.shape
-        smape = torch.sum(smape) / reduce((lambda x, y: x * y), smape_shape)
-
-        return smape
