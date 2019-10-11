@@ -47,11 +47,12 @@ DEBUG = False
 
 logger = logging.getLogger(__name__)
 
+HUGGINGFACE_MODELS_URL = "https://s3.amazonaws.com/models.huggingface.co/"
 OPENAI_GPT_PRETRAINED_MODEL_ARCHIVE_MAP = {
-    "openai-gpt": "https://s3.amazonaws.com/models.huggingface.co/bert/openai-gpt-pytorch_model.bin"
+    "openai-gpt": HUGGINGFACE_MODELS_URL + "bert/openai-gpt-pytorch_model.bin"
 }
 OPENAI_GPT_PRETRAINED_CONFIG_ARCHIVE_MAP = {
-    "openai-gpt": "https://s3.amazonaws.com/models.huggingface.co/bert/openai-gpt-config.json"
+    "openai-gpt": HUGGINGFACE_MODELS_URL + "bert/openai-gpt-config.json"
 }
 
 
@@ -75,8 +76,10 @@ class OpenAIGPTConfig(PretrainedConfig):
     Configuration class to store the configuration of a `OpenAIGPTModel`.
 
     Args:
-        vocab_size_or_config_json_file: Vocabulary size of `inputs_ids` in `OpenAIGPTModel` or a configuration json file.
-        n_special: The number of special tokens to learn during fine-tuning ('[SEP]', '[CLF]', ...)
+        vocab_size_or_config_json_file: Vocabulary size of `inputs_ids` in 
+        `OpenAIGPTModel` or a configuration json file.
+        n_special: The number of special tokens to learn during fine-tuning 
+        ('[SEP]', '[CLF]', ...)
         n_positions: Number of positional embeddings.
         n_ctx: Size of the causal mask (usually same as n_positions).
         n_embd: Dimensionality of the embeddings and hidden states.
@@ -532,37 +535,38 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
     OPENAI_GPT_INPUTS_DOCSTRING,
 )
 class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
-    r"""
-        **labels**: (`optional`) ``torch.LongTensor`` of shape ``(batch_size, sequence_length)``:
-            Labels for language modeling.
-            Note that the labels **are shifted** inside the model, i.e. you can set ``labels = input_ids``
-            Indices are selected in ``[-1, 0, ..., config.orderbook_depth]``
-            All labels set to ``-1`` are ignored (masked), the loss is only
-            computed for labels in ``[0, ..., config.orderbook_depth]``
+    """
+    Parameters
+    ----------
+    labels : ``torch.LongTensor``, optional.
+        Shape: ``(batch_size, sequence_length)``.
+        Labels for language modeling.
+        Note that the labels **are shifted** inside the model, i.e. you can set
+        ``labels = input_ids``.
+        Indices are selected in ``[-1, 0, ..., config.orderbook_depth - 1]``
+        All labels set to ``-1`` are ignored (masked), the loss is only
+        computed for labels in ``[0, ..., config.orderbook_depth - 1]``.
 
-    Outputs: `Tuple` comprising various elements depending on the configuration (config) and inputs:
-        **loss**: (`optional`, returned when ``labels`` is provided) ``torch.FloatTensor`` of shape ``(1,)``:
-            Language modeling loss.
-        **prediction_scores**: ``torch.FloatTensor`` of shape ``(batch_size, sequence_length, config.orderbook_depth)``
-            Prediction scores of the language modeling head (scores for each vocabulary token before SoftMax).
-        **hidden_states**: (`optional`, returned when ``config.output_hidden_states=True``)
-            list of ``torch.FloatTensor`` (one for the output of each layer + the output of the embeddings)
-            of shape ``(batch_size, sequence_length, hidden_size)``:
-            Hidden-states of the model at the output of each layer plus the initial embedding outputs.
-        **attentions**: (`optional`, returned when ``config.output_attentions=True``)
-            ask_decrease_labels = inputs_raw[...,0]
-            list of ``torch.FloatTensor`` (one for each layer) of shape ``(batch_size, num_heads, sequence_length, sequence_length)``:
-            Attentions weights after the attention softmax, used to compute the weighted average in the self-attention heads.
-
-    Examples::
-
-        >>> config = OpenAIGPTConfig.from_pretrained('openai-gpt')
-        >>> tokenizer = OpenAIGPTTokenizer.from_pretrained('openai-gpt')
-        >>> model = OpenAIGPTLMHeadModel(config)
-        >>> input_ids = torch.tensor(tokenizer.encode("Hello, my dog is cute")).unsqueeze(0)  # Batch size 1
-        >>> outputs = model(input_ids, labels=input_ids)
-        >>> loss, logits = outputs[:2]
-
+    Returns
+    -------
+    loss : ``torch.FloatTensor``, optional.
+        Language modeling loss. Only returned when ``labels`` is provided.
+        Shape: ``(1,)``.
+    prediction_scores : ``torch.FloatTensor``.
+        Prediction scores of the language modeling head (scores for each vocabulary
+        token before SoftMax).
+        Shape: ``(batch_size, sequence_length, config.orderbook_depth)``.
+    hidden_states : ``List[torch.FloatTensor]``, optional.
+        Hidden-states of the model at the output of each layer plus the initial
+        embedding outputs. Only returned when ``config.output_hidden_states=True``.
+        A list of ``torch.FloatTensor`` (one for the output of each layer + the output
+        of the embeddings).
+        Shape: ``(n_layers + 1, batch_size, sequence_length, hidden_size)``.
+    attentions : ``List[torch.FloatTensor``, optional.
+        Attentions weights after the attention softmax, used to compute the weighted
+        average in the self-attention heads.
+        Only returned when ``config.output_attentions=True``.
+        Shape: ``(n_layers, batch_size, num_heads, sequence_length, sequence_length)``.
     """
 
     def __init__(self, config):
