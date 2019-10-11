@@ -16,7 +16,7 @@ import pandas as pd
 from arguments import df_args
 
 
-def gen_df(hours: int, trunc: int, save_path: str) -> None:
+def gen_df(hours: int, trunc: int, save_path: str, source_dir: str) -> None:
     """
     Reads in a range of hour orderbook json files and computes a 3-sigma confidence
     interval for the random variable Y representing the max of RVs Y_1 and Y_2, which
@@ -30,16 +30,17 @@ def gen_df(hours: int, trunc: int, save_path: str) -> None:
         The number of nonzero levels to include on each side.
     """
 
-    # Validate ``save_path``.
+    # Validate paths.
     dirname = os.path.dirname(save_path)
     assert os.path.isdir(dirname)
+    assert os.path.isdir(source_dir)
 
     print("Constructing training dataset from %d hours of tick-level data." % hours)
     print("Saving to file: %s" % save_path)
     start = time.time()
     pool = mp.Pool()
     hrs = range(hours)
-    get_book_vecs = functools.partial(process_books, trunc=trunc)
+    get_book_vecs = functools.partial(process_books, trunc=trunc, source_dir=source_dir)
 
     vecs: List[np.array] = []
 
@@ -54,7 +55,7 @@ def gen_df(hours: int, trunc: int, save_path: str) -> None:
     print("Finished in %fs" % (time.time() - start))
 
 
-def process_books(hour: int, trunc: int) -> List[np.ndarray]:
+def process_books(hour: int, trunc: int, source_dir: str) -> List[np.ndarray]:
     """
     Reads the specified orderbook json file and outputs statistics on the
     bid and ask distribution. Plots the ask price difference distribution.
@@ -75,7 +76,9 @@ def process_books(hour: int, trunc: int) -> List[np.ndarray]:
         Shape: ``(<hour_len>, 6)``.
     """
 
-    with open("results/out_%d.json" % hour) as json_file:
+    assert os.path.isdir(source_dir)
+    path = os.path.join(source_dir, "out_%d.json" % hour)
+    with open(path) as json_file:
         raw_books = json.load(json_file)
 
     # Convert the keys (str) of ``raw_books`` to integers.
@@ -153,7 +156,12 @@ def main() -> None:
     parser = df_args(parser)
     args = parser.parse_args()
 
-    gen_df(hours=args.hours, trunc=args.trunc, save_path=args.save_path)
+    gen_df(
+        hours=args.hours,
+        trunc=args.trunc,
+        save_path=args.save_path,
+        source_dir=args.source_dir,
+    )
 
 
 if __name__ == "__main__":

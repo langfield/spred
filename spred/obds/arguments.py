@@ -59,6 +59,7 @@ def get_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument("--num_gap_freq_levels", type=int, required=True)
     parser.add_argument("--num_gap_freq_sizes", type=int, required=True)
     parser.add_argument("--fig_dir", type=str, required=True)
+    parser.add_argument("--source_dir", type=str, required=True)
 
     # Compute k-value.
     parser.add_argument("--compute_k", type=strbool, required=True)
@@ -89,5 +90,6 @@ def df_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument("--hours", type=int, required=True)
     parser.add_argument("--trunc", type=int, required=True)
     parser.add_argument("--save_path", type=str, required=True)
+    parser.add_argument("--source_dir", type=str, required=True)
 
     return parser

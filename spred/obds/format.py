@@ -7,6 +7,7 @@ import json
 import argparse
 import collections
 import multiprocessing as mp
+from functools import partial
 from typing import List, Set, Dict
 
 import numpy as np
@@ -15,7 +16,7 @@ from tqdm import tqdm
 import matplotlib
 
 matplotlib.use("Agg")
-# pylint: disable=wrong-import-position, ungrouped-imports
+# pylint: disable=wrong-import-position, ungrouped-imports, bad-continuation
 import seaborn as sns
 import matplotlib.pyplot as plt
 from arguments import get_args
@@ -256,7 +257,7 @@ def generate_plots(
     plt.savefig(os.path.join(fig_dir, "best_bid_deltas.svg"))
 
 
-def compute_k(hours: int, sigma: int) -> None:
+def compute_k(hours: int, sigma: int, source_dir: str) -> None:
     """
     Reads in a range of hour orderbook json files and computes a 3-sigma confidence
     interval for the random variable Y representing the max of RVs Y_1 and Y_2, which
@@ -268,6 +269,8 @@ def compute_k(hours: int, sigma: int) -> None:
         Function reads in all hour orderbook files from 0 to ``hours`` via filename.
     sigma : ``int``.
         How many standard deviations of confidence to use in computing ``k``.
+    source_dir : ``str``.
+        Directory to grab hourly orderook json files from.
     """
 
     print("Computing confidence interval over %d hours of tick-level data." % hours)
@@ -277,7 +280,9 @@ def compute_k(hours: int, sigma: int) -> None:
 
     agg_deltas: Dict[str, List[float]] = {"bids": [], "asks": []}
 
-    for i, best_deltas in enumerate(pool.imap_unordered(compute_deltas, hrs), 1):
+    partial_deltas = partial(compute_deltas, source_dir=source_dir)
+
+    for i, best_deltas in enumerate(pool.imap_unordered(partial_deltas, hrs), 1):
         sys.stderr.write("\rdone {0:%}".format(i / hours))
         agg_deltas["bids"].extend(best_deltas["bids"])
         agg_deltas["asks"].extend(best_deltas["asks"])
@@ -296,7 +301,7 @@ def compute_k(hours: int, sigma: int) -> None:
     print("Finished in %fs" % (time.time() - start))
 
 
-def compute_deltas(hour: int) -> Dict[str, List[float]]:
+def compute_deltas(hour: int, source_dir: str) -> Dict[str, List[float]]:
     """
     Reads the specified orderbook json file and outputs statistics on the
     bid and ask distribution. Plots the ask price difference distribution.
@@ -313,9 +318,12 @@ def compute_deltas(hour: int) -> Dict[str, List[float]]:
     best_deltas : ``Dict[str, List[float]]``.
         Maps sides of orderbook to a list of floats representing the differences
         between best prices from time t - 1 to time t.
+    source_dir : ``str``.
+        Directory to grab hourly orderook json files from.
     """
 
-    with open("results/out_%d.json" % hour) as json_file:
+    assert os.path.isdir(source_dir)
+    with open(os.path.join(source_dir, "out_%d.json" % hour)) as json_file:
         raw_books = json.load(json_file)
 
     # Convert the keys (str) of ``raw_books`` to integers.
@@ -347,6 +355,7 @@ def print_stats(
     num_gap_freq_levels: int,
     num_gap_freq_sizes: int,
     fig_dir: str,
+    source_dir: str,
 ) -> None:
     """
     Reads the specified orderbook json file and outputs statistics on the
@@ -367,10 +376,15 @@ def print_stats(
         Number of levels starting from 0 for which we print gap frequency stats.
     num_gap_freq_sizes : ``int``.
         Number of gap sizes for which we print frequency info for each level.
+    fig_dir : ``str``.
+        Directory to save figures in.
+    source_dir : ``str``.
+        Directory to grab hourly orderook json files from.
     """
 
-    assert os.path.isdir("results/")
-    with open("results/out_%d.json" % hour) as json_file:
+    assert os.path.isdir(source_dir)
+    path = os.path.join(source_dir, "out_%d.json" % hour)
+    with open(path) as json_file:
         raw_books = json.load(json_file)
     if not os.path.isdir(fig_dir):
         os.mkdir(fig_dir)
@@ -382,7 +396,7 @@ def print_stats(
         books.update({i: book})
         assert i == int(book_index_str)
 
-    print("Printing orderbook statistics for file ``results/out_%d.json``." % hour)
+    print("Printing orderbook statistics for file ``%s``." % path)
 
     book_lens: Dict[str, List[int]] = {"bids": [], "asks": []}
     gaps: Dict[str, List[float]] = {"bids": [], "asks": []}
@@ -438,9 +452,10 @@ def main() -> None:
             num_gap_freq_levels=args.num_gap_freq_levels,
             num_gap_freq_sizes=args.num_gap_freq_sizes,
             fig_dir=args.fig_dir,
+            source_dir=args.source_dir,
         )
     if args.compute_k:
-        compute_k(hours=args.hours, sigma=args.sigma)
+        compute_k(hours=args.hours, sigma=args.sigma, source_dir=args.source_dir)
 
 
 if __name__ == "__main__":
