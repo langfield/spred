@@ -1,15 +1,21 @@
 """ Kraken orderbook scraper. """
+import os
 import time
 import json
+import argparse
 from urllib.request import urlopen
 
 
-def main() -> None:
+def main(args: argparse.Namespace) -> None:
     """ Continuously scrape the specified orderbook and save to a json file. """
 
     # Set the scrape interval delay, and the number of timesteps per file.
     delay = 1.0
     sec_per_file = 3600
+
+    # Make sure the directory exists. Create it if not.
+    if not os.path.isdir(args.dir):
+        os.mkdir(args.dir)
 
     url_str = "https://api.cryptowat.ch/markets/kraken/ethusd/orderbook"
     index = 0
@@ -36,7 +42,8 @@ def main() -> None:
 
         # Write to file, and reset ``out`` dict.
         if index % sec_per_file == 0:
-            with open("results/out_{}.json".format(file_count), "w") as file_path:
+            path = os.path.join(args.dir, "out_%d.json" % file_count)
+            with open(path, "w") as file_path:
                 json.dump(out, file_path)
                 print("\n  Dumped file %d." % file_count)
             file_count += 1
@@ -48,5 +55,14 @@ def main() -> None:
     print(out)
 
 
+def get_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    """ Parse the save directory for scraped orderbooks. """
+    parser.add_argument("--dir", type=str, required=True)
+    return parser
+
+
 if __name__ == "__main__":
-    main()
+    PARSER = argparse.ArgumentParser()
+    PARSER = get_args(PARSER)
+    ARGS = PARSER.parse_args()
+    main(ARGS)
