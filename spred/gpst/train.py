@@ -34,6 +34,8 @@ logging.basicConfig(
     level=logging.INFO,
 )
 # pylint: disable=invalid-name, no-member, bad-continuation
+if not os.path.isdir("logs/"):
+    os.mkdir("logs/")
 datestring = str(datetime.datetime.now())
 datestring = datestring.replace(" ", "_")
 logger = logging.getLogger(__name__)
