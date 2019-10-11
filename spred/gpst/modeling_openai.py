@@ -1,37 +1,21 @@
 # coding=utf-8
-# Copyright 2018 The OpenAI Team Authors and HuggingFace Inc. team.
-# Copyright (c) 2018, NVIDIA CORPORATION.  All rights reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
 """PyTorch OpenAI GPT model."""
-# pylint: disable=invalid-name, bad-continuation, missing-function-docstring
-# pylint: disable=no-member
+# pylint: disable=bad-continuation, missing-function-docstring, no-member
+# pylint: disable=too-many-instance-attributes, too-many-locals, too-many-arguments
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
 import logging
-from functools import reduce
+from typing import Tuple, Any
 
 import torch
 import torch.nn as nn
 from torch.nn import CrossEntropyLoss
 
-from transformers.modeling_openai import Block
-from transformers.modeling_openai import OpenAIGPTPreTrainedModel
+from transformers.configuration_openai import OpenAIGPTConfig
+from transformers.modeling_openai import OpenAIGPTPreTrainedModel, Block
 
-DEBUG = False
-
-logger = logging.getLogger(__name__)
+LOGGER = logging.getLogger(__name__)
 
 
 class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
@@ -75,7 +59,7 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         Shape: ``(batch_size, num_heads, sequence_length, sequence_length)``.
     """
 
-    def __init__(self, config):
+    def __init__(self, config: OpenAIGPTConfig) -> None:
         super(OpenAIGPTModel, self).__init__(config)
         self.output_attentions = config.output_attentions
         self.output_hidden_states = config.output_hidden_states
@@ -83,7 +67,7 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         self.tokens_embed = nn.Embedding(config.input_dim, config.n_embd)
         self.positions_embed = nn.Embedding(config.n_positions, config.n_embd)
         self.drop = nn.Dropout(config.embd_pdrop)
-        self.h = nn.ModuleList(
+        self.layers = nn.ModuleList(
             [Block(config.n_ctx, config, scale=True) for _ in range(config.n_layer)]
         )
 
@@ -105,7 +89,7 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
             heads_to_prune: dict of {layer_num: list of heads to prune in this layer}
         """
         for layer, heads in heads_to_prune.items():
-            self.h[layer].attn.prune_heads(heads)
+            self.layers[layer].attn.prune_heads(heads)
 
     def tie_weights(self):
         """
@@ -114,7 +98,13 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         """
         self._tie_or_clone_weights(self.pre_encoding, self.post_decoding)
 
-    def forward(self, input_ids, position_ids=None, inputs_raw=None, head_mask=None):
+    def forward(
+        self,
+        input_ids: torch.LongTensor,
+        position_ids: torch.LongTensor = None,
+        inputs_raw: torch.FloatTensor = None,
+        head_mask: torch.LongTensor = None,
+    ) -> Tuple[Any, ...]:
         if position_ids is None:
             position_ids = torch.arange(
                 input_ids.size(-1), dtype=torch.long, device=input_ids.device
@@ -158,7 +148,7 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
 
         all_attentions = ()
         all_hidden_states = ()
-        for i, block in enumerate(self.h):
+        for i, block in enumerate(self.layers):
             if self.output_hidden_states:
                 all_hidden_states = all_hidden_states + (
                     hidden_states.view(*output_shape),
@@ -219,7 +209,7 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         Shape: ``(n_layers, batch_size, num_heads, sequence_length, sequence_length)``.
     """
 
-    def __init__(self, config):
+    def __init__(self, config: OpenAIGPTConfig) -> None:
         super(OpenAIGPTLMHeadModel, self).__init__(config)
         self.transformer = OpenAIGPTModel(config)
         self.depth_range = 2 * config.orderbook_depth + 1
@@ -291,8 +281,8 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
                 shift_logits = logits_matrix[..., :-1, :, :].contiguous()
                 shift_labels = labels[..., 1:, :].contiguous()
             else:
-                # TODO: fix error message.
-                raise ValueError("Mode has invalid value")
+                print("Value of config param ``mode``: %s" % self.mode)
+                raise ValueError("Config param ``mode`` is invalid.")
             # Flatten the tokens.
             loss_fct = CrossEntropyLoss(ignore_index=-1)
             loss_input = shift_logits.view(-1, shift_logits.size(-1))
