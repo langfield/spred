@@ -3,7 +3,7 @@ import os
 import argparse
 from typing import List, Set
 
-# pylint: disable=wrong-import-position, ungrouped-imports
+# pylint: disable=wrong-import-position, ungrouped-imports, bad-continuation
 import matplotlib
 matplotlib.use("Agg")
 import numpy as np

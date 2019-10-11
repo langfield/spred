@@ -4,24 +4,25 @@ import copy
 import random
 import argparse
 
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 import numpy as np
 import pandas as pd
 
 import torch
 from torch import nn
+from transformers.configuration_openai import OpenAIGPTConfig
 
 from plot.plot import graph
 from plot.termplt import plot_to_terminal
 from arguments import get_args
-from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
+from modeling_openai import OpenAIGPTLMHeadModel
 from dataset import aggregate, stationarize, normalize, seq_normalize
 
 
 DEBUG = False
 TERM_PRINT = False
-# pylint: disable=no-member
+# pylint: disable=no-member, bad-continuation
 
 
 def get_models(args: argparse.Namespace) -> nn.ModuleDict:

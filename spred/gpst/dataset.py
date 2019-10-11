@@ -12,6 +12,8 @@ from torch.utils.data import Dataset
 
 DEBUG = True
 
+# pylint: disable=bad-continuation
+
 
 def stationarize(input_df: pd.DataFrame) -> pd.DataFrame:
     """
