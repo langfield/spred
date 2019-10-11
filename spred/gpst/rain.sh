@@ -1,13 +1,13 @@
 #!/bin/bash
 
-DATASET="../bookdfs/sampleset.csv"
+DATASET="/root/books/sampleset.csv"
 GPST_MODEL="config.json"
 MODEL_NAME="orderbook"
 OUTPUT_DIR="ckpts"
 
 # Hyperparameters.
 SEED="42"
-TRAIN_BATCH_SIZE="320"
+TRAIN_BATCH_SIZE="32"
 NUM_TRAIN_EPOCHS="5000"
 SAVE_FREQ="50"
 MAX_GRAD_NORM="3"
@@ -23,7 +23,7 @@ NORMALIZE=""
 SEQ_NORM=""
 
 if [ "$(whoami)" != "mckade" ]; then
-    srun -J gpst -w vibranium --mem 10000 -c 4 python3 train.py --dataset ${DATASET} --gpst_model ${GPST_MODEL} --output_dir ${OUTPUT_DIR} --model_name ${MODEL_NAME}  --seed ${SEED} --train_batch_size ${TRAIN_BATCH_SIZE} --num_train_epochs ${NUM_TRAIN_EPOCHS} --save_freq ${SAVE_FREQ} --max_grad_norm ${MAX_GRAD_NORM} --learning_rate ${LEARNING_RATE} --warmup_proportion ${WARMUP_PROPORTION} --weight_decay ${WEIGHT_DECAY} --adam_epsilon ${ADAM_EPSILON} --aggregation_size ${AGGREGATION_SIZE} ${STATIONARIZE} ${NORMALIZE} ${SEQ_NORM}
+    python3 train.py --dataset ${DATASET} --gpst_model ${GPST_MODEL} --output_dir ${OUTPUT_DIR} --model_name ${MODEL_NAME}  --seed ${SEED} --train_batch_size ${TRAIN_BATCH_SIZE} --num_train_epochs ${NUM_TRAIN_EPOCHS} --save_freq ${SAVE_FREQ} --max_grad_norm ${MAX_GRAD_NORM} --learning_rate ${LEARNING_RATE} --warmup_proportion ${WARMUP_PROPORTION} --weight_decay ${WEIGHT_DECAY} --adam_epsilon ${ADAM_EPSILON} --aggregation_size ${AGGREGATION_SIZE} ${STATIONARIZE} ${NORMALIZE} ${SEQ_NORM}
 else
     NORMALIZE=""
     DATASET="../../../ETHUSDT_drop.csv"
