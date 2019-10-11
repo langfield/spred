@@ -1,4 +1,4 @@
-""" Evaluate a trained GPST model and graph its predictions. """
+""" Evaluates a trained GPST model and graphs its predictions. """
 import os
 import copy
 import random

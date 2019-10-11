@@ -1,4 +1,4 @@
-""" Script for optimizing GPST model hyperparameters via Optuna. """
+""" Optimizes GPST model hyperparameters via Optuna. """
 
 import os
 import time

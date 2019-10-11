@@ -1,4 +1,4 @@
-""" Preprocess a raw time-series dataset from a ``.csv`` file. """
+""" Preprocesses a raw time-series dataset from a ``.csv`` file. """
 import os
 import argparse
 from typing import List, Set
