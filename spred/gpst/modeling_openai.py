@@ -96,7 +96,8 @@ class OpenAIGPTConfig(PretrainedConfig):
         layer_norm_epsilon: epsilon to use in the layer norm layers
         initializer_range: The sttdev of the truncated_normal_initializer for
             initializing all weight matrices.
-        predict_special_tokens: should we predict special tokens (when the model has a LM head)
+        predict_special_tokens: should we predict special tokens (when the model has a
+            LM head).
     """
 
     pretrained_config_archive_map = OPENAI_GPT_PRETRAINED_CONFIG_ARCHIVE_MAP
@@ -222,13 +223,10 @@ class Attention(nn.Module):
         w = torch.matmul(q, k)
         if self.scale:
             w = w / math.sqrt(v.size(-1))
-        # w = w * self.bias + -1e9 * (1 - self.bias)  # TF implem method: mask_attn_weights
+        # w = w * self.bias + -1e9 * (1 - self.bias)  
+        # TF implem method: mask_attn_weights
         # XD: self.b may be larger than w, so we need to crop it
         b = self.bias[:, :, : w.size(-2), : w.size(-1)]
-        # ===MOD===
-        if torch.__version__[:5] == "0.3.1":
-            w = torch.cuda.FloatTensor(w.data)
-        # ===MOD===
         w = w * b + -1e9 * (1 - b)
 
         w = nn.Softmax(dim=-1)(torch.autograd.Variable(w))
@@ -324,11 +322,10 @@ class OpenAIGPTPreTrainedModel(PreTrainedModel):
         super(OpenAIGPTPreTrainedModel, self).__init__(*inputs, **kwargs)
 
     def init_weights(self, module):
-        """ Initialize the weights.
-        """
+        """ Initialize the weights. """
         if isinstance(module, (nn.Linear, nn.Embedding, Conv1D)):
-            # Slightly different from the TF version which uses truncated_normal for initialization
-            # cf https://github.com/pytorch/pytorch/pull/5617
+            # Slightly different from the TF version which uses truncated_normal for 
+            # initialization cf https://github.com/pytorch/pytorch/pull/5617.
             module.weight.data.normal_(mean=0.0, std=self.config.initializer_range)
             if isinstance(module, (nn.Linear, Conv1D)) and module.bias is not None:
                 module.bias.data.zero_()
@@ -340,11 +337,12 @@ class OpenAIGPTPreTrainedModel(PreTrainedModel):
 OPENAI_GPT_START_DOCSTRING = r"""    OpenAI GPT model was proposed in
     `Improving Language Understanding by Generative Pre-Training`_
     by Alec Radford, Karthik Narasimhan, Tim Salimans and Ilya Sutskever.
-    It's a causal (unidirectional) transformer pre-trained using language modeling on a large
-    corpus will long range dependencies, the Toronto Book Corpus.
+    It's a causal (unidirectional) transformer pre-trained using language modeling on 
+    a large corpus will long range dependencies, the Toronto Book Corpus.
 
-    This model is a PyTorch `torch.nn.Module`_ sub-class. Use it as a regular PyTorch Module and
-    refer to the PyTorch documentation for all matter related to general usage and behavior.
+    This model is a PyTorch `torch.nn.Module`_ sub-class. Use it as a regular PyTorch
+    Module and refer to the PyTorch documentation for all matter related to general 
+    usage and behavior.
 
     .. _`Improving Language Understanding by Generative Pre-Training`:
         https://openai.com/blog/language-unsupervised/
@@ -353,35 +351,46 @@ OPENAI_GPT_START_DOCSTRING = r"""    OpenAI GPT model was proposed in
         https://pytorch.org/docs/stable/nn.html#module
 
     Parameters:
-        config (:class:`~pytorch_transformers.OpenAIGPTConfig`): Model configuration class with all the parameters of the model.
+        config (:class:`~pytorch_transformers.OpenAIGPTConfig`): Model configuration 
+            class with all the parameters of the model.
 """
 
 OPENAI_GPT_INPUTS_DOCSTRING = r"""    Inputs:
-        **input_ids**: ``torch.LongTensor`` of shape ``(batch_size, sequence_length)``:
-            Indices of input sequence tokens in the vocabulary.
-            Indices can be obtained using :class:`pytorch_transformers.BPT2Tokenizer`.
-            See :func:`pytorch_transformers.PreTrainedTokenizer.encode` and
-            :func:`pytorch_transformers.PreTrainedTokenizer.convert_tokens_to_ids` for details.
-        **position_ids**: (`optional`) ``torch.LongTensor`` of shape ``(batch_size, sequence_length)``:
-            Indices of positions of each input sequence tokens in the position embeddings.
-            Selected in the range ``[0, config.max_position_embeddings - 1[``.
-        **token_type_ids**: (`optional`) ``torch.LongTensor`` of shape ``(batch_size, sequence_length)``:
-            A parallel sequence of tokens (can be used to indicate various portions of the inputs).
-            The embeddings from these tokens will be summed with the respective token embeddings.
-            Indices are selected in the vocabulary (unlike BERT which has a specific vocabulary for segment indices).
-        **attention_mask**: (`optional`) ``torch.FloatTensor`` of shape ``(batch_size, sequence_length)``:
-            Mask to avoid performing attention on padding token indices.
-            Mask values selected in ``[0, 1]``:
-            ``1`` for tokens that are NOT MASKED, ``0`` for MASKED tokens.
-        **head_mask**: (`optional`) ``torch.FloatTensor`` of shape ``(num_heads,)`` or ``(num_layers, num_heads)``:
-            Mask to nullify selected heads of the self-attention modules.
-            Mask values selected in ``[0, 1]``:
-            ``1`` indicates the head is **not masked**, ``0`` indicates the head is **masked**.
+    input_ids : ``torch.LongTensor``.
+        Shape: ``(batch_size, sequence_length)``.
+        Indices of input sequence tokens in the vocabulary.
+        Indices can be obtained using :class:`pytorch_transformers.BPT2Tokenizer`.
+        See :func:`pytorch_transformers.PreTrainedTokenizer.encode` and
+        :func:`pytorch_transformers.PreTrainedTokenizer.convert_tokens_to_ids` for 
+        details.
+    position_ids : ``torch.LongTensor``, optional.
+        Indices of positions of each input sequence tokens in the position embeddings.
+        Selected in the range ``[0, config.max_position_embeddings - 1]``.
+        Shape: ``(batch_size, sequence_length)``.
+    token_type_ids : ``torch.LongTensor``, optional.
+        A parallel sequence of tokens (can be used to indicate various portions of the 
+        inputs). The embeddings from these tokens will be summed with the respective 
+        token embeddings. Indices are selected in the vocabulary (unlike BERT which 
+        has a specific vocabulary for segment indices).
+        Shape: ``(batch_size, sequence_length)``.
+    attention_mask : ``torch.FloatTensor``, optional.
+        Mask to avoid performing attention on padding token indices.
+        Shape: ``(batch_size, sequence_length)``.
+        Mask values selected in ``[0, 1]``:
+            ``1`` for tokens that are NOT MASKED, 
+            ``0`` for MASKED tokens.
+    head_mask : ``torch.FloatTensor``, optional.
+        Mask to nullify selected heads of the self-attention modules.
+        Shape: ``(num_heads,)`` or ``(num_layers, num_heads)``.
+        Mask values selected in ``[0, 1]``:
+            ``1`` indicates the head is **not masked**, 
+            ``0`` indicates the head is **masked**.
 """
 
 
 @add_start_docstrings(
-    "The bare OpenAI GPT transformer model outputing raw hidden-states without any specific head on top.",
+    "The bare OpenAI GPT transformer model outputing raw hidden-states without 
+    any specific head on top.",
     OPENAI_GPT_START_DOCSTRING,
     OPENAI_GPT_INPUTS_DOCSTRING,
 )
@@ -397,16 +406,6 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         **attentions**: (`optional`, returned when ``config.output_attentions=True``)
             list of ``torch.FloatTensor`` (one for each layer) of shape ``(batch_size, num_heads, sequence_length, sequence_length)``:
             Attentions weights after the attention softmax, used to compute the weighted average in the self-attention heads.
-
-    Examples::
-
-        >>> config = OpenAIGPTConfig.from_pretrained('openai-gpt')
-        >>> tokenizer = OpenAIGPTTokenizer.from_pretrained('openai-gpt')
-        >>> model = OpenAIGPTModel(config)
-        >>> input_ids = torch.tensor(tokenizer.encode("Hello, my dog is cute")).unsqueeze(0)  # Batch size 1
-        >>> outputs = model(input_ids)
-        >>> last_hidden_states = outputs[0]  # The last hidden-state is the first element of the output tuple
-
     """
 
     def __init__(self, config):
