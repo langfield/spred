@@ -1,8 +1,5 @@
 # coding=utf-8
-""" OpenAI GPT model fine-tuning script.
-    Adapted from https://github.com/huggingface/pytorch-openai-transformer-lm/blob/master/train.py
-    Itself adapted from https://github.com/openai/finetune-transformer-lm/blob/master/train.py
-"""
+""" OpenAI GPT model fine-tuning script. """
 import os
 import sys
 import time
