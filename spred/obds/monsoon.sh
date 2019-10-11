@@ -1,7 +1,8 @@
 #!/bin/bash
 
-HOURS="10"
+SOURCE_DIR="/root/books/"
+HOURS="2"
 TRUNC="50"
-SAVE_PATH="../bookdfs/sampleset.csv"
+SAVE_PATH="/root/books/sampleset.csv"
 
-python3 trainset.py --hours ${HOURS} --trunc ${TRUNC} --save_path ${SAVE_PATH}
+python3 trainset.py --hours ${HOURS} --trunc ${TRUNC} --save_path ${SAVE_PATH} --source_dir ${SOURCE_DIR}
