@@ -19,12 +19,13 @@ import numpy as np
 from tqdm import tqdm, trange
 import torch
 from torch.utils.data import DataLoader, RandomSampler
+from transformers import AdamW, WarmupLinearSchedule
+from transformers.configuration_openai import OpenAIGPTConfig
 
 # External module imports.
 from arguments import get_args
 from dataset import GPSTDataset
-from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
-from pytorch_transformers import AdamW, WarmupLinearSchedule
+from modeling_openai import OpenAIGPTLMHeadModel
 
 DEBUG = False
 logging.basicConfig(
@@ -32,7 +33,7 @@ logging.basicConfig(
     datefmt="%m/%d/%Y %H:%M:%S",
     level=logging.INFO,
 )
-# pylint: disable=invalid-name, no-member
+# pylint: disable=invalid-name, no-member, bad-continuation
 datestring = str(datetime.datetime.now())
 datestring = datestring.replace(" ", "_")
 logger = logging.getLogger(__name__)

@@ -80,11 +80,11 @@ def objective(trial: optuna.Trial) -> float:
     config["input_dim"] = 300
     config["orderbook_depth"] = 6
     config["modes"] = [
-        "bid_classification", 
-        "bid_increase", 
+        "bid_classification",
+        "bid_increase",
         "bid_decrease",
-        "ask_classification", 
-        "ask_increase", 
+        "ask_classification",
+        "ask_increase",
         "ask_decrease"
     ]
     n_positions = 30

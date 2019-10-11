@@ -1,10 +1,10 @@
 """ Plot ``.csv`` or ``.json`` data via matplotlib. """
 import os
 import math
-import argparse
 
 import matplotlib
 
+# pylint: disable=wrong-import-position
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import matplotlib.style as style
@@ -216,28 +216,3 @@ def graph(dfs, ylabels, filename, column_counts, save_path):
 
     # save to .svg
     plt.savefig(save_path)
-
-
-def main(args):
-    """ Do some path handling and call the ``graph()`` function. """
-    GRAPHS_PATH = args.graphs_path
-    assert os.path.isdir(GRAPHS_PATH)
-    filename = os.path.basename(args.filepath)
-    filename_no_ext = filename.split(".")[0]
-    save_path = os.path.join(GRAPHS_PATH, filename_no_ext + ".svg")
-    dfs, ylabels, column_counts = preprocessing.read_csv(args.filepath)
-    graph(dfs, ylabels, filename_no_ext, column_counts, save_path)
-    print("Graph saved to:", save_path)
-
-
-if __name__ == "__main__":
-    # TODO: Add an `overwrite` argument which defaults to `True`.
-    parser = argparse.ArgumentParser(description="Matplotlib 538-style plot generator.")
-    parser.add_argument(
-        "--filepath", type=str, help="File to parse and graph.", required=True
-    )
-    parser.add_argument(
-        "--graphs_path", type=str, default="graphs/", help="Where to save graphs."
-    )
-    arguments = parser.parse_args()
-    main(arguments)
