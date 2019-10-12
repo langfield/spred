@@ -82,12 +82,18 @@ def setup(
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
-    # ===MOD===
+    #===MOD===
     global_config = OpenAIGPTConfig.from_pretrained(args.gpst_model)
     assert global_config.n_positions == global_config.n_ctx
     args.seq_len = global_config.n_ctx
     args.dim = global_config.input_dim
     args.orderbook_depth = global_config.orderbook_depth
+
+    #===DEBUG===
+    global_config.testparam = 5
+    print("Global config:", global_config)
+    sys.exit()
+    #===DEBUG===
 
     train_data = GPSTDataset(
         args.dataset,
@@ -105,7 +111,7 @@ def setup(
     train_dataloader = DataLoader(
         train_data, sampler=train_sampler, batch_size=args.train_batch_size
     )
-    # ===MOD===
+    #===MOD===
 
     return args, global_config, device, train_dataloader
 
