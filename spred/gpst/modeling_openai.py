@@ -5,8 +5,9 @@
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
+import copy
 import logging
-from typing import Tuple, Any
+from typing import List, Dict, Tuple, Any
 
 import torch
 import torch.nn as nn
@@ -184,7 +185,12 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
         self.orderbook_depth = config.orderbook_depth
         self.depth_range = 2 * config.orderbook_depth + 1
         self.classification_modes = ["bid_classification", "ask_classification"]
-        self.delta_modes = ["bid_increase", "bid_decrease", "ask_increase", "ask_decrease"]
+        self.delta_modes = [
+            "bid_increase",
+            "bid_decrease",
+            "ask_increase",
+            "ask_decrease",
+        ]
 
         self.transformers: Dict[str, OpenAIGPTLMHeadModel] = {}
 
@@ -204,7 +210,7 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
                 raise ValueError("Config param ``mode`` is invalid.")
             self.transformers[mode] = OpenAIGPTLMHeadModel(subconfig)
         self.init_weights()
-    
+
     def forward(
         self,
         input_ids: torch.LongTensor,
@@ -215,6 +221,7 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
     ):
         bsz, seq_len = input_ids.shape[:2]
         transformer_outputs: Dict[str, Tuple[Any, ...]] = {}
+        transformer_logits: Dict[str, torch.FloatTensor] = {}
         for mode in self.modes:
             # TODO: Should we be passing ``labels`` here?
             transformer_outputs[mode] = self.transformers[mode](
@@ -224,15 +231,17 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
                 inputs_raw=inputs_raw,
                 head_mask=head_mask,
             )
+            transformer_logits[mode] = transformer_outputs[mode][0]
 
-        
-        def recursive_product(x: torch.FloatTensor, dim: int) -> torch.FloatTensor:
+        def recursive_product(
+            x: torch.FloatTensor, dim: int, depth: int
+        ) -> torch.FloatTensor:
             """ Compute recursive unrolled product of (1 - x) along dim. """
 
             product_list: List[torch.FloatTensor] = []
-            for i in range(1, self.orderbook_depth - 1):
+            for i in range(1, depth - 1):
                 if i == 0:
-                    product_list[i] = (1 - x[..., i])
+                    product_list[i] = 1 - x[..., i]
                 else:
                     product_list[i] = product_list[i - 1] * (1 - x[..., i])
 
@@ -243,23 +252,26 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
 
             return products_tensor
 
+        g_map: Dict[str, torch.FloatTensor] = {}
         dim_map: Dict[str, int] = {"bid": 2, "ask": 3}
         delta_index_map: Dict[str, int] = {"increase": 1, "decrease": 2}
 
         for side in ["bid", "ask"]:
             # Components added in order: class, increase, decrease.
             g_components: List[torch.FloatTensor] = []
-            
+
             dim = dim_map[side]
             mode = side + "_classification"
 
-            class_outputs = transformer_outputs[mode]
+            class_outputs = transformer_logits[mode]
             g_components.append(class_outputs[0])
 
             for delta in ["increase", "decrease"]:
-                mode = side + "_" +  delta
-                sigmoid_outputs = torch.sigmoid(transformer_outputs[mode])
-                product_outputs = recursive_product(sigmoid_outputs, dim)
+                mode = side + "_" + delta
+                sigmoid_outputs = torch.sigmoid(transformer_logits[mode])
+                product_outputs = recursive_product(
+                    sigmoid_outputs, dim, self.orderbook_depth
+                )
                 h = class_outputs[delta_index_map[delta]]
                 assert sigmoid_outputs.shape == product_outputs.shape == h.shape
                 g_component = sigmoid_outputs * product_outputs * h
@@ -268,16 +280,16 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
                 else:
                     assert g_component.shape == (bsz, seq_len, self.depth_range)
                 g_components.append(g_component)
-            g_components = [comp.unsqueeze(dim) for comp in g_componments]
+            g_components = [comp.unsqueeze(dim) for comp in g_components]
             g = torch.stack(g_components, dim=dim)
-
+            g_map[side] = g
 
         # Bid increase/decrease outputs have shape:
         #   ``(bsz, seq_len, orderbook_depth)``.
 
         # Ask increase/decrease outputs have shape:
         #   ``(bsz, seq_len, depth_range, orderbook_depth)``.
-        
+
         # Bid classification outputs have shape:
         #   ``(bsz, seq_len, 3)``.
 
@@ -320,7 +332,6 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         Shape: ``(n_layers, batch_size, num_heads, sequence_length, sequence_length)``.
     """
 
-
     def __init__(self, config: OpenAIGPTConfig) -> None:
         super(OpenAIGPTLMHeadModel, self).__init__(config)
         self.transformer = OpenAIGPTModel(config)
@@ -351,7 +362,7 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         logits = self.head(hidden_states)
 
         outputs = (logits,) + transformer_outputs[1:]
-        
+
         return outputs  # last hidden state, (all hidden states), (all attentions)
 
         """
