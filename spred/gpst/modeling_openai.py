@@ -181,6 +181,8 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
         super(GPSTConditionalModel, self).__init__(config)
 
         self.modes = config.modes
+        self.delta_modes = ["bid_increase", "bid_decrease", "ask_increase", "ask_decrease"]
+        self.classification_modes = ["bid_classification", "ask_classification"]
         self.depth_range = 2 * config.orderbook_depth + 1
         self.transformers: Dict[str, OpenAIGPTLMHeadModel] = {}
 
@@ -190,11 +192,11 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
             if self.mode in ["bid_increase", "bid_decrease"]:
                 subconfig.head_output_dim = config.orderbook_depth
             elif self.mode in ["ask_increase", "ask_decrease"]:
-                subconfig.head_output_dim = config.orderbook_depth * self.depth_range
+                subconfig.head_output_dim = self.depth_range * config.orderbook_depth
             elif self.mode == "bid_classification":
                 subconfig.head_output_dim = 3
             elif self.mode == "ask_classification":
-                subconfig.head_output_dim = 3 * self.depth_range
+                subconfig.head_output_dim = self.depth_range * 3
             else:
                 print("Value of config param ``mode``: %s" % self.mode)
                 raise ValueError("Config param ``mode`` is invalid.")
@@ -220,12 +222,20 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
                 inputs_raw=inputs_raw,
                 head_mask=head_mask,
             )
-        hidden_states = transformer_outputs[0]
-        assert hidden_states.shape == inputs_raw.shape
+            if self.mode in self.delta_modes:
+                sigmoid_outputs[mode] = torch.sigmoid(transformer_outputs[mode])
 
-        logits = self.head(hidden_states)
+        # Bid increase/decrease outputs have shape:
+        #   ``(bsz, seq_len, orderbook_depth)``.
 
-        outputs = (logits,) + transformer_outputs[1:]
+        # Ask increase/decrease outputs have shape:
+        #   ``(bsz, seq_len, depth_range, orderbook_depth)``.
+        
+        # Bid classification outputs have shape:
+        #   ``(bsz, seq_len, 3)``.
+
+        # Ask classification outputs have shape:
+        #   ``(bsz, seq_len, depth_range, 3)``.
 
 
 class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
@@ -294,7 +304,10 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         logits = self.head(hidden_states)
 
         outputs = (logits,) + transformer_outputs[1:]
+        
+        return outputs  # last hidden state, (all hidden states), (all attentions)
 
+        """
         # Shape of ``labels``: ``(bsz, seq_len, 6)``.
         # Type of ``labels``: ``torch.LongTensor`` (integer values).
         # Range of values of ``labels``:
@@ -320,3 +333,4 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
             outputs = (loss,) + outputs
 
         return outputs  # (loss), logits, (all hidden states), (all attentions)
+        """
