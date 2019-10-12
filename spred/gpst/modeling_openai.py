@@ -225,15 +225,8 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
                 head_mask=head_mask,
             )
 
-            if self.mode[:3] == "bid":
-                dim = 2
-            elif self.mode[:3] == "ask":
-                dim = 3
-            else:
-                print("Value of config param ``mode``: %s" % self.mode)
-                raise ValueError("Config param ``mode`` is invalid.")
         
-        def rollproduct(x: torch.FloatTensor, dim: int) -> torch.FloatTensor:
+        def recursive_product(x: torch.FloatTensor, dim: int) -> torch.FloatTensor:
             """ Compute recursive unrolled product of (1 - x) along dim. """
 
             product_list: List[torch.FloatTensor] = []
@@ -242,21 +235,31 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
                     product_list[i] = (1 - x[..., i])
                 else:
                     product_list[i] = product_list[i - 1] * (1 - x[..., i])
-                product_list[i] = torch.unsqueeze(product_list[i], dim=dim)
+
+                # TODO: Should this be in-place?
+                # TODO: Does this create a memory leak?
+                product_list[i] = product_list[i].unsqueeze(dim)
             products_tensor = torch.stack(product_list, dim=dim)
 
             return products_tensor
 
+        dim_map: Dict[str, int] = {"bid": 2, "ask": 3}
         delta_index_map: Dict[str, int] = {"increase": 1, "decrease": 2}
 
         for side in ["bid", "ask"]:
-            mode = side + "_classification"
-            class_outputs = transformer_outputs[mode]
+            # Components added in order: class, increase, decrease.
             g_components: List[torch.FloatTensor] = []
+            
+            dim = dim_map[side]
+            mode = side + "_classification"
+
+            class_outputs = transformer_outputs[mode]
+            g_components.append(class_outputs[0])
+
             for delta in ["increase", "decrease"]:
                 mode = side + "_" +  delta
                 sigmoid_outputs = torch.sigmoid(transformer_outputs[mode])
-                product_outputs = roll_product(sigmoid_outputs, dim)
+                product_outputs = recursive_product(sigmoid_outputs, dim)
                 h = class_outputs[delta_index_map[delta]]
                 assert sigmoid_outputs.shape == product_outputs.shape == h.shape
                 g_component = sigmoid_outputs * product_outputs * h
@@ -265,7 +268,8 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
                 else:
                     assert g_component.shape == (bsz, seq_len, self.depth_range)
                 g_components.append(g_component)
-                    
+            g_components = [comp.unsqueeze(dim) for comp in g_componments]
+            g = torch.stack(g_components, dim=dim)
 
 
         # Bid increase/decrease outputs have shape:
