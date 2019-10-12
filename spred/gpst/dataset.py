@@ -261,7 +261,7 @@ class GPSTDataset(Dataset):
         )
         input_ids_all = np.arange(0, num_seqs * seq_len)
 
-        # ===MOD===
+        #===MOD===
         bid_col = 0
         ask_col = int(self.input_dim / 2)
         depth_range = 2 * self.depth + 1
@@ -270,7 +270,7 @@ class GPSTDataset(Dataset):
             """ Numpy array relu function. """
             return np.maximum(x, 0)
 
-        # ===MOD===
+        #===MOD===
 
         features = []
         print("Creating features...")
@@ -279,7 +279,6 @@ class GPSTDataset(Dataset):
             input_ids = input_ids_all[i * seq_len : (i + 1) * seq_len]
             position_ids = np.arange(0, seq_len)
 
-            # ===MOD===
             # Compute labels.
             bid_delta_indices = 100 * inputs_raw[..., bid_col]
             bid_delta_indices = bid_delta_indices.astype(int)
@@ -322,7 +321,6 @@ class GPSTDataset(Dataset):
             assert ask_decrease_labels.shape == (seq_len, depth_range)
             assert ask_class_labels.shape == (seq_len, depth_range)
 
-            # ===MOD===
             if self.seq_norm:
                 inputs_raw = seq_normalize(inputs_raw)
 
