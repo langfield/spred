@@ -294,9 +294,9 @@ class GPSTDataset(Dataset):
             bid_increase_labels[bid_increase_labels >= self.depth] = self.depth - 1
             bid_decrease_labels[bid_decrease_labels >= self.depth] = self.depth - 1
 
-            bid_classif_labels = copy.deepcopy(inputs_raw[..., bid_col])
-            bid_classif_labels[bid_classif_labels < 0] = 1
-            bid_classif_labels[bid_classif_labels > 0] = 2
+            bid_class_labels = copy.deepcopy(inputs_raw[..., bid_col])
+            bid_class_labels[bid_class_labels < 0] = 1
+            bid_class_labels[bid_class_labels > 0] = 2
 
             ask_increase_mat = copy.deepcopy(relu(100 * inputs_raw[..., ask_col]))
             ask_decrease_mat = copy.deepcopy(relu(-100 * inputs_raw[..., ask_col]))
@@ -309,28 +309,19 @@ class GPSTDataset(Dataset):
             ask_increase_labels[np.arange(seq_len), bid_delta_indices] = ask_increase_mat
             ask_decrease_labels[np.arange(seq_len), bid_delta_indices] = ask_decrease_mat
 
-            ask_classif_mat = copy.deepcopy(inputs_raw[..., ask_col])
-            ask_classif_mat[ask_classif_mat < 0] = 1
-            ask_classif_mat[ask_classif_mat > 0] = 2
-            ask_classif_labels = -1 * np.ones((ask_classif_mat.shape[0], depth_range))
-            ask_classif_labels[np.arange(seq_len), bid_delta_indices] = ask_classif_mat
+            ask_class_mat = copy.deepcopy(inputs_raw[..., ask_col])
+            ask_class_mat[ask_class_mat < 0] = 1
+            ask_class_mat[ask_class_mat > 0] = 2
+            ask_class_labels = -1 * np.ones((ask_class_mat.shape[0], depth_range))
+            ask_class_labels[np.arange(seq_len), bid_delta_indices] = ask_class_mat
 
             assert bid_increase_labels.shape == (seq_len,)
             assert bid_decrease_labels.shape == (seq_len,)
-            assert bid_classif_labels.shape == (seq_len,)
+            assert bid_class_labels.shape == (seq_len,)
             assert ask_increase_labels.shape == (seq_len, depth_range)
             assert ask_decrease_labels.shape == (seq_len, depth_range)
-            assert ask_classif_labels.shape == (seq_len, depth_range)
+            assert ask_class_labels.shape == (seq_len, depth_range)
 
-            """
-            labels_dict: Dict[str, np.ndarray] = {}
-            labels_dict["bid_classification"] = bid_classif_labels
-            labels_dict["bid_increase"] = bid_increase_labels
-            labels_dict["bid_decrease"] = bid_decrease_labels
-            labels_dict["ask_classification"] = ask_classif_labels
-            labels_dict["ask_increase"] = ask_increase_labels
-            labels_dict["ask_decrease"] = ask_decrease_labels
-            """
             # ===MOD===
             if self.seq_norm:
                 inputs_raw = seq_normalize(inputs_raw)
@@ -339,10 +330,10 @@ class GPSTDataset(Dataset):
                 (
                     input_ids,
                     position_ids,
-                    bid_classif_labels,
+                    bid_class_labels,
                     bid_increase_labels,
                     bid_decrease_labels,
-                    ask_classif_labels,
+                    ask_class_labels,
                     ask_increase_labels,
                     ask_decrease_labels,
                     inputs_raw,

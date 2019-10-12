@@ -131,7 +131,7 @@ def process_books(hour: int, trunc: int, source_dir: str) -> List[np.ndarray]:
                 ask_level_indices.append(ask_level_index)
                 ask_sizes.append(ask_size)
 
-            vec = list(
+            feature_list = list(
                 itertools.chain(
                     prev_bid_level_indices,
                     bid_level_indices,
@@ -142,8 +142,8 @@ def process_books(hour: int, trunc: int, source_dir: str) -> List[np.ndarray]:
                 )
             )
 
-            feature_array = np.array(vec)
-            vecs.append(feature_array)
+            vec = np.array(feature_list)
+            vecs.append(vec)
 
     assert len(vecs) == len(books) - 1
 
