@@ -181,9 +181,11 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
         super(GPSTConditionalModel, self).__init__(config)
 
         self.modes = config.modes
-        self.delta_modes = ["bid_increase", "bid_decrease", "ask_increase", "ask_decrease"]
-        self.classification_modes = ["bid_classification", "ask_classification"]
+        self.orderbook_depth = config.orderbook_depth
         self.depth_range = 2 * config.orderbook_depth + 1
+        self.classification_modes = ["bid_classification", "ask_classification"]
+        self.delta_modes = ["bid_increase", "bid_decrease", "ask_increase", "ask_decrease"]
+
         self.transformers: Dict[str, OpenAIGPTLMHeadModel] = {}
 
         for mode in config.modes:
@@ -222,8 +224,31 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
                 inputs_raw=inputs_raw,
                 head_mask=head_mask,
             )
+
+            if self.mode[:3] == "bid":
+                dim = 2
+            elif self.mode[:3] == "ask":
+                dim = 3
+            else:
+                print("Value of config param ``mode``: %s" % self.mode)
+                raise ValueError("Config param ``mode`` is invalid.")
+
             if self.mode in self.delta_modes:
                 sigmoid_outputs[mode] = torch.sigmoid(transformer_outputs[mode])
+                product_outputs[mode] = roll_product(sigmoid_outputs[mode], dim)
+                g = sigmoid_outputs
+
+        def rollproduct(x: torch.FloatTensor, dim: int) -> torch.FloatTensor:
+            product_list: List[torch.FloatTensor] = []
+            for i in range(1, self.orderbook_depth - 1):
+                if i == 0:
+                    product_list[i] = (1 - x[..., i])
+                else:
+                    product_list[i] = product_list[i - 1] * (1 - x[..., i])
+                product_list[i] = torch.unsqueeze(product_list[i], dim=dim)
+            products_tensor = torch.stack(product_list, dim=dim)
+            return products_tensor
+
 
         # Bid increase/decrease outputs have shape:
         #   ``(bsz, seq_len, orderbook_depth)``.
