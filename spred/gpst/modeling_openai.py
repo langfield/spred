@@ -174,6 +174,60 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         return outputs  # last hidden state, (all hidden states), (all attentions)
 
 
+class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
+    """ Orderbook transformer model for computing conditional over levels. """
+
+    def __init__(self, config: OpenAIGPTConfig) -> None:
+        super(GPSTConditionalModel, self).__init__(config)
+
+        self.modes = config.modes
+        self.depth_range = 2 * config.orderbook_depth + 1
+        self.transformers: Dict[str, OpenAIGPTLMHeadModel] = {}
+
+        for mode in config.modes:
+            subconfig = copy.deepcopy(config)
+            subconfig.mode = mode
+            if self.mode in ["bid_increase", "bid_decrease"]:
+                subconfig.head_output_dim = config.orderbook_depth
+            elif self.mode in ["ask_increase", "ask_decrease"]:
+                subconfig.head_output_dim = config.orderbook_depth * self.depth_range
+            elif self.mode == "bid_classification":
+                subconfig.head_output_dim = 3
+            elif self.mode == "ask_classification":
+                subconfig.head_output_dim = 3 * self.depth_range
+            else:
+                print("Value of config param ``mode``: %s" % self.mode)
+                raise ValueError("Config param ``mode`` is invalid.")
+            self.transformers[mode] = OpenAIGPTLMHeadModel(subconfig)
+        self.init_weights()
+    
+    def forward(
+        self,
+        input_ids: torch.LongTensor,
+        position_ids: torch.LongTensor,
+        labels: torch.LongTensor,
+        inputs_raw: torch.FloatTensor,
+        head_mask: torch.FloatTensor = None,
+    ):
+        bsz, seq_len = input_ids.shape[:2]
+        transformer_outputs: Dict[str, Tuple[Any, ...]] = {}
+        for mode in self.modes:
+            # TODO: Should we be passing ``labels`` here?
+            transformer_outputs[mode] = self.transformers[mode](
+                input_ids,
+                position_ids=position_ids,
+                labels=labels,
+                inputs_raw=inputs_raw,
+                head_mask=head_mask,
+            )
+        hidden_states = transformer_outputs[0]
+        assert hidden_states.shape == inputs_raw.shape
+
+        logits = self.head(hidden_states)
+
+        outputs = (logits,) + transformer_outputs[1:]
+
+
 class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
     """
     Parameters
@@ -209,23 +263,14 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         Shape: ``(n_layers, batch_size, num_heads, sequence_length, sequence_length)``.
     """
 
+
     def __init__(self, config: OpenAIGPTConfig) -> None:
         super(OpenAIGPTLMHeadModel, self).__init__(config)
         self.transformer = OpenAIGPTModel(config)
         self.depth_range = 2 * config.orderbook_depth + 1
         self.orderbook_depth = config.orderbook_depth
         self.mode = config.mode
-        self.bid_delta_head = nn.Linear(
-            config.input_dim, config.orderbook_depth, bias=False
-        )
-        self.ask_delta_head = nn.Linear(
-            config.input_dim, config.orderbook_depth * self.depth_range, bias=False
-        )
-        self.bid_classification_head = nn.Linear(config.input_dim, 3, bias=False)
-        self.ask_classification_head = nn.Linear(
-            config.input_dim, 3 * self.depth_range, bias=False
-        )
-
+        self.head = nn.Linear(config.input_dim, config.head_output_dim, bias=False)
         self.init_weights()
 
     def forward(
@@ -246,23 +291,7 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         hidden_states = transformer_outputs[0]
         assert hidden_states.shape == inputs_raw.shape
 
-        if self.mode in ["bid_increase", "bid_decrease"]:
-            logits = self.bid_delta_head(hidden_states)
-        elif self.mode in ["ask_increase", "ask_decrease"]:
-            logits = self.ask_delta_head(hidden_states)
-            logits_matrix = logits.view(
-                logits.shape[0], logits.shape[1], self.depth_range, self.orderbook_depth
-            )
-        elif self.mode == "bid_classification":
-            logits = self.bid_classification_head(hidden_states)
-        elif self.mode == "ask_classification":
-            logits = self.ask_classification_head(hidden_states)
-            logits_matrix = logits.view(
-                logits.shape[0], logits.shape[1], self.depth_range, 3
-            )
-        else:
-            print("Value of config param ``mode``: %s" % self.mode)
-            raise ValueError("Config param ``mode`` is invalid.")
+        logits = self.head(hidden_states)
 
         outputs = (logits,) + transformer_outputs[1:]
 
