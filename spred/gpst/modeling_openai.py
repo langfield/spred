@@ -232,13 +232,10 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
             else:
                 print("Value of config param ``mode``: %s" % self.mode)
                 raise ValueError("Config param ``mode`` is invalid.")
-
-            if self.mode in self.delta_modes:
-                sigmoid_outputs[mode] = torch.sigmoid(transformer_outputs[mode])
-                product_outputs[mode] = roll_product(sigmoid_outputs[mode], dim)
-                g = sigmoid_outputs
-
+        
         def rollproduct(x: torch.FloatTensor, dim: int) -> torch.FloatTensor:
+            """ Compute recursive unrolled product of (1 - x) along dim. """
+
             product_list: List[torch.FloatTensor] = []
             for i in range(1, self.orderbook_depth - 1):
                 if i == 0:
@@ -247,7 +244,28 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
                     product_list[i] = product_list[i - 1] * (1 - x[..., i])
                 product_list[i] = torch.unsqueeze(product_list[i], dim=dim)
             products_tensor = torch.stack(product_list, dim=dim)
+
             return products_tensor
+
+        delta_index_map: Dict[str, int] = {"increase": 1, "decrease": 2}
+
+        for side in ["bid", "ask"]:
+            mode = side + "_classification"
+            class_outputs = transformer_outputs[mode]
+            g_components: List[torch.FloatTensor] = []
+            for delta in ["increase", "decrease"]:
+                mode = side + "_" +  delta
+                sigmoid_outputs = torch.sigmoid(transformer_outputs[mode])
+                product_outputs = roll_product(sigmoid_outputs, dim)
+                h = class_outputs[delta_index_map[delta]]
+                assert sigmoid_outputs.shape == product_outputs.shape == h.shape
+                g_component = sigmoid_outputs * product_outputs * h
+                if side == "bid":
+                    assert g_component.shape == (bsz, seq_len)
+                else:
+                    assert g_component.shape == (bsz, seq_len, self.depth_range)
+                g_components.append(g_component)
+                    
 
 
         # Bid increase/decrease outputs have shape:

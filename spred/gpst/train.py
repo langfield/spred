@@ -229,20 +229,20 @@ def train(args: argparse.Namespace = None) -> float:
 
             input_ids = batch[0]
             position_ids = batch[1]
-            bid_classif_labels = batch[2]
+            bid_class_labels = batch[2]
             bid_increase_labels = batch[3]
             bid_decrease_labels = batch[4]
-            ask_classif_labels = batch[5]
+            ask_class_labels = batch[5]
             ask_increase_labels = batch[6]
             ask_decrease_labels = batch[7]
             inputs_raw = batch[8]
             inputs_raw = inputs_raw.float()
 
             labels_dict: Dict[str, torch.Tensor] = {}
-            labels_dict["bid_classification"] = bid_classif_labels
+            labels_dict["bid_classification"] = bid_class_labels
             labels_dict["bid_increase"] = bid_increase_labels
             labels_dict["bid_decrease"] = bid_decrease_labels
-            labels_dict["ask_classification"] = ask_classif_labels
+            labels_dict["ask_classification"] = ask_class_labels
             labels_dict["ask_increase"] = ask_increase_labels
             labels_dict["ask_decrease"] = ask_decrease_labels
 
