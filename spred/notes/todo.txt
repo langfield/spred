@@ -34,6 +34,8 @@ Done:   #================================DONE==================================
         
         Rehash feature creation in dataset class to reflect the CrossEntropy
         loss over a flattened verion of the output space Y = (Y_1, Y_2).
+        
+        Fix output aggregation in return tuple of forward calls to model.
 
 Todo:   #================================TODO==================================
 
@@ -42,9 +44,9 @@ Todo:   #================================TODO==================================
 
         Fix loss computation for optuna.
 
-        Fix output aggregation in return tuple of forward calls to model.
-
         Veryify that class label locations in dataset feature creation match
         up with expected locations in outputs from model forward class.
 
         Fix type annotations and docstrings.
+
+        Rescrape data.
