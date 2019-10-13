@@ -249,6 +249,7 @@ class GPSTDataset(Dataset):
         """
         original_data_len = tensor_data.shape[0]
         seq_len = self.seq_len
+        depth = self.depth
 
         # Make sure we didn't truncate away all data via ``rows_to_keep``.
         assert original_data_len > 0
@@ -261,16 +262,15 @@ class GPSTDataset(Dataset):
         )
         input_ids_all = np.arange(0, num_seqs * seq_len)
 
-        #===MOD===
+        # ===MOD===
         bid_col = 0
         ask_col = int(self.input_dim / 2)
-        depth_range = 2 * self.depth + 1
 
         def relu(x: np.ndarray) -> np.ndarray:
             """ Numpy array relu function. """
             return np.maximum(x, 0)
 
-        #===MOD===
+        # ===MOD===
 
         features = []
         print("Creating features...")
@@ -282,44 +282,52 @@ class GPSTDataset(Dataset):
             # Compute labels.
             bid_delta_indices = 100 * inputs_raw[..., bid_col]
             bid_delta_indices = bid_delta_indices.astype(int)
-            bid_delta_indices[bid_delta_indices >= self.depth] = self.depth - 1
-            bid_delta_indices[bid_delta_indices <= (-1 * self.depth)] = -1 * (self.depth - 1)
-            bid_delta_indices = bid_delta_indices + self.depth - 1
+            bid_delta_indices[bid_delta_indices >= depth] = depth - 1
+            bid_delta_indices[bid_delta_indices <= (-1 * depth)] = -1 * (depth - 1)
+            bid_delta_indices = bid_delta_indices + depth - 1
+
+            ask_delta_indices = 100 * inputs_raw[..., ask_col]
+            ask_delta_indices = ask_delta_indices.astype(int)
+            ask_delta_indices[ask_delta_indices >= depth] = depth - 1
+            ask_delta_indices[ask_delta_indices <= (-1 * depth)] = -1 * (depth - 1)
+            ask_delta_indices = ask_delta_indices + depth - 1
 
             bid_increase_labels = copy.deepcopy(relu(100 * inputs_raw[..., bid_col]))
             bid_decrease_labels = copy.deepcopy(relu(-100 * inputs_raw[..., bid_col]))
             bid_increase_labels[bid_increase_labels == 0] = -1
             bid_decrease_labels[bid_decrease_labels == 0] = -1
-            bid_increase_labels[bid_increase_labels >= self.depth] = self.depth - 1
-            bid_decrease_labels[bid_decrease_labels >= self.depth] = self.depth - 1
+            bid_increase_labels[bid_increase_labels >= depth] = depth - 1
+            bid_decrease_labels[bid_decrease_labels >= depth] = depth - 1
 
             bid_class_labels = copy.deepcopy(inputs_raw[..., bid_col])
             bid_class_labels[bid_class_labels < 0] = 1
             bid_class_labels[bid_class_labels > 0] = 2
 
-            ask_increase_mat = copy.deepcopy(relu(100 * inputs_raw[..., ask_col]))
-            ask_decrease_mat = copy.deepcopy(relu(-100 * inputs_raw[..., ask_col]))
-            ask_increase_mat[ask_increase_mat == 0] = -1
-            ask_decrease_mat[ask_decrease_mat == 0] = -1
-            ask_increase_mat[ask_increase_mat >= self.depth] = self.depth - 1
-            ask_decrease_mat[ask_decrease_mat >= self.depth] = self.depth - 1
-            ask_increase_labels = -1 * np.ones((seq_len, depth_range))
-            ask_decrease_labels = -1 * np.ones((seq_len, depth_range))
-            ask_increase_labels[np.arange(seq_len), bid_delta_indices] = ask_increase_mat
-            ask_decrease_labels[np.arange(seq_len), bid_delta_indices] = ask_decrease_mat
+            ask_increase_matrix = copy.deepcopy(relu(100 * inputs_raw[..., ask_col]))
+            ask_decrease_matrix = copy.deepcopy(relu(-100 * inputs_raw[..., ask_col]))
+            ask_increase_matrix[ask_increase_matrix == 0] = -1
+            ask_decrease_matrix[ask_decrease_matrix == 0] = -1
+            ask_increase_matrix[ask_increase_matrix >= depth] = depth - 1
+            ask_decrease_matrix[ask_decrease_matrix >= depth] = depth - 1
+            ask_increase_labels = -1 * np.ones((seq_len, (2 * depth + 1)))
+            ask_decrease_labels = -1 * np.ones((seq_len, (2 * depth + 1)))
 
-            ask_class_mat = copy.deepcopy(inputs_raw[..., ask_col])
-            ask_class_mat[ask_class_mat < 0] = 1
-            ask_class_mat[ask_class_mat > 0] = 2
-            ask_class_labels = -1 * np.ones((ask_class_mat.shape[0], depth_range))
-            ask_class_labels[np.arange(seq_len), bid_delta_indices] = ask_class_mat
+            seq_range = np.arange(seq_len)
+            ask_increase_labels[seq_range, bid_delta_indices] = ask_increase_matrix
+            ask_decrease_labels[seq_range, bid_delta_indices] = ask_decrease_matrix
+
+            ask_class_matrix = copy.deepcopy(inputs_raw[..., ask_col])
+            ask_class_matrix[ask_class_matrix < 0] = 1
+            ask_class_matrix[ask_class_matrix > 0] = 2
+            ask_class_labels = -1 * np.ones((seq_len, (2 * depth + 1)))
+            ask_class_labels[seq_range, bid_delta_indices] = ask_class_matrix
 
             assert bid_increase_labels.shape == (seq_len,)
             assert bid_decrease_labels.shape == (seq_len,)
             assert bid_class_labels.shape == (seq_len,)
-            assert ask_increase_labels.shape == (seq_len, depth_range)
-            assert ask_decrease_labels.shape == (seq_len, depth_range)
-            assert ask_class_labels.shape == (seq_len, depth_range)
+            assert ask_increase_labels.shape == (seq_len, (2 * depth + 1))
+            assert ask_decrease_labels.shape == (seq_len, (2 * depth + 1))
+            assert ask_class_labels.shape == (seq_len, (2 * depth + 1))
 
             if self.seq_norm:
                 inputs_raw = seq_normalize(inputs_raw)
