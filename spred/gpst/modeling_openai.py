@@ -277,9 +277,6 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
             # Components added in order: class, increase, decrease.
             g_components: List[torch.FloatTensor] = []
 
-            # DEBUG
-            print("side: %s" % side)
-
             # Define shapes.
             if side == "bid":
                 delta_shape = (bsz, seq_len, depth)
@@ -298,7 +295,6 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
 
             # Add no-change logits for when ``y_1 == 0``.
             zero_class_logits = class_outputs[..., 0]
-            print("Shape zero class logits:", zero_class_logits.shape)
             g_components.append(zero_class_logits.unsqueeze(dim))
 
             for delta in ["increase", "decrease"]:
@@ -311,10 +307,6 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
                 sigmoid_outputs = torch.sigmoid(delta_logits)
                 product_outputs = recursive_product(sigmoid_outputs, dim, depth)
                 h = class_outputs[..., delta_index_map[delta]]
-
-                # DEBUG
-                print("Product outputs shape:", product_outputs.shape)
-                print("h shape:", h.shape)
 
                 # Shape check.
                 if side == "bid":
@@ -333,9 +325,7 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
 
                 g_components.append(g_component)
 
-            print("g comp shapes:\n", [comp.shape for comp in g_components])
             g = torch.cat(g_components, dim=dim)
-            print("g shape:", g.shape)
 
             # Add un-tiled conditional distribution to outputs.
             g_logit_map[side] = g
