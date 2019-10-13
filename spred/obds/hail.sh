@@ -1,7 +1,7 @@
 #!/bin/bash
 
 SOURCE_DIR="/root/books/"
-HOURS="3"
+HOURS="4"
 TRUNC="50"
 SAVE_PATH="/root/books/sampleset.csv"
 

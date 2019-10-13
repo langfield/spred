@@ -201,19 +201,7 @@ class GPSTDataset(Dataset):
 
     def create_features(
         self, tensor_data: np.ndarray
-    ) -> List[
-        Tuple[
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-            np.ndarray,
-        ]
-    ]:
+    ) -> List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
         """
         Returns a list of features of the form
             ``(input, input_raw, is_masked, target, seg_id, label)``.
@@ -228,7 +216,7 @@ class GPSTDataset(Dataset):
         Returns
         -------
         features : ``List[Tuple[np.ndarray, ...]]``.
-            Shape: (num_seqs, 5).
+            Shape: (num_seqs, 4).
 
             Elements
             --------
@@ -240,7 +228,7 @@ class GPSTDataset(Dataset):
                 The index of the rows in ``inputs_raw`` relative to the current
                 sequence.
                 Shape: (seq_len,).
-            labels_dict : ``Dict[str, np.ndarray]``.
+            labels : ``np.ndarray``.
                 Labels for conditional distribution computation.
             inputs_raw : ``np.ndarray``.
                 A slice of ``tensor_data`` containing a sequence worth of
@@ -267,6 +255,7 @@ class GPSTDataset(Dataset):
 
         features = []
         print("Creating features...")
+
         for i in tqdm(range(num_seqs), position=0, leave=True):
             inputs_raw = tensor_data[i * seq_len : (i + 1) * seq_len]
             input_ids = input_ids_all[i * seq_len : (i + 1) * seq_len]
@@ -293,5 +282,7 @@ class GPSTDataset(Dataset):
                 inputs_raw = seq_normalize(inputs_raw)
 
             features.append((input_ids, position_ids, flat_class_labels, inputs_raw))
+
         print("Done creating features.")
+
         return features
