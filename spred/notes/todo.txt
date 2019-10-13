@@ -39,6 +39,7 @@ Todo:   #================================TODO==================================
 
         Fix loss computation for optuna.
 
-        Figure out how to parallelize model.
+        Fix output aggregation in return tuple of forward calls to model.
 
-        Get XLA working.
+        Rehash feature creation in dataset class to reflect the CrossEntropy
+        loss over a flattened verion of the output space Y = (Y_1, Y_2).

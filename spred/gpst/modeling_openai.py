@@ -175,6 +175,24 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         return outputs  # last hidden state, (all hidden states), (all attentions)
 
 
+def recursive_product(x: torch.FloatTensor, dim: int, depth: int) -> torch.FloatTensor:
+    """ Compute recursive unrolled product of (1 - x) along dim. """
+
+    product_list: List[torch.FloatTensor] = []
+    for i in range(1, depth - 1):
+        if i == 0:
+            product_list[i] = 1 - x[..., i]
+        else:
+            product_list[i] = product_list[i - 1] * (1 - x[..., i])
+
+        # TODO: Should this be in-place?
+        # TODO: Does this create a memory leak?
+        product_list[i] = product_list[i].unsqueeze(dim)
+    products_tensor = torch.stack(product_list, dim=dim)
+
+    return products_tensor
+
+
 class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
     """ Orderbook transformer model for computing conditional over levels. """
 
@@ -233,24 +251,17 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
             )
             transformer_logits[mode] = transformer_outputs[mode][0]
 
-        def recursive_product(
-            x: torch.FloatTensor, dim: int, depth: int
-        ) -> torch.FloatTensor:
-            """ Compute recursive unrolled product of (1 - x) along dim. """
+        # Bid increase/decrease outputs have shape:
+        #   ``(bsz, seq_len, orderbook_depth)``.
 
-            product_list: List[torch.FloatTensor] = []
-            for i in range(1, depth - 1):
-                if i == 0:
-                    product_list[i] = 1 - x[..., i]
-                else:
-                    product_list[i] = product_list[i - 1] * (1 - x[..., i])
+        # Ask increase/decrease outputs have shape:
+        #   ``(bsz, seq_len, depth_range, orderbook_depth)``.
 
-                # TODO: Should this be in-place?
-                # TODO: Does this create a memory leak?
-                product_list[i] = product_list[i].unsqueeze(dim)
-            products_tensor = torch.stack(product_list, dim=dim)
+        # Bid classification outputs have shape:
+        #   ``(bsz, seq_len, 3)``.
 
-            return products_tensor
+        # Ask classification outputs have shape:
+        #   ``(bsz, seq_len, depth_range, 3)``.
 
         g_map: Dict[str, torch.FloatTensor] = {}
         dim_map: Dict[str, int] = {"bid": 2, "ask": 3}
@@ -292,26 +303,39 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
                 g_components.append(g_component)
             g_components = [comp.unsqueeze(dim) for comp in g_components]
             g = torch.stack(g_components, dim=dim)
+
+            # TODO: Are we tiling across the correct dimension?
             if side == "bid":
-                g = g.unsqueeze(dim).expand(-1, -1, (2 * depth + 1), -1)
-            assert g.shape == (bsz, seq_len, (2 * depth + 1), depth)
+                g = g.unsqueeze(dim + 1).expand(-1, -1, -1, (2 * depth + 1))
+            assert g.shape == (bsz, seq_len, (2 * depth + 1), (2 * depth + 1))
 
             g_map[side] = g
 
         # TODO: Do we ever take log of the probabilities?
         q_logits = g_map["bid"] + g_map["ask"]
 
-        # Bid increase/decrease outputs have shape:
-        #   ``(bsz, seq_len, orderbook_depth)``.
+        # Shape check.
+        assert q_logits.shape == (bsz, seq_len, (2 * depth + 1), (2 * depth + 1))
+        logits = q_logits.reshape(bsz, seq_len, (2 * depth + 1) ** 2)
 
-        # Ask increase/decrease outputs have shape:
-        #   ``(bsz, seq_len, depth_range, orderbook_depth)``.
+        # Shape of ``labels``: ``(bsz, seq_len)``.
+        # Type of ``labels``: ``torch.LongTensor`` (integer values).
+        # Range of values of ``labels``:
+        #   ``0 <= label <= (2 * depth + 1)^2 - 1``.
+        if labels is not None:
+            # Shift so that tokens < n predict n.
+            assert labels.shape == (bsz, seq_len)
+            shift_logits = logits[..., :-1, :].contiguous()
+            shift_labels = labels[..., 1:].contiguous()
 
-        # Bid classification outputs have shape:
-        #   ``(bsz, seq_len, 3)``.
+            # Flatten the tokens.
+            loss_fct = CrossEntropyLoss(ignore_index=-1)
+            loss_input = shift_logits.view(-1, shift_logits.size(-1))
+            loss_target = shift_labels.view(-1)
+            loss = loss_fct(loss_input, loss_target)
+            outputs = (loss,) + outputs
 
-        # Ask classification outputs have shape:
-        #   ``(bsz, seq_len, depth_range, 3)``.
+        # TODO: construct outputs from subtransformers.
 
 
 class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
