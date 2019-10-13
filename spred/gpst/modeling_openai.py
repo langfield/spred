@@ -182,8 +182,7 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
         super(GPSTConditionalModel, self).__init__(config)
 
         self.modes = config.modes
-        self.orderbook_depth = config.orderbook_depth
-        self.depth_range = 2 * config.orderbook_depth + 1
+        self.depth = config.orderbook_depth
         self.classification_modes = ["bid_classification", "ask_classification"]
         self.delta_modes = [
             "bid_increase",
@@ -198,13 +197,13 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
             subconfig = copy.deepcopy(config)
             subconfig.mode = mode
             if self.mode in ["bid_increase", "bid_decrease"]:
-                subconfig.head_output_dim = config.orderbook_depth
+                subconfig.head_output_dim = self.depth
             elif self.mode in ["ask_increase", "ask_decrease"]:
-                subconfig.head_output_dim = self.depth_range * config.orderbook_depth
+                subconfig.head_output_dim = (2 * self.depth + 1) * self.depth
             elif self.mode == "bid_classification":
                 subconfig.head_output_dim = 3
             elif self.mode == "ask_classification":
-                subconfig.head_output_dim = self.depth_range * 3
+                subconfig.head_output_dim = (2 * self.depth + 1) * 3
             else:
                 print("Value of config param ``mode``: %s" % self.mode)
                 raise ValueError("Config param ``mode`` is invalid.")
@@ -219,6 +218,7 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
         inputs_raw: torch.FloatTensor,
         head_mask: torch.FloatTensor = None,
     ):
+        depth = self.depth
         bsz, seq_len = input_ids.shape[:2]
         transformer_outputs: Dict[str, Tuple[Any, ...]] = {}
         transformer_logits: Dict[str, torch.FloatTensor] = {}
@@ -256,6 +256,7 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
         dim_map: Dict[str, int] = {"bid": 2, "ask": 3}
         delta_index_map: Dict[str, int] = {"increase": 1, "decrease": 2}
 
+        # TODO: Add shape annotations.
         for side in ["bid", "ask"]:
             # Components added in order: class, increase, decrease.
             g_components: List[torch.FloatTensor] = []
@@ -264,25 +265,41 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
             mode = side + "_classification"
 
             class_outputs = transformer_logits[mode]
+
+            # Add no-change logits for when ``y_1 == 0``.
             g_components.append(class_outputs[0])
 
             for delta in ["increase", "decrease"]:
                 mode = side + "_" + delta
                 sigmoid_outputs = torch.sigmoid(transformer_logits[mode])
-                product_outputs = recursive_product(
-                    sigmoid_outputs, dim, self.orderbook_depth
-                )
+                product_outputs = recursive_product(sigmoid_outputs, dim, depth)
                 h = class_outputs[delta_index_map[delta]]
-                assert sigmoid_outputs.shape == product_outputs.shape == h.shape
-                g_component = sigmoid_outputs * product_outputs * h
+
+                # Shape check.
+                assert product_outputs.shape == h.shape == (bsz, seq_len)
+                assert sigmoid_outputs.shape == (bsz, seq_len, depth)
+
+                scale = (product_outputs * h).unsqueeze(dim)
+                scale = scale.expand(-1, -1, depth)
+                g_component = sigmoid_outputs * scale
+
+                # Shape check.
                 if side == "bid":
-                    assert g_component.shape == (bsz, seq_len)
+                    assert g_component.shape == (bsz, seq_len, depth)
                 else:
-                    assert g_component.shape == (bsz, seq_len, self.depth_range)
+                    assert g_component.shape == (bsz, seq_len, (2 * depth + 1), depth)
+
                 g_components.append(g_component)
             g_components = [comp.unsqueeze(dim) for comp in g_components]
             g = torch.stack(g_components, dim=dim)
+            if side == "bid":
+                g = g.unsqueeze(dim).expand(-1, -1, (2 * depth + 1), -1)
+            assert g.shape == (bsz, seq_len, (2 * depth + 1), depth)
+
             g_map[side] = g
+
+        # TODO: Do we ever take log of the probabilities?
+        q_logits = g_map["bid"] + g_map["ask"]
 
         # Bid increase/decrease outputs have shape:
         #   ``(bsz, seq_len, orderbook_depth)``.
