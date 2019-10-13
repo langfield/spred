@@ -262,15 +262,8 @@ class GPSTDataset(Dataset):
         )
         input_ids_all = np.arange(0, num_seqs * seq_len)
 
-        # ===MOD===
         bid_col = 0
         ask_col = int(self.input_dim / 2)
-
-        def relu(x: np.ndarray) -> np.ndarray:
-            """ Numpy array relu function. """
-            return np.maximum(x, 0)
-
-        # ===MOD===
 
         features = []
         print("Creating features...")
