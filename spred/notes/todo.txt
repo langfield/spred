@@ -31,6 +31,9 @@ Done:   #================================DONE==================================
 
         Add `torch.Tensor.view()`` call to reshape model forward output into
         a matrix for estimation of ``Y_2``.
+        
+        Rehash feature creation in dataset class to reflect the CrossEntropy
+        loss over a flattened verion of the output space Y = (Y_1, Y_2).
 
 Todo:   #================================TODO==================================
 
@@ -41,5 +44,7 @@ Todo:   #================================TODO==================================
 
         Fix output aggregation in return tuple of forward calls to model.
 
-        Rehash feature creation in dataset class to reflect the CrossEntropy
-        loss over a flattened verion of the output space Y = (Y_1, Y_2).
+        Veryify that class label locations in dataset feature creation match
+        up with expected locations in outputs from model forward class.
+
+        Fix type annotations and docstrings.
