@@ -193,11 +193,11 @@ def recursive_product(x: torch.FloatTensor, dim: int, depth: int) -> torch.Float
     return products_tensor
 
 
-class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
+class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
     """ Orderbook transformer model for computing conditional over levels. """
 
     def __init__(self, config: OpenAIGPTConfig) -> None:
-        super(GPSTConditionalModel, self).__init__(config)
+        super(ConditionalGPSTModel, self).__init__(config)
 
         self.modes = config.modes
         self.depth = config.orderbook_depth
@@ -209,7 +209,7 @@ class GPSTConditionalModel(OpenAIGPTPreTrainedModel):
             "ask_decrease",
         ]
 
-        self.transformers: Dict[str, OpenAIGPTLMHeadModel] = {}
+        self.transformers: Dict[str, OpenAIGPTLMHeadModel] = nn.ModuleDict()
 
         for mode in config.modes:
             subconfig = copy.deepcopy(config)
