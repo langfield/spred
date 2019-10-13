@@ -1,5 +1,5 @@
 # coding=utf-8
-"""PyTorch OpenAI GPT model."""
+""" PyTorch OpenAI GPT model. """
 # pylint: disable=bad-continuation, missing-function-docstring, no-member
 # pylint: disable=too-many-instance-attributes, too-many-locals, too-many-arguments
 
@@ -106,6 +106,7 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         inputs_raw: torch.FloatTensor = None,
         head_mask: torch.LongTensor = None,
     ) -> Tuple[Any, ...]:
+
         if position_ids is None:
             position_ids = torch.arange(
                 input_ids.size(-1), dtype=torch.long, device=input_ids.device
@@ -179,15 +180,20 @@ def recursive_product(x: torch.FloatTensor, dim: int, depth: int) -> torch.Float
     """ Compute recursive unrolled product of (1 - x) along dim. """
 
     product_list: List[torch.FloatTensor] = []
-    for i in range(1, depth - 1):
-        if i == 0:
-            product_list[i] = 1 - x[..., i]
-        else:
-            product_list[i] = product_list[i - 1] * (1 - x[..., i])
 
-        # TODO: Should this be in-place?
-        # TODO: Does this create a memory leak?
-        product_list[i] = product_list[i].unsqueeze(dim)
+    # TODO: Add a tensor of ones first.
+    bsz, seq_len = x.shape[:2]
+    product_list.append(torch.ones((bsz, seq_len)).to(x.device))
+
+    # TODO: is this range correct?
+    for i in range(depth - 1):
+        if i == 0:
+            product_list.append(1 - x[..., i + 1])
+        else:
+            product_list.append(product_list[i - 1] * (1 - x[..., i + 1]))
+
+    # TODO: Should this be in-place?
+    # TODO: Does this create a memory leak?
     products_tensor = torch.stack(product_list, dim=dim)
 
     return products_tensor
@@ -214,16 +220,16 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
         for mode in config.modes:
             subconfig = copy.deepcopy(config)
             subconfig.mode = mode
-            if self.mode in ["bid_increase", "bid_decrease"]:
+            if mode in ["bid_increase", "bid_decrease"]:
                 subconfig.head_output_dim = self.depth
-            elif self.mode in ["ask_increase", "ask_decrease"]:
+            elif mode in ["ask_increase", "ask_decrease"]:
                 subconfig.head_output_dim = (2 * self.depth + 1) * self.depth
-            elif self.mode == "bid_classification":
+            elif mode == "bid_classification":
                 subconfig.head_output_dim = 3
-            elif self.mode == "ask_classification":
+            elif mode == "ask_classification":
                 subconfig.head_output_dim = (2 * self.depth + 1) * 3
             else:
-                print("Value of config param ``mode``: %s" % self.mode)
+                print("Value of config param ``mode``: %s" % mode)
                 raise ValueError("Config param ``mode`` is invalid.")
             self.transformers[mode] = OpenAIGPTLMHeadModel(subconfig)
         self.init_weights()
@@ -245,7 +251,6 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
             transformer_outputs[mode] = self.transformers[mode](
                 input_ids,
                 position_ids=position_ids,
-                labels=labels,
                 inputs_raw=inputs_raw,
                 head_mask=head_mask,
             )
@@ -264,6 +269,7 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
         #   ``(bsz, seq_len, depth_range, 3)``.
 
         g_map: Dict[str, torch.FloatTensor] = {}
+        g_logit_map: Dict[str, torch.FloatTensor] = {}
         dim_map: Dict[str, int] = {"bid": 2, "ask": 3}
         delta_index_map: Dict[str, int] = {"increase": 1, "decrease": 2}
 
@@ -284,15 +290,22 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
                 mode = side + "_" + delta
                 sigmoid_outputs = torch.sigmoid(transformer_logits[mode])
                 product_outputs = recursive_product(sigmoid_outputs, dim, depth)
-                h = class_outputs[delta_index_map[delta]]
+                h = class_outputs[:, :, delta_index_map[delta]]
+
+                # DEBUG
+                print("Product outputs shape:", product_outputs.shape)
+                print("h shape:", h.shape)
 
                 # Shape check.
-                assert product_outputs.shape == h.shape == (bsz, seq_len)
                 assert sigmoid_outputs.shape == (bsz, seq_len, depth)
+                assert product_outputs.shape == (bsz, seq_len, depth)
+                assert h.shape == (bsz, seq_len)
 
-                scale = (product_outputs * h).unsqueeze(dim)
-                scale = scale.expand(-1, -1, depth)
-                g_component = sigmoid_outputs * scale
+                # Tile ``h`` across depth dimension.
+                h = h.unsqueeze(dim)
+                h = h.expand(-1, -1, depth)
+
+                g_component = sigmoid_outputs * product_outputs * h
 
                 # Shape check.
                 if side == "bid":
@@ -303,6 +316,9 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
                 g_components.append(g_component)
             g_components = [comp.unsqueeze(dim) for comp in g_components]
             g = torch.stack(g_components, dim=dim)
+
+            # Add un-tiled conditional distribution to outputs.
+            g_logit_map[side] = g
 
             # TODO: Are we tiling across the correct dimension?
             if side == "bid":
@@ -317,6 +333,11 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
         # Shape check.
         assert q_logits.shape == (bsz, seq_len, (2 * depth + 1), (2 * depth + 1))
         logits = q_logits.reshape(bsz, seq_len, (2 * depth + 1) ** 2)
+
+        # Construct ``outputs`` with logit map and subtransformer outputs.
+        outputs = (g_logit_map,)
+        for mode in self.modes:
+            outputs += (transformer_outputs[mode],)
 
         # Shape of ``labels``: ``(bsz, seq_len)``.
         # Type of ``labels``: ``torch.LongTensor`` (integer values).
@@ -335,7 +356,7 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
             loss = loss_fct(loss_input, loss_target)
             outputs = (loss,) + outputs
 
-        # TODO: construct outputs from subtransformers.
+        return outputs
 
 
 class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
@@ -386,11 +407,9 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         self,
         input_ids: torch.LongTensor,
         position_ids: torch.LongTensor,
-        labels: torch.LongTensor,
         inputs_raw: torch.FloatTensor,
         head_mask: torch.FloatTensor = None,
     ):
-        bsz, seq_len = input_ids.shape[:2]
         transformer_outputs = self.transformer(
             input_ids,
             position_ids=position_ids,
@@ -405,31 +424,3 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         outputs = (logits,) + transformer_outputs[1:]
 
         return outputs  # last hidden state, (all hidden states), (all attentions)
-
-        """
-        # Shape of ``labels``: ``(bsz, seq_len, 6)``.
-        # Type of ``labels``: ``torch.LongTensor`` (integer values).
-        # Range of values of ``labels``:
-        #   ``1 <= label <= config.orderbook_depth`` or ``-1`` (mask) for F networks.
-        if labels is not None:
-            # Shift so that tokens < n predict n.
-            if self.mode[:3] == "bid":
-                assert labels.shape == (bsz, seq_len)
-                shift_logits = logits[..., :-1, :].contiguous()
-                shift_labels = labels[..., 1:].contiguous()
-            elif self.mode[:3] == "ask":
-                assert labels.shape == (bsz, seq_len, self.depth_range)
-                shift_logits = logits_matrix[..., :-1, :, :].contiguous()
-                shift_labels = labels[..., 1:, :].contiguous()
-            else:
-                print("Value of config param ``mode``: %s" % self.mode)
-                raise ValueError("Config param ``mode`` is invalid.")
-            # Flatten the tokens.
-            loss_fct = CrossEntropyLoss(ignore_index=-1)
-            loss_input = shift_logits.view(-1, shift_logits.size(-1))
-            loss_target = shift_labels.view(-1)
-            loss = loss_fct(loss_input, loss_target)
-            outputs = (loss,) + outputs
-
-        return outputs  # (loss), logits, (all hidden states), (all attentions)
-        """
