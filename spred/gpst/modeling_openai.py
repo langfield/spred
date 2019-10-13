@@ -182,8 +182,7 @@ def recursive_product(x: torch.FloatTensor, dim: int, depth: int) -> torch.Float
     product_list: List[torch.FloatTensor] = []
 
     # TODO: Add a tensor of ones first.
-    bsz, seq_len = x.shape[:2]
-    product_list.append(torch.ones((bsz, seq_len)).to(x.device))
+    product_list.append(torch.ones(x.shape[:dim]).to(x.device))
 
     # TODO: is this range correct?
     for i in range(depth - 1):
@@ -278,44 +277,65 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
             # Components added in order: class, increase, decrease.
             g_components: List[torch.FloatTensor] = []
 
+            # DEBUG
+            print("side: %s" % side)
+
+            # Define shapes.
+            if side == "bid":
+                delta_shape = (bsz, seq_len, depth)
+                class_shape = (bsz, seq_len, 3)
+                single_class_shape = (bsz, seq_len) 
+            if side == "ask":
+                delta_shape = (bsz, seq_len, (2 * depth + 1), depth)
+                class_shape = (bsz, seq_len, (2 * depth + 1), 3)
+                single_class_shape = (bsz, seq_len, 2 * depth + 1)
+
             dim = dim_map[side]
             mode = side + "_classification"
 
-            class_outputs = transformer_logits[mode]
+            # Get class logits and reshape if necessary.
+            class_outputs = transformer_logits[mode].view(class_shape)
 
             # Add no-change logits for when ``y_1 == 0``.
-            g_components.append(class_outputs[0])
+            zero_class_logits = class_outputs[..., 0]
+            print("Shape zero class logits:", zero_class_logits.shape)
+            g_components.append(zero_class_logits.unsqueeze(dim))
 
             for delta in ["increase", "decrease"]:
                 mode = side + "_" + delta
-                sigmoid_outputs = torch.sigmoid(transformer_logits[mode])
+                delta_logits = transformer_logits[mode]
+
+                # Reshape logits.
+                delta_logits = delta_logits.view(delta_shape)
+
+                sigmoid_outputs = torch.sigmoid(delta_logits)
                 product_outputs = recursive_product(sigmoid_outputs, dim, depth)
-                h = class_outputs[:, :, delta_index_map[delta]]
+                h = class_outputs[..., delta_index_map[delta]]
 
                 # DEBUG
                 print("Product outputs shape:", product_outputs.shape)
                 print("h shape:", h.shape)
 
                 # Shape check.
-                assert sigmoid_outputs.shape == (bsz, seq_len, depth)
-                assert product_outputs.shape == (bsz, seq_len, depth)
-                assert h.shape == (bsz, seq_len)
+                if side == "bid":
+                    assert sigmoid_outputs.shape == delta_shape
+                    assert product_outputs.shape == delta_shape
+                    assert h.shape == single_class_shape
 
                 # Tile ``h`` across depth dimension.
                 h = h.unsqueeze(dim)
-                h = h.expand(-1, -1, depth)
+                h = h.expand(delta_shape)
 
                 g_component = sigmoid_outputs * product_outputs * h
 
                 # Shape check.
-                if side == "bid":
-                    assert g_component.shape == (bsz, seq_len, depth)
-                else:
-                    assert g_component.shape == (bsz, seq_len, (2 * depth + 1), depth)
+                assert g_component.shape == delta_shape
 
                 g_components.append(g_component)
-            g_components = [comp.unsqueeze(dim) for comp in g_components]
-            g = torch.stack(g_components, dim=dim)
+
+            print("g comp shapes:\n", [comp.shape for comp in g_components])
+            g = torch.cat(g_components, dim=dim)
+            print("g shape:", g.shape)
 
             # Add un-tiled conditional distribution to outputs.
             g_logit_map[side] = g
