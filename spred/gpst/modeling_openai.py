@@ -7,7 +7,7 @@ from __future__ import absolute_import, division, print_function, unicode_litera
 
 import copy
 import logging
-from typing import List, Dict, Tuple, Any
+from typing import List, Dict, Tuple, Any, Union
 
 import torch
 import torch.nn as nn
@@ -102,9 +102,9 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
     def forward(
         self,
         input_ids: torch.LongTensor,
-        position_ids: torch.LongTensor = None,
-        inputs_raw: torch.FloatTensor = None,
-        head_mask: torch.LongTensor = None,
+        position_ids: torch.LongTensor,
+        inputs_raw: torch.FloatTensor,
+        head_mask: torch.FloatTensor = None,
     ) -> Tuple[Any, ...]:
 
         if position_ids is None:

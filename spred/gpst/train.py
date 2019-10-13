@@ -40,8 +40,15 @@ logger.addHandler(logging.FileHandler("logs/rain_" + datestring + ".log"))
 
 # pylint: disable=protected-access
 def setup(
-    args: argparse.Namespace = None
-) -> Tuple[argparse.Namespace, OpenAIGPTConfig, torch.device, DataLoader]:
+    args: argparse.Namespace
+) -> Tuple[
+    argparse.Namespace,
+    ConditionalGPSTModel,
+    torch.device,
+    torch.optim.Optimizer,
+    torch.optim.lr_scheduler._LRScheduler,
+    DataLoader,
+]:
     """
     Training model, dataset, and optimizer setup.
 
@@ -54,8 +61,10 @@ def setup(
     -------
     args : ``args.Namespace``.
         Updated training arguments.
-    model : ``OpenAIGPTLMHeadModel``.
+    model : ``ConditionalGPSTModel``.
         Loaded model, set to ``train`` mode.
+    device : ``torch.device``.
+        Device onto which the model is loaded.
     optimizer : ``torch.optim.Optimizer``.
         PyTorch optimizer for training.
     scheduler : ``torch.optim.lr_scheduler._LRScheduler``.
@@ -65,9 +74,7 @@ def setup(
     """
 
     if args is None:
-        parser = argparse.ArgumentParser()
-        parser = get_args(parser)
-        args = parser.parse_args()
+        raise ValueError("Argument parsing required.")
 
     random.seed(args.seed)
     np.random.seed(args.seed)
@@ -143,7 +150,7 @@ def setup(
     return args, model, optimizer, scheduler, device, train_dataloader
 
 
-def train(args: argparse.Namespace = None) -> float:
+def train(args: argparse.Namespace) -> float:
     """
     Train a GPST Model with the arguments parsed via ``arguments.py``.
     Should be run via ``rain.sh``.
@@ -261,4 +268,7 @@ def train(args: argparse.Namespace = None) -> float:
 
 
 if __name__ == "__main__":
-    train()
+    PARSER = argparse.ArgumentParser()
+    PARSER = get_args(PARSER)
+    ARGS = PARSER.parse_args()
+    train(ARGS)
