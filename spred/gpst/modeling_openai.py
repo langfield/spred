@@ -177,25 +177,38 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
 
 
 def recursive_product(x: torch.FloatTensor, dim: int, depth: int) -> torch.FloatTensor:
-    """ Compute recursive unrolled product of (1 - x) along dim. """
+    """
+    Compute recursive unrolled product of (1 - x) along dim.
+
+    Parameters
+    ----------
+    x : ``torch.FloatTensor``.
+        Sigmoid delta logits.
+        Shape: ``delta_shape``.
+    dim: ``int``.
+        Which dimension to stack along. Has value ``2`` for bid and ``3`` for ask.
+    depth: ``int``.
+        Orderbook depth of distribution.
+
+    Returns
+    -------
+    products : ``torch.FloatTensor``.
+        Recursive products of ``1 - x`` indexed from ``1`` to ``depth`` inclusive.
+        Shape: ``delta_shape``.
+    """
 
     product_list: List[torch.FloatTensor] = []
 
-    # TODO: Add a tensor of ones first.
+    # TODO: Is this a memory leak?
     product_list.append(torch.ones(x.shape[:dim]).to(x.device))
 
-    # TODO: is this range correct?
-    for i in range(depth - 1):
-        if i == 0:
-            product_list.append(1 - x[..., i + 1])
-        else:
-            product_list.append(product_list[i - 1] * (1 - x[..., i + 1]))
+    # Iterate over nonzero levels.
+    for i in range(1, depth):
+        product_list.append(product_list[i - 1] * (1 - x[..., i]))
 
-    # TODO: Should this be in-place?
-    # TODO: Does this create a memory leak?
-    products_tensor = torch.stack(product_list, dim=dim)
+    products = torch.stack(product_list, dim=dim)
 
-    return products_tensor
+    return products
 
 
 class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
@@ -245,8 +258,9 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
         bsz, seq_len = input_ids.shape[:2]
         transformer_outputs: Dict[str, Tuple[Any, ...]] = {}
         transformer_logits: Dict[str, torch.FloatTensor] = {}
+
+        # Make forward calls for subtransformers and save outputs and logits.
         for mode in self.modes:
-            # TODO: Should we be passing ``labels`` here?
             transformer_outputs[mode] = self.transformers[mode](
                 input_ids,
                 position_ids=position_ids,
@@ -255,6 +269,7 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
             )
             transformer_logits[mode] = transformer_outputs[mode][0]
 
+        # SHAPE INFORMATION:
         # Bid increase/decrease outputs have shape:
         #   ``(bsz, seq_len, orderbook_depth)``.
 
@@ -272,7 +287,6 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
         dim_map: Dict[str, int] = {"bid": 2, "ask": 3}
         delta_index_map: Dict[str, int] = {"increase": 1, "decrease": 2}
 
-        # TODO: Add shape annotations.
         for side in ["bid", "ask"]:
             # Components added in order: class, increase, decrease.
             g_components: List[torch.FloatTensor] = []
@@ -281,7 +295,7 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
             if side == "bid":
                 delta_shape = (bsz, seq_len, depth)
                 class_shape = (bsz, seq_len, 3)
-                single_class_shape = (bsz, seq_len) 
+                single_class_shape = (bsz, seq_len)
             if side == "ask":
                 delta_shape = (bsz, seq_len, (2 * depth + 1), depth)
                 class_shape = (bsz, seq_len, (2 * depth + 1), 3)
@@ -291,21 +305,31 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
             mode = side + "_classification"
 
             # Get class logits and reshape if necessary.
+            # Shape: ``class_shape``.
             class_outputs = transformer_logits[mode].view(class_shape)
 
             # Add no-change logits for when ``y_1 == 0``.
+            # Shape: ``single_class_shape``.
             zero_class_logits = class_outputs[..., 0]
             g_components.append(zero_class_logits.unsqueeze(dim))
 
             for delta in ["increase", "decrease"]:
                 mode = side + "_" + delta
+
+                # Shape: ``(bsz, seq_len, <depth OR (2 * depth + 1) * depth>)``.
                 delta_logits = transformer_logits[mode]
 
                 # Reshape logits.
+                # Shape: ``delta_shape``.
                 delta_logits = delta_logits.view(delta_shape)
 
+                # Shape: ``delta_shape``.
                 sigmoid_outputs = torch.sigmoid(delta_logits)
+
+                # Shape: ``delta_shape``.
                 product_outputs = recursive_product(sigmoid_outputs, dim, depth)
+
+                # Shape: ``single_class_shape``.
                 h = class_outputs[..., delta_index_map[delta]]
 
                 # Shape check.
@@ -315,9 +339,13 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
                     assert h.shape == single_class_shape
 
                 # Tile ``h`` across depth dimension.
+                # Shape: ``single_class_shape + (1,)``.
                 h = h.unsqueeze(dim)
+
+                # Shape: ``delta_shape``.
                 h = h.expand(delta_shape)
 
+                # Shape: ``delta_shape``.
                 g_component = sigmoid_outputs * product_outputs * h
 
                 # Shape check.
@@ -325,6 +353,8 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
 
                 g_components.append(g_component)
 
+            # Ordering: ``(zero_class, increase, decrease)``.
+            # Shape: ``single_class_shape + (2 * depth + 1,)``.
             g = torch.cat(g_components, dim=dim)
 
             # Add un-tiled conditional distribution to outputs.
