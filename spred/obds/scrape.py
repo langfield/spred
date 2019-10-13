@@ -21,7 +21,7 @@ def main(args: argparse.Namespace) -> None:
     index = 0
     out = {}
     start = time.time()
-    file_count = 0
+    file_count = args.start
 
     while True:
         url = urlopen(url_str)
@@ -58,6 +58,7 @@ def main(args: argparse.Namespace) -> None:
 def get_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     """ Parse the save directory for scraped orderbooks. """
     parser.add_argument("--dir", type=str, required=True)
+    parser.add_argument("--start", type=int, default=0)
     return parser
 
 
