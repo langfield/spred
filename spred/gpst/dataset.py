@@ -138,7 +138,34 @@ def seq_normalize(
 
 
 class GPSTDataset(Dataset):
-    """ Dataset class for GPST (training). """
+    """ 
+    Dataset class for GPST (training). 
+
+    Parameters
+    ----------
+    corpus_path : ``str``.
+        Path to csv corpus file.
+    seq_len : ``int``.
+        Length of transformer sequences.
+    input_dim : ``int``.
+        Dimension of the source dataset.
+    orderbook_depth : ``int``.
+        How many levels we model in the orderbook.
+    encoding : ``str``.
+        Source file encoding.
+    on_memory: ``bool``.
+        Not implemented. Lazy loading in order to treat large datasets.
+    stationarization : ``bool``.
+        Stationarize by computing differences.
+    aggregation_size : ``int``.
+        Number of timesteps to aggregate (1 does nothing).
+    normalization : ``bool``.
+        Normalize the entire dataset.
+    seq_norm : ``bool``.
+        Normalize each sequence individually.
+    train_batch_size : ``int``.
+        Batch size used during training.
+    """
 
     def __init__(
         self,

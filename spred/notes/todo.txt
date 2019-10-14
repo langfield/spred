@@ -44,7 +44,7 @@ Todo:   #================================TODO==================================
 
         Fix loss computation for optuna.
 
-        Veryify that class label locations in dataset feature creation match
+        Verify that class label locations in dataset feature creation match
         up with expected locations in outputs from model forward class.
 
         Fix type annotations and docstrings.
