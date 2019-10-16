@@ -24,23 +24,13 @@ import torch_xla.distributed.parallel_loader as pl
 import torch_xla.distributed.xla_multiprocessing as xmp
 
 # External module imports.
-from arguments import get_args
+from trunk import get_log
 from dataset import GPSTDataset
+from arguments import get_args
 from modeling_openai import ConditionalGPSTModel
 
 DEBUG = False
-logging.basicConfig(
-    format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
-    datefmt="%m/%d/%Y %H:%M:%S",
-    level=logging.INFO,
-)
 # pylint: disable=invalid-name, no-member, bad-continuation
-if not os.path.isdir("logs/"):
-    os.mkdir("logs/")
-datestring = str(datetime.datetime.now())
-datestring = datestring.replace(" ", "_")
-logger = logging.getLogger(__name__)
-logger.addHandler(logging.FileHandler("logs/rain_" + datestring + ".log"))
 
 
 # pylint: disable=protected-access
@@ -182,6 +172,9 @@ def xla_run(args) -> None:
     """ Spawn XLA processes. """
 
     # HARDCODE
+    args.log = get_log("rain")
+
+    # HARDCODE
     nprocs = 8
     xmp.spawn(_xmp_fn, args=(args,), nprocs=nprocs)
 
@@ -309,6 +302,8 @@ def xla_train(args: argparse.Namespace) -> float:
             device,
             para_loader.per_device_loader(device),
         )
+
+        args.log.write("Epoch loss: %f" % epoch_avg_loss)
 
         if "trial" in args:
             trial.report(epoch_avg_loss, time.time() - start)
