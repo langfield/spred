@@ -32,6 +32,9 @@ from modeling_openai import ConditionalGPSTModel
 DEBUG = False
 # pylint: disable=invalid-name, no-member, bad-continuation
 
+# HARDCODE
+LOG = get_log("rain")
+
 
 # pylint: disable=protected-access
 def setup(
@@ -172,10 +175,7 @@ def xla_run(args) -> None:
     """ Spawn XLA processes. """
 
     # HARDCODE
-    args.log = get_log("rain")
-
-    # HARDCODE
-    nprocs = 8
+    nprocs = 1
     xmp.spawn(_xmp_fn, args=(args,), nprocs=nprocs)
 
 
@@ -303,7 +303,7 @@ def xla_train(args: argparse.Namespace) -> float:
             para_loader.per_device_loader(device),
         )
 
-        args.log.write("Epoch loss: %f" % epoch_avg_loss)
+        LOG.write("Epoch loss: %f" % epoch_avg_loss)
 
         if "trial" in args:
             trial.report(epoch_avg_loss, time.time() - start)
