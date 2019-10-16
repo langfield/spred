@@ -202,9 +202,9 @@ def xla_loop(
     # Local variables for shape check.
     bsz = args.train_batch_size
 
-    tr_loss = 0.0
+    nb_tr_steps, tr_loss, exp_average_loss = 0.0, 0.0, 0.0
     losses = []
-    nb_tr_steps = 0
+    completed_first_iteration = False
     tqdm_bar = tqdm(loader, desc="Training", position=0, leave=True)
     for _, batch in enumerate(tqdm_bar):
 
@@ -294,7 +294,6 @@ def xla_train(args: argparse.Namespace) -> float:
     # Main training loop.
     start = time.time()
     nb_tr_steps, tr_loss, exp_average_loss = 0.0, 0.0, 0.0
-    completed_first_iteration = False
     model.train()
     elapsed_epochs = 0
     for _ in trange(int(args.num_train_epochs), desc="Epoch"):
