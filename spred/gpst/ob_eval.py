@@ -87,6 +87,8 @@ def load_from_file(
     agg_size = args.aggregation_size
     norm = args.normalize
 
+    # HARDCODE
+    step_size = 1
     seq_len = args.seq_len
 
     # Dataset.
@@ -96,6 +98,7 @@ def load_from_file(
         args.dim,
         args.orderbook_depth,
         args.sep,
+        step_size,
         stationarization=args.stationarize,
         aggregation_size=args.aggregation_size,
         normalization=args.normalize,
@@ -266,7 +269,7 @@ def term_print(
 
 
 def prediction_loop(
-    args: argparse.Namespace, model: OpenAIGPTLMHeadModel, input_array: np.ndarray
+    args: argparse.Namespace, model: OpenAIGPTLMHeadModel, features: List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]
 ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
     """
     Loops over the input array and makes predictions on slices of length
@@ -292,21 +295,59 @@ def prediction_loop(
         List of predictions. Each ``np.ndarray`` has shape (,).
     """
 
+    bsz = args.eval_batch_size
+    seq_len = args.seq_len
+    depth = args.orderbook_depth
+
     output_list: List[np.ndarray] = []
     actuals_list = []
     preds_list = []
 
     # Iterate in step sizes of 1 over ``input_array``.
-    start = random.randint(0, len(input_array) // 2)
+    # HARDCODE
+    start = random.randint(0, len(features) // 2)
     for i in range(start, start + args.width):
 
         # Grab the slice of ``input_array`` we wish to predict on.
-        assert i + args.seq_len <= len(input_array)
-        input_array_slice = input_array[i : i + args.seq_len, :]
-        actual_array_slice = input_array[i + 1 : i + args.seq_len + 1, :]
-        if args.seq_norm:
-            actual_array_slice, _ = seq_normalize(actual_array_slice)
-        actual = actual_array_slice[-1]
+        input_ids, position_ids, labels, inputs_raw = features[i]
+
+        # Make sure there is room to get actual values.
+        assert i < len(features) - 1
+        actuals_raw = features[i + 1]
+        actual = actuals_raw[0][-1]
+
+        # Cast data to float tensor.
+        # TODO: Is this necessary? What is its type before and after?
+        inputs_raw = inputs_raw.float()
+        labels = labels.long()
+
+        # Handles lack of batch size data truncation in dataset class.
+        if not args.stationarize and input_ids.shape[0] < args.train_batch_size:
+            continue
+
+        # Shape check.
+        assert input_ids.shape == (bsz, seq_len)
+        assert position_ids.shape == (bsz, seq_len)
+        assert labels.shape == (bsz, seq_len)
+        assert inputs_raw.shape == (bsz, seq_len, args.dim)
+
+        outputs = model(input_ids, position_ids, labels, inputs_raw)
+
+        # Get g distribution for each side.
+        g_logit_map = outputs[0]
+        g_bid = g_logit_map["bid"]
+        g_ask = g_logit_map["ask"]
+
+        assert g_bid.shape = (bsz, seq_len, 2 * depth + 1)
+        assert g_ask.shape = (bsz, seq_len, 2 * depth + 1, 2 * depth + 1)
+
+        bid_prediction_logits = g_bid[0][-1]
+        ask_prediction_logits = g_ask[0][-1]
+
+        _, bid_index = torch.max(bid_prediction_logits)
+        _, ask_index = torch.max(ask_prediction_logits[bid_index])
+
+        raise NotImplementedError
 
         # Make prediction and get ``actual``: the value we want to predict.
         pred = predict(args, model, input_array_slice)
@@ -348,9 +389,9 @@ def main() -> None:
     print("Max sequence length :", args.seq_len)
     print("Eval batch size:", args.eval_batch_size)
 
-    input_array = load_from_file(args, debug=True)
+    features = load_from_file(args, debug=True)
 
-    actuals_list, preds_list = prediction_loop(args, model, input_array)
+    actuals_list, preds_list = prediction_loop(args, model, features)
 
     # Stack and cast to ``pd.DataFrame``.
     # ``actuals_array`` and ``preds_array`` shape: (args.width,)

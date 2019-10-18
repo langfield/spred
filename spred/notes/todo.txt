@@ -52,3 +52,5 @@ Todo:   #================================TODO==================================
         
         Add activation functions to pre-encoding, post-decoding, and lm_head
         layers in ``modeling_openai.py``.
+
+        Add a MySQL database on macbook for persistent optuna runs.

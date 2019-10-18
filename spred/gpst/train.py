@@ -112,6 +112,7 @@ def setup(
         args.dim,
         args.orderbook_depth,
         args.sep,
+        args.seq_len,
         stationarization=args.stationarize,
         aggregation_size=args.aggregation_size,
         normalization=args.normalize,
