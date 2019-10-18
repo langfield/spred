@@ -12,6 +12,7 @@ import datetime
 import optuna
 
 from train import train
+from lumber import get_log
 from arguments import get_args
 
 
@@ -19,9 +20,10 @@ def main() -> None:
     """ Run an Optuna study. """
     datestring = str(datetime.datetime.now())
     datestring = datestring.replace(" ", "_")
+    log_path = get_log("snow")
     logging.getLogger().setLevel(logging.INFO)  # Setup the root logger.
     logging.getLogger().addHandler(
-        logging.FileHandler("logs/optuna_" + datestring + ".log")
+        logging.FileHandler(log_path)
     )
     optuna.logging.enable_propagation()  # Propagate logs to the root logger.
     optuna.logging.disable_default_handler()  # Stop showing logs in stderr.

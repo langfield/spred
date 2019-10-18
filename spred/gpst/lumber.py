@@ -46,6 +46,5 @@ def get_log(precipitation: str) -> Tuple["TextIOWrapper"]:
     log_dir = os.path.dirname(log_path)
     if not os.path.isdir(log_dir):
         os.makedirs(log_dir)
-    log = open(log_path, "a+")
 
-    return log
+    return log_path
