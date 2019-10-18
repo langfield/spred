@@ -18,11 +18,6 @@ from torch.utils.data import DataLoader, RandomSampler
 from transformers import AdamW, WarmupLinearSchedule
 from transformers.configuration_openai import OpenAIGPTConfig
 
-# XLA.
-import torch_xla.core.xla_model as xm
-import torch_xla.distributed.parallel_loader as pl
-import torch_xla.distributed.xla_multiprocessing as xmp
-
 # External module imports.
 from trunk import get_log
 from dataset import GPSTDataset
@@ -83,9 +78,6 @@ def setup(
     n_gpu = torch.cuda.device_count()
     logging.info("device: %s, n_gpu %d", str(device), n_gpu)
 
-    # XLA device.
-    device = xm.xla_device()
-
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
@@ -113,15 +105,7 @@ def setup(
     )
     print("Length of training dataset:", len(train_data))
 
-    # XLA sampler.
     train_sampler = RandomSampler(train_data)
-    if xm.xrt_world_size() > 1:
-        train_sampler = torch.utils.data.distributed.DistributedSampler(
-            train_data,
-            num_replicas=xm.xrt_world_size(),
-            rank=xm.get_ordinal(),
-            shuffle=True,
-        )
 
     train_dataloader = DataLoader(
         train_data, sampler=train_sampler, batch_size=args.train_batch_size
@@ -138,8 +122,7 @@ def setup(
         {"params": no_dec, "weight_decay": 0.0},
     ]
 
-    # Scale learning rate to num cores.
-    args.learning_rate = args.learning_rate * xm.xrt_world_size()
+    args.learning_rate = args.learning_rate
 
     optimizer = AdamW(
         optimizer_grouped_parameters,
@@ -156,175 +139,13 @@ def setup(
     )
 
     # DataParallel.
-    if False:
-        if torch.cuda.device_count() > 1 and False:
-            print("Let's use", torch.cuda.device_count(), "GPUs!")
-            model = torch.nn.DataParallel(model)
+    if torch.cuda.device_count() > 1 and False:
+        print("Let's use", torch.cuda.device_count(), "GPUs!")
+        model = torch.nn.DataParallel(model)
 
     model.to(device)
 
     return args, model, optimizer, scheduler, device, train_dataloader
-
-
-def _xmp_fn(index: int, args: argparse.Namespace) -> None:
-    """ XLA multiprocessing process function. """
-    xla_train(args)
-
-
-def xla_run(args) -> None:
-    """ Spawn XLA processes. """
-
-    # HARDCODE
-    nprocs = 1
-    xmp.spawn(_xmp_fn, args=(args,), nprocs=nprocs)
-
-
-def xla_loop(
-    args: argparse.Namespace,
-    model: ConditionalGPSTModel,
-    optimizer: torch.optim.Optimizer,
-    scheduler: torch.optim.lr_scheduler._LRScheduler,
-    device: torch.device,
-    loader: DataLoader,
-) -> float:
-    """ Single epoch loop. """
-
-    # XLA tracker.
-    tracker = xm.RateTracker()
-
-    # Local variables for shape check.
-    bsz = args.train_batch_size
-
-    nb_tr_steps, tr_loss, exp_average_loss = 0.0, 0.0, 0.0
-    losses = []
-    completed_first_iteration = False
-    tqdm_bar = tqdm(loader, desc="Training", position=0, leave=True)
-    for _, batch in enumerate(tqdm_bar):
-
-        batch = tuple(t.to(device) for t in batch)
-        input_ids, position_ids, labels, inputs_raw = batch
-
-        # Cast data to float tensor.
-        # TODO: Is this necessary? What is its type before and after?
-        inputs_raw = inputs_raw.float()
-        labels = labels.long()
-
-        # Handles lack of batch size data truncation in dataset class.
-        if not args.stationarize and input_ids.shape[0] < args.train_batch_size:
-            continue
-
-        # Shape check.
-        assert input_ids.shape == (bsz, args.seq_len)
-        assert position_ids.shape == (bsz, args.seq_len)
-        assert labels.shape == (bsz, args.seq_len)
-        assert inputs_raw.shape == (bsz, args.seq_len, args.dim)
-
-        outputs = model(input_ids, position_ids, labels, inputs_raw)
-
-        loss = outputs[0]
-        loss.backward()
-        loss_scalar = float(loss)
-
-        # Logging.
-        losses.append(loss_scalar)
-
-        torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-        xm.optimizer_step(optimizer)
-        optimizer.zero_grad()
-        scheduler.step()
-        tracker.add(bsz)
-
-        tr_loss += loss.item()
-        exp_average_loss = (
-            loss.item()
-            if completed_first_iteration
-            else 0.7 * exp_average_loss + 0.3 * loss.item()
-        )
-
-        completed_first_iteration = True
-        nb_tr_steps += 1
-
-        # Stats.
-        epoch_avg_loss = np.mean(losses)
-        epoch_stddev_loss = np.std(losses)
-        tqdm_bar.desc = "Epoch loss dist:: mean: {:.2e}".format(
-            epoch_avg_loss
-        ) + " std: {:.2e}".format(epoch_stddev_loss)
-
-    return epoch_avg_loss
-
-
-def xla_train(args: argparse.Namespace) -> float:
-    """
-    Train a GPST Model with the arguments parsed via ``arguments.py``.
-    Should be run via ``rain.sh``.
-
-    Parameters
-    ----------
-    args : ``argparse.Namespace``.
-        Training arguments with which we load dataset, create model.
-
-    Returns
-    -------
-    epoch_avg_loss : ``float``.
-        The average loss for the last epoch.
-    """
-
-    # Get model.
-    args, model, optimizer, scheduler, device, train_dataloader = setup(args)
-
-    # Optuna early stopping.
-    if "trial" in args:
-        trial = args.trial
-
-    # Save names.
-    weights_name = args.model_name + ".bin"
-    config_name = args.model_name + ".json"
-
-    # Flush output before we begin training.
-    sys.stdout.flush()
-
-    # Main training loop.
-    start = time.time()
-    nb_tr_steps, tr_loss, exp_average_loss = 0.0, 0.0, 0.0
-    model.train()
-    elapsed_epochs = 0
-    for _ in trange(int(args.num_train_epochs), desc="Epoch"):
-
-        para_loader = pl.ParallelLoader(train_dataloader, [device])
-
-        # Single epoch loop call.
-        epoch_avg_loss = xla_loop(
-            args,
-            model,
-            optimizer,
-            scheduler,
-            device,
-            para_loader.per_device_loader(device),
-        )
-
-        LOG.write("Epoch loss: %f" % epoch_avg_loss)
-
-        if "trial" in args:
-            trial.report(epoch_avg_loss, time.time() - start)
-            if trial.should_prune():
-                raise optuna.structs.TrialPruned()
-
-        # Save every ``args.save_freq`` epochs.
-        elapsed_epochs += 1
-
-        if elapsed_epochs % args.save_freq == 0:
-            model_to_save = model.module if hasattr(model, "module") else model
-            output_model_file = os.path.join(args.output_dir, weights_name)
-            output_config_file = os.path.join(args.output_dir, config_name)
-
-            torch.save(model_to_save.state_dict(), output_model_file)
-            model_to_save.config.to_json_file(output_config_file)
-
-        if args.timeout > 0 and time.time() - start >= args.timeout:
-            break
-
-    return epoch_avg_loss
 
 
 def train(args: argparse.Namespace) -> float:
@@ -422,6 +243,10 @@ def train(args: argparse.Namespace) -> float:
                 epoch_avg_loss
             ) + " std: {:.2e}".format(epoch_stddev_loss)
 
+
+        # Log loss.
+        LOG.write("Epoch avg loss: %f\n" % epoch_avg_loss)
+
         if "trial" in args:
             trial.report(epoch_avg_loss, time.time() - start)
             if trial.should_prune():
@@ -448,4 +273,4 @@ if __name__ == "__main__":
     PARSER = argparse.ArgumentParser()
     PARSER = get_args(PARSER)
     ARGS = PARSER.parse_args()
-    xla_run(ARGS)
+    train(ARGS)
