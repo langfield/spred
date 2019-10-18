@@ -61,7 +61,9 @@ def get_models(args: argparse.Namespace) -> ConditionalGPSTModel:
     return model
 
 
-def load_from_file(args: argparse.Namespace, debug: bool = False) -> np.ndarray:
+def load_from_file(
+    args: argparse.Namespace, debug: bool = False
+) -> List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
     """
     Returns a dataframe containing the data from ``args.dataset: str``.
 
@@ -86,7 +88,7 @@ def load_from_file(args: argparse.Namespace, debug: bool = False) -> np.ndarray:
     norm = args.normalize
 
     seq_len = args.seq_len
-    
+
     # Dataset.
     train_data = GPSTDataset(
         args.dataset,
@@ -101,12 +103,10 @@ def load_from_file(args: argparse.Namespace, debug: bool = False) -> np.ndarray:
         train_batch_size=args.train_batch_size,
     )
     print("Length of eval dataset:", len(train_data))
+    features = train_data.features
 
-    raise NotImplementedError
-
-    input_array = np.array(input_df)
-    assert len(input_array) >= seq_len
-    return input_array
+    assert len(features) >= 0
+    return features
 
 
 def predict(
@@ -332,6 +332,7 @@ def main() -> None:
     adds up to ``args.width``, starting from ``start``, a randomly chosen
     starting index. Generates matplotlib graph as an ``.svg`` file.
     """
+
     # Set hyperparameters.
     parser = argparse.ArgumentParser()
     parser = get_args(parser)
