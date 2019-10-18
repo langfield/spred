@@ -19,9 +19,10 @@ def get_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     """
 
     # Required.
-    parser.add_argument("--dataset", type=str, required=True)
     parser.add_argument("--gpst_model", type=str, required=True)
     parser.add_argument("--output_dir", type=str, required=True)
+    parser.add_argument("--dataset", type=str, required=True)
+    parser.add_argument("--sep", type=str, required=True)
 
     # Saving.
     parser.add_argument("--model_name", type=str, default="openai-gpt")

@@ -60,6 +60,7 @@ def objective(trial: optuna.Trial) -> float:
     args.max_grad_norm = 3
     args.adam_epsilon = 7.400879524874149e-08
     args.warmup_proportion = 0.0
+    args.sep = ","
 
     batch_size = 192
     agg_size = 1

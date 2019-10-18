@@ -16,7 +16,7 @@ from transformers.configuration_openai import OpenAIGPTConfig
 from plot.plot import graph
 from plot.termplt import plot_to_terminal
 from arguments import get_args
-from modeling_openai import OpenAIGPTLMHeadModel
+from modeling_openai import ConditionalGPSTModel
 from dataset import aggregate, stationarize, normalize, seq_normalize
 
 
@@ -25,7 +25,7 @@ TERM_PRINT = False
 # pylint: disable=no-member, bad-continuation
 
 
-def get_models(args: argparse.Namespace) -> nn.ModuleDict:
+def get_models(args: argparse.Namespace) -> ConditionalGPSTModel:
     """
     Load the model specified by ``args.model_name``.
 
@@ -40,29 +40,25 @@ def get_models(args: argparse.Namespace) -> nn.ModuleDict:
         The loaded model, set to ``eval`` mode, and loaded onto the relevant
         device.
     """
-    model_dict: nn.ModuleDict = nn.ModuleDict()
-    global_config = OpenAIGPTConfig.from_pretrained(args.gpst_model)
-    weights_names: Dict[str, str] = {}
-    config_names: Dict[str, str] = {}
-    for mode in global_config.modes:
-        weights_names[mode] = "%s_%s.bin" % (args.model_name, mode)
-        config_names[mode] = "%s_%s.json" % (args.model_name, mode)
 
-        # HARDCODE
-        output_dir = "ckpts/"
-        output_model_file = os.path.join(output_dir, weights_names[mode])
-        output_config_file = os.path.join(output_dir, config_names[mode])
-        loaded_config = OpenAIGPTConfig.from_json_file(output_config_file)
-        model = OpenAIGPTLMHeadModel(loaded_config)
-        model.load_state_dict(torch.load(output_model_file))
-        model_dict[mode] = model
+    config = OpenAIGPTConfig.from_pretrained(args.gpst_model)
+    weights_names[mode] = "%s_%s.bin" % (args.model_name, mode)
+    config_names[mode] = "%s_%s.json" % (args.model_name, mode)
+
+    # HARDCODE
+    output_dir = "ckpts/"
+    output_model_file = os.path.join(output_dir, weights_name)
+    output_config_file = os.path.join(output_dir, config_name)
+    loaded_config = OpenAIGPTConfig.from_json_file(output_config_file)
+    model = ConditionalGPSTModel(loaded_config)
+    model.load_state_dict(torch.load(output_model_file))
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model_dict.to(device)
-    model_dict.eval()
-    print("Is model training:", model_dict.training)
+    model.to(device)
+    model.eval()
+    print("Is model training:", model.training)
 
-    return model_dict
+    return model
 
 
 def load_from_file(args: argparse.Namespace, debug: bool = False) -> np.ndarray:
@@ -83,6 +79,7 @@ def load_from_file(args: argparse.Namespace, debug: bool = False) -> np.ndarray:
         stationarized, aggregated, and/or normalized.
         Shape: (<rows_after_preprocessing>, vocab_size).
     """
+
     data_filename = args.dataset
     stat = args.stationarize
     agg_size = args.aggregation_size
@@ -90,7 +87,7 @@ def load_from_file(args: argparse.Namespace, debug: bool = False) -> np.ndarray:
 
     seq_len = args.seq_len
 
-    input_df = pd.read_csv(data_filename, sep="\t")
+    input_df = pd.read_csv(data_filename, sep=args.sep)
     if debug:
         print("Raw:\n", input_df.head(30))
 
@@ -132,6 +129,7 @@ def predict(
         The last prediction in the first (and only) batch.
         Shape: (,).
     """
+
     # Grab arguments from ``args``.
     seq_len = args.seq_len
     dim = args.dim
@@ -294,6 +292,7 @@ def prediction_loop(
     preds_list : ``List[np.ndarray]``.
         List of predictions. Each ``np.ndarray`` has shape (,).
     """
+
     output_list: List[np.ndarray] = []
     actuals_list = []
     preds_list = []
