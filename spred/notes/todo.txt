@@ -36,17 +36,19 @@ Done:   #================================DONE==================================
         loss over a flattened verion of the output space Y = (Y_1, Y_2).
         
         Fix output aggregation in return tuple of forward calls to model.
+        
+        Fix type annotations and docstrings.
 
 Todo:   #================================TODO==================================
 
-        Add activation functions to pre-encoding, post-decoding, and lm_head
-        layers in ``modeling_openai.py``.
-
         Fix loss computation for optuna.
+
+        Rewrite ``eval.py``.
 
         Verify that class label locations in dataset feature creation match
         up with expected locations in outputs from model forward class.
 
-        Fix type annotations and docstrings.
-
         Rescrape data.
+        
+        Add activation functions to pre-encoding, post-decoding, and lm_head
+        layers in ``modeling_openai.py``.

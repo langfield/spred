@@ -173,6 +173,7 @@ class GPSTDataset(Dataset):
         seq_len: int,
         input_dim: int,
         orderbook_depth: int,
+        sep: str,
         encoding: str = "utf-8",
         on_memory: bool = True,
         stationarization: bool = False,
@@ -194,7 +195,7 @@ class GPSTDataset(Dataset):
 
         assert corpus_path[-4:] == ".csv"
         # Shape: (total_data_len, vocab_size).
-        input_df = pd.read_csv(corpus_path, sep=",")
+        input_df = pd.read_csv(corpus_path, sep=args.sep)
         print("Raw ``input_df`` shape:", input_df.shape)
 
         if stationarization:
