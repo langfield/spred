@@ -263,14 +263,24 @@ class GPSTDataset(Dataset):
                 training data for the model.
                 Shape: (seq_len, vocab_size).
         """
+
         original_data_len = tensor_data.shape[0]
         seq_len = self.seq_len
         depth = self.depth
+        
+        step_size = seq_len
 
         # Make sure we didn't truncate away all data via ``rows_to_keep``.
         assert original_data_len > 0
 
-        num_seqs = original_data_len // seq_len
+        # To see why this formula is correct, consider the space after
+        # the first sequence until the end of the data. This has size 
+        # ``original_data_len - seq_len``, and within it we cound the number
+        # of sequences past the first we can fit by counting the indices of
+        # the end of each sequence, inclusive. This is equivalent to taking
+        # integer division by the step size. Then we add one to account for
+        # the first sequence.
+        num_seqs = ((original_data_len - seq_len) // step_size) + 1
         print(
             "Expected number of sequences "
             + "(``original_data_len`` // ``seq_len``) (%d // %d): %d"
@@ -283,6 +293,35 @@ class GPSTDataset(Dataset):
 
         features = []
         print("Creating features...")
+
+        i = 0
+        while i + seq_len <= len(tensor_data):
+            inputs_raw = tensor_data[i : i + seq_len]
+            input_ids = input_ids_all[i : i + seq_len]
+            position_ids = np.arange(0, seq_len)
+
+            # Compute labels.
+            bid_delta_indices = 100 * inputs_raw[..., bid_col]
+            bid_delta_indices = bid_delta_indices.astype(int)
+            bid_delta_indices[bid_delta_indices >= depth] = depth - 1
+            bid_delta_indices[bid_delta_indices <= (-1 * depth)] = -1 * (depth - 1)
+            bid_delta_indices = bid_delta_indices + depth - 1
+
+            ask_delta_indices = 100 * inputs_raw[..., ask_col]
+            ask_delta_indices = ask_delta_indices.astype(int)
+            ask_delta_indices[ask_delta_indices >= depth] = depth - 1
+            ask_delta_indices[ask_delta_indices <= (-1 * depth)] = -1 * (depth - 1)
+            ask_delta_indices = ask_delta_indices + depth - 1
+
+            flat_class_labels = (2 * depth + 1) * bid_delta_indices + ask_delta_indices
+
+            assert flat_class_labels.shape == (seq_len,)
+
+            if self.seq_norm:
+                inputs_raw = seq_normalize(inputs_raw)
+
+            features.append((input_ids, position_ids, flat_class_labels, inputs_raw))
+            i += step_size
 
         for i in tqdm(range(num_seqs), position=0, leave=True):
             inputs_raw = tensor_data[i * seq_len : (i + 1) * seq_len]
