@@ -13,6 +13,7 @@ from typing import Tuple
 import optuna
 import numpy as np
 from tqdm import tqdm, trange
+from progressbar import progressbar
 import torch
 from torch.utils.data import DataLoader, RandomSampler
 from transformers import AdamW, WarmupLinearSchedule
@@ -184,15 +185,15 @@ def train(args: argparse.Namespace) -> float:
     # Main training loop.
     start = time.time()
     nb_tr_steps, tr_loss, exp_average_loss = 0.0, 0.0, 0.0
+    epoch_avg_loss = 0
     completed_first_iteration = False
     model.train()
     elapsed_epochs = 0
-    for _ in trange(int(args.num_train_epochs), desc="Epoch"):
+    for i in range(int(args.num_train_epochs)):
         tr_loss = 0.0
         losses = []
         nb_tr_steps = 0
-        tqdm_bar = tqdm(train_dataloader, desc="Training", position=0, leave=True)
-        for _, batch in enumerate(tqdm_bar):
+        for j, batch in enumerate(train_dataloader):
 
             batch = tuple(t.to(device) for t in batch)
             input_ids, position_ids, labels, inputs_raw = batch
@@ -239,10 +240,17 @@ def train(args: argparse.Namespace) -> float:
             # Stats.
             epoch_avg_loss = np.mean(losses)
             epoch_stddev_loss = np.std(losses)
-            tqdm_bar.desc = "Epoch loss dist:: mean: {:.2e}".format(
-                epoch_avg_loss
-            ) + " std: {:.2e}".format(epoch_stddev_loss)
 
+            statusline = "||| ITERATION::  [epoch: %d of %d \t batch: %d of %d] \t " % (
+                i,
+                args.num_train_epochs,
+                j,
+                len(train_dataloader),
+            ) + "LOSS::  [mean: %.9f \t stddev: %.9f] |||" % (
+                epoch_avg_loss,
+                epoch_stddev_loss,
+            )
+            print(statusline, end="\r")
 
         # Log loss.
         LOG.write("Epoch avg loss: %f\n" % epoch_avg_loss)
