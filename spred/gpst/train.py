@@ -6,16 +6,17 @@ import time
 import random
 import logging
 import argparse
-import datetime
 from typing import Tuple
 
 # Third-party imports.
 import optuna
 import numpy as np
-from tqdm import tqdm, trange
-from progressbar import progressbar
+
+# PyTorch imports.
 import torch
 from torch.utils.data import DataLoader, RandomSampler
+
+# Transformers imports.
 from transformers import AdamW, WarmupLinearSchedule
 from transformers.configuration_openai import OpenAIGPTConfig
 
