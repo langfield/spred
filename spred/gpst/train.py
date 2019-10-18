@@ -6,6 +6,7 @@ import time
 import random
 import logging
 import argparse
+import datetime
 from typing import Tuple
 
 # Third-party imports.
@@ -21,7 +22,7 @@ from transformers import AdamW, WarmupLinearSchedule
 from transformers.configuration_openai import OpenAIGPTConfig
 
 # External module imports.
-from trunk import get_log
+from lumber import get_log
 from dataset import GPSTDataset
 from arguments import get_args
 from modeling_openai import ConditionalGPSTModel
@@ -30,8 +31,19 @@ DEBUG = False
 # pylint: disable=invalid-name, no-member, bad-continuation
 
 # HARDCODE
-LOG = get_log("rain")
+LOG_PATH = get_log("rain")
 
+logging.basicConfig(
+    format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
+    datefmt="%m/%d/%Y %H:%M:%S",
+    level=logging.INFO,
+)
+# pylint: disable=invalid-name, no-member
+datestring = str(datetime.datetime.now())
+datestring = datestring.replace(" ", "_")
+logger = logging.getLogger(__name__)
+logger.addHandler(logging.FileHandler(LOG_PATH))
+logger.propagate = False
 
 # pylint: disable=protected-access
 def setup(
@@ -254,7 +266,7 @@ def train(args: argparse.Namespace) -> float:
             print(statusline, end="\r")
 
         # Log loss.
-        LOG.write("Epoch avg loss: %f\n" % epoch_avg_loss)
+        logger.info("Epoch avg loss: %f\r" % epoch_avg_loss)
 
         if "trial" in args:
             trial.report(epoch_avg_loss, time.time() - start)

@@ -2,7 +2,7 @@
 
 MODEL_ROOT="ckpts"
 GPST_MODEL="config.json"
-DATASET="../bookdfs/sampleset.csv"
+DATASET="/root/books/sampleset.csv"
 TIMEOUT="3600"
 SAVE_FREQ="20"
 
