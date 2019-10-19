@@ -218,6 +218,7 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
         super(ConditionalGPSTModel, self).__init__(config)
 
         self.modes = config.modes
+        self.horizon = config.horizon
         self.depth = config.orderbook_depth
         self.classification_modes = ["bid_classification", "ask_classification"]
         self.delta_modes = [
@@ -284,6 +285,7 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
 
         g_map: Dict[str, torch.FloatTensor] = {}
         g_logit_map: Dict[str, torch.FloatTensor] = {}
+        h_logit_map: Dict[str, torch.FloatTensor] = {}
         dim_map: Dict[str, int] = {"bid": 2, "ask": 3}
         delta_index_map: Dict[str, int] = {"increase": 1, "decrease": 2}
 
@@ -359,6 +361,7 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
 
             # Add un-tiled conditional distribution to outputs.
             g_logit_map[side] = g
+            h_logit_map[side] = class_outputs
 
             # TODO: Are we tiling across the correct dimension?
             if side == "bid":
@@ -375,7 +378,7 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
         logits = q_logits.reshape(bsz, seq_len, (2 * depth + 1) ** 2)
 
         # Construct ``outputs`` with logit map and subtransformer outputs.
-        outputs = (g_logit_map,)
+        outputs = (g_logit_map, h_logit_map)
         for mode in self.modes:
             outputs += (transformer_outputs[mode],)
 
@@ -384,10 +387,11 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
         # Range of values of ``labels``:
         #   ``0 <= label <= (2 * depth + 1)^2 - 1``.
         if labels is not None:
+
             # Shift so that tokens < n predict n.
             assert labels.shape == (bsz, seq_len)
-            shift_logits = logits[..., :-1, :].contiguous()
-            shift_labels = labels[..., 1:].contiguous()
+            shift_logits = logits[..., :-1 * self.horizon, :].contiguous()
+            shift_labels = labels[..., self.horizon:].contiguous()
 
             # Flatten the tokens.
             loss_fct = CrossEntropyLoss(ignore_index=-1)

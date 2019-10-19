@@ -241,7 +241,7 @@ def prediction_loop(
     for i in tqdm(range(start, start + args.width)):
 
         # Grab the slice of ``input_array`` we wish to predict on.
-        input_ids, position_ids, _, inputs_raw = features[i]
+        input_ids_arr, position_ids_arr, _, inputs_raw_arr = features[i]
 
         # Make sure there is room to get actual values.
         assert i < len(features) - 1
@@ -249,36 +249,12 @@ def prediction_loop(
         assert actual_labels.shape == (seq_len,)
         actual = actual_labels[-1]
 
-        # DEBUG
-        bid_deltas = inputs_raw[:, 0]
-        ask_deltas = inputs_raw[:, 150]
-        print("Actual labels:\n", actual_labels)
-        print("Actual labels shape:", actual_labels.shape)
-        printlines: List[str] = []
-        for label, bid, ask in zip(actual_labels, bid_deltas, ask_deltas):
-            bid = int(100 * float(bid))
-            ask = int(100 * float(ask))
-            label = int(label)
-            abi = label // (2 * depth + 1)
-            aai = label % (2 * depth + 1)
-            
-            if bid == 0:
-                bidstr = ""
-            else:
-                bidstr = str(bid)
-            if ask == 0:
-                askstr = ""
-            else:
-                askstr = str(ask)
-            
-            print("Label: %d    \t abi: %d \t aai: %d \t bid: %s  \t ask: %s" % (label, abi, aai, bidstr, askstr))
-
         actual_bid_index = actual // (2 * depth + 1)
         actual_ask_index = actual % (2 * depth + 1)
 
-        input_ids = torch.LongTensor(input_ids)
-        position_ids = torch.LongTensor(position_ids)
-        inputs_raw = torch.FloatTensor(inputs_raw)
+        input_ids = torch.LongTensor(input_ids_arr)
+        position_ids = torch.LongTensor(position_ids_arr)
+        inputs_raw = torch.FloatTensor(inputs_raw_arr)
 
         # Add a batch dimension.
         input_ids = input_ids.unsqueeze(0).expand(bsz, -1)
@@ -298,21 +274,61 @@ def prediction_loop(
 
         # Get g distribution for each side.
         g_logit_map = outputs[0]
+        h_logit_map = outputs[1]
         g_bid = g_logit_map["bid"]
         g_ask = g_logit_map["ask"]
+        h_bid = h_logit_map["bid"]
+        h_ask = h_logit_map["ask"]
 
         assert g_bid.shape == (bsz, seq_len, 2 * depth + 1)
         assert g_ask.shape == (bsz, seq_len, 2 * depth + 1, 2 * depth + 1)
+        assert h_bid.shape == (bsz, seq_len, 3)
+        assert h_ask.shape == (bsz, seq_len, 2 * depth + 1, 3)
 
-        bid_prediction_logits = g_bid[0][-1]
-        ask_prediction_logits = g_ask[0][-1]
+        bid_pred_logits = g_bid[0][-1]
+        ask_pred_logits = g_ask[0][-1]
+        bid_class_logits = h_bid[0][-1]
+        ask_class_logits = h_ask[0][-1]
 
         # Type: ``torch.LongTensor``.
         # Shape: ``(,)``.
-        pred_bid_index_tensor = torch.argmax(bid_prediction_logits)
+        pred_bid_index_tensor = torch.argmax(bid_pred_logits)
         pred_bid_index: int = pred_bid_index_tensor.item()
-        pred_ask_index_tensor = torch.argmax(ask_prediction_logits[pred_bid_index])
+        pred_ask_index_tensor = torch.argmax(ask_pred_logits[pred_bid_index])
         pred_ask_index: int = pred_ask_index_tensor.item()
+        pred_bid_direction_tensor = torch.argmax(bid_class_logits)
+        pred_bid_direction: int = pred_bid_direction_tensor.item()
+        pred_ask_direction_tensor = torch.argmax(ask_class_logits[pred_bid_index])
+        pred_ask_direction: int = pred_ask_direction_tensor.item()
+
+        # DEBUG
+        if DEBUG:
+            bid_deltas = inputs_raw_arr[:, 0]
+            ask_deltas = inputs_raw_arr[:, 150]
+            print("Actual labels:\n", actual_labels)
+            print("Actual labels shape:", actual_labels.shape)
+            for label, bid, ask in zip(actual_labels, bid_deltas, ask_deltas):
+                bid = int(100 * float(bid))
+                ask = int(100 * float(ask))
+                label = int(label)
+                abi = label // (2 * depth + 1)
+                aai = label % (2 * depth + 1)
+                pbi = pred_bid_index
+                pai = pred_ask_index
+                pbd = pred_bid_direction - 1
+                pad = pred_ask_direction - 1
+                if bid == 0:
+                    bidstr = ""
+                else:
+                    bidstr = str(bid)
+                if ask == 0:
+                    askstr = ""
+                else:
+                    askstr = str(ask)
+                print(
+                    "Label: %d    \t abi: %d \t aai: %d \t bid: %s  \t ask: %s"
+                    % (label, abi, aai, bidstr, askstr)
+                )
 
         preds = [pred_bid_index, pred_ask_index]
         actuals = [actual_bid_index, actual_ask_index]
