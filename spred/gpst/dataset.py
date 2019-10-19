@@ -305,15 +305,18 @@ class GPSTDataset(Dataset):
             # Compute labels.
             bid_delta_indices = 100 * inputs_raw[..., bid_col]
             bid_delta_indices = bid_delta_indices.astype(int)
-            bid_delta_indices[bid_delta_indices >= depth] = depth - 1
-            bid_delta_indices[bid_delta_indices <= (-1 * depth)] = -1 * (depth - 1)
-            bid_delta_indices = bid_delta_indices + depth - 1
+            bid_delta_indices[bid_delta_indices > depth] = depth
+            bid_delta_indices[bid_delta_indices < (-1 * depth)] = -1 * depth
+            bid_delta_indices = bid_delta_indices + depth
 
             ask_delta_indices = 100 * inputs_raw[..., ask_col]
             ask_delta_indices = ask_delta_indices.astype(int)
-            ask_delta_indices[ask_delta_indices >= depth] = depth - 1
-            ask_delta_indices[ask_delta_indices <= (-1 * depth)] = -1 * (depth - 1)
-            ask_delta_indices = ask_delta_indices + depth - 1
+            ask_delta_indices[ask_delta_indices > depth] = depth
+            ask_delta_indices[ask_delta_indices < (-1 * depth)] = -1 * depth
+            ask_delta_indices = ask_delta_indices + depth
+
+            print("bdi:\n", bid_delta_indices)
+            print("adi:\n", ask_delta_indices)
 
             # These labels give the true index where the set bit should lie in a
             # one-hot vector of shape ``(seq_len, (2 * depth + 1) ** 2)`` which has

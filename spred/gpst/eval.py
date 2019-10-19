@@ -249,6 +249,30 @@ def prediction_loop(
         assert actual_labels.shape == (seq_len,)
         actual = actual_labels[-1]
 
+        # DEBUG
+        bid_deltas = inputs_raw[:, 0]
+        ask_deltas = inputs_raw[:, 150]
+        print("Actual labels:\n", actual_labels)
+        print("Actual labels shape:", actual_labels.shape)
+        printlines: List[str] = []
+        for label, bid, ask in zip(actual_labels, bid_deltas, ask_deltas):
+            bid = int(100 * float(bid))
+            ask = int(100 * float(ask))
+            label = int(label)
+            abi = label // (2 * depth + 1)
+            aai = label % (2 * depth + 1)
+            
+            if bid == 0:
+                bidstr = ""
+            else:
+                bidstr = str(bid)
+            if ask == 0:
+                askstr = ""
+            else:
+                askstr = str(ask)
+            
+            print("Label: %d    \t abi: %d \t aai: %d \t bid: %s  \t ask: %s" % (label, abi, aai, bidstr, askstr))
+
         actual_bid_index = actual // (2 * depth + 1)
         actual_ask_index = actual % (2 * depth + 1)
 
