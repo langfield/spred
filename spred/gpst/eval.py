@@ -1,23 +1,22 @@
 """ Evaluates a trained GPST model and graphs its predictions. """
 import os
-import copy
 import random
 import argparse
 
-from typing import List, Tuple, Dict
+from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
 
 import torch
-from torch import nn
+
 from transformers.configuration_openai import OpenAIGPTConfig
 
+from dataset import GPSTDataset
+from arguments import get_args
 from plot.plot import graph
 from plot.termplt import plot_to_terminal
-from arguments import get_args
 from modeling_openai import ConditionalGPSTModel
-from dataset import aggregate, stationarize, normalize, seq_normalize
 
 
 DEBUG = False
@@ -25,7 +24,7 @@ TERM_PRINT = False
 # pylint: disable=no-member, bad-continuation
 
 
-def get_models(args: argparse.Namespace) -> ConditionalGPSTModel:
+def get_model(args: argparse.Namespace) -> ConditionalGPSTModel:
     """
     Load the model specified by ``args.model_name``.
 
@@ -41,9 +40,8 @@ def get_models(args: argparse.Namespace) -> ConditionalGPSTModel:
         device.
     """
 
-    config = OpenAIGPTConfig.from_pretrained(args.gpst_model)
-    weights_names[mode] = "%s_%s.bin" % (args.model_name, mode)
-    config_names[mode] = "%s_%s.json" % (args.model_name, mode)
+    weights_name = args.model_name + ".bin"
+    config_name = args.model_name + ".json"
 
     # HARDCODE
     output_dir = "ckpts/"
@@ -61,7 +59,9 @@ def get_models(args: argparse.Namespace) -> ConditionalGPSTModel:
     return model
 
 
-def load_from_file(args: argparse.Namespace, debug: bool = False) -> np.ndarray:
+def load_from_file(
+    args: argparse.Namespace, debug: bool = False
+) -> List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]]:
     """
     Returns a dataframe containing the data from ``args.dataset: str``.
 
@@ -80,108 +80,31 @@ def load_from_file(args: argparse.Namespace, debug: bool = False) -> np.ndarray:
         Shape: (<rows_after_preprocessing>, vocab_size).
     """
 
-    data_filename = args.dataset
-    stat = args.stationarize
-    agg_size = args.aggregation_size
-    norm = args.normalize
+    # HARDCODE
+    step_size = 1
 
-    seq_len = args.seq_len
+    # Dataset.
+    train_data = GPSTDataset(
+        args.dataset,
+        args.seq_len,
+        args.dim,
+        args.orderbook_depth,
+        args.sep,
+        step_size,
+        stationarization=args.stationarize,
+        aggregation_size=args.aggregation_size,
+        normalization=args.normalize,
+        seq_norm=args.seq_norm,
+        train_batch_size=args.train_batch_size,
+    )
+    print("Length of eval dataset:", len(train_data))
+    features = train_data.features
 
-    input_df = pd.read_csv(data_filename, sep=args.sep)
-    if debug:
-        print("Raw:\n", input_df.head(30))
-
-    if stat:
-        input_df = stationarize(input_df)
-        if debug:
-            print("Stationarized:\n", input_df.head(30))
-
-    input_df = aggregate(input_df, agg_size)
-    if debug:
-        print("Aggregated:\n", input_df.head(30))
-
-    input_df = input_df[1:]
-
-    if norm:
-        input_df = normalize(input_df)
-
-    input_array = np.array(input_df)
-    assert len(input_array) >= seq_len
-    return input_array
+    assert len(features) >= 0
+    return features
 
 
-def predict(
-    args: argparse.Namespace, model: OpenAIGPTLMHeadModel, input_array_slice: np.ndarray
-) -> np.ndarray:
-    """
-    Parameters
-    ----------
-    args : ``argparse.Namespace``, required.
-        Evaluation arguments. See ``arguments.py``.
-    model : ``OpenAIGPTLMHeadModel``, required.
-        The loaded model, set to ``eval`` mode, and loaded onto the relevant device.
-    input_array_slice : ``np.ndarray``, required.
-        One sequence of ``input_array``.
-        Shape: (seq_len, vocab_size).
-    Returns
-    -------
-    pred : ``np.ndarray``.
-        The last prediction in the first (and only) batch.
-        Shape: (,).
-    """
-
-    # Grab arguments from ``args``.
-    seq_len = args.seq_len
-    dim = args.dim
-    batch_size = args.eval_batch_size
-    seq_norm = args.seq_norm
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    if seq_norm:
-        input_array_slice, _target_array_slice = seq_normalize(input_array_slice)
-
-    tensor_data = torch.Tensor(input_array_slice)
-    inputs_raw = tensor_data.contiguous()
-
-    # Create ``position_ids``.
-    position_ids = torch.arange(0, tensor_data.shape[0])
-    position_ids = torch.stack([position_ids])
-
-    # Create ``input_ids``.
-    input_ids = copy.deepcopy(position_ids)
-
-    # Reshape to add ``batch_size`` dimension.
-    inputs_raw = inputs_raw.view(batch_size, seq_len, dim)
-    input_ids = input_ids.view(batch_size, seq_len)
-    position_ids = position_ids.view(batch_size, seq_len)
-
-    # Casting to correct ``torch.Tensor`` type.
-    input_ids = input_ids.to(device)
-    position_ids = position_ids.to(device)
-    inputs_raw = inputs_raw.to(device)
-
-    # Shape check.
-    assert input_ids.shape == (batch_size, seq_len)
-    assert position_ids.shape == (batch_size, seq_len)
-    assert inputs_raw.shape == (batch_size, seq_len, dim)
-
-    # ``predictions`` shape: (batch_size, seq_len, dim).
-    outputs = model(input_ids, position_ids, None, inputs_raw)
-    predictions = outputs[0]
-
-    # Casting to correct ``torch.Tensor`` type.
-    pred = np.array(predictions[0, -1].data)
-
-    return pred
-
-
-def gen_plot(
-    actuals_array: np.ndarray,
-    preds_array: np.ndarray,
-    graph_dir: str,
-    data_filename: str,
-) -> None:
+def gen_plot(arrays: List[np.ndarray], graph_dir: str, data_filename: str) -> None:
     """
     Graphs ``actuals_array`` and ``preds_array`` on the same plot, and saves the figure
     as an ``.svg`` file.
@@ -201,14 +124,17 @@ def gen_plot(
     """
 
     # Add a column dim to ``actuals_array`` and ``preds_array`` so we may concat along it.
-    actuals_array = np.reshape(actuals_array, (actuals_array.shape[0], 1))
-    preds_array = np.reshape(preds_array, (preds_array.shape[0], 1))
-    assert preds_array.shape == actuals_array.shape
+    reshaped_arrays = [np.reshape(arr, (arr.shape[0], 1)) for arr in arrays]
+
+    # Shape check.
+    shp = reshaped_arrays[0].shape
+    for arr in reshaped_arrays:
+        assert arr.shape == shp
 
     # Shape: ``(args.width, 2)``.
-    diff = np.concatenate((preds_array, actuals_array), axis=1)
+    diff = np.concatenate(reshaped_arrays, axis=1)
     df = pd.DataFrame(diff)
-    df.columns = ["pred", "actual"]
+    df.columns = ["pred bid", "pred ask", "actual bid", "actual ask"]
     print(df)
 
     # Format input for ``plot.graph`` function.
@@ -226,7 +152,7 @@ def gen_plot(
 
 
 def term_print(
-    args: argparse.Namespace, output_list: List[np.ndarray], pred: np.ndarray
+    args: argparse.Namespace, output_list: List[np.ndarray], preds: Tuple[int, int]
 ) -> List[np.ndarray]:
     """
     Print ``output_list`` of predictions to the terminal via ``terminalplot``.
@@ -255,7 +181,8 @@ def term_print(
         The populated list of predictions to be used as input to this function
         on the next iteration.
     """
-    output_list.append(pred)
+
+    output_list.append(preds)
     if len(output_list) >= args.terminal_plot_width:
         output_list = output_list[1:]
     out_array = np.concatenate(
@@ -267,7 +194,9 @@ def term_print(
 
 
 def prediction_loop(
-    args: argparse.Namespace, model: OpenAIGPTLMHeadModel, input_array: np.ndarray
+    args: argparse.Namespace,
+    model: ConditionalGPSTModel,
+    features: List[Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]],
 ) -> Tuple[List[np.ndarray], List[np.ndarray]]:
     """
     Loops over the input array and makes predictions on slices of length
@@ -293,35 +222,87 @@ def prediction_loop(
         List of predictions. Each ``np.ndarray`` has shape (,).
     """
 
+    bsz = args.eval_batch_size
+    seq_len = args.seq_len
+    depth = args.orderbook_depth
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     output_list: List[np.ndarray] = []
     actuals_list = []
     preds_list = []
 
     # Iterate in step sizes of 1 over ``input_array``.
-    start = random.randint(0, len(input_array) // 2)
+    # HARDCODE
+    start = random.randint(0, len(features) // 2)
     for i in range(start, start + args.width):
 
         # Grab the slice of ``input_array`` we wish to predict on.
-        assert i + args.seq_len <= len(input_array)
-        input_array_slice = input_array[i : i + args.seq_len, :]
-        actual_array_slice = input_array[i + 1 : i + args.seq_len + 1, :]
-        if args.seq_norm:
-            actual_array_slice, _ = seq_normalize(actual_array_slice)
-        actual = actual_array_slice[-1]
+        input_ids, position_ids, labels, inputs_raw = features[i]
 
-        # Make prediction and get ``actual``: the value we want to predict.
-        pred = predict(args, model, input_array_slice)
+        # Make sure there is room to get actual values.
+        assert i < len(features) - 1
+        actual_labels = features[i + 1][2]
+        assert actual_labels.shape == (seq_len,)
+        actual = actual_labels[-1]
 
-        # HARDCODE: get ``Close`` price at index ``3``.
-        actual = actual[3]
-        assert actual.shape == pred.shape
+        actual_bid_index = actual // (2 * depth + 1)
+        actual_ask_index = actual % (2 * depth + 1)
+
+        input_ids = torch.LongTensor(input_ids)
+        position_ids = torch.LongTensor(position_ids)
+        labels = torch.LongTensor(labels)
+        inputs_raw = torch.FloatTensor(inputs_raw)
+
+        # Add a batch dimension.
+        input_ids = input_ids.unsqueeze(0).expand(bsz, -1)
+        position_ids = position_ids.unsqueeze(0).expand(bsz, -1)
+        labels = labels.unsqueeze(0).expand(bsz, -1)
+        inputs_raw = inputs_raw.unsqueeze(0).expand(bsz, -1, -1)
+
+        input_ids.to(device)
+        position_ids.to(device)
+        labels.to(device)
+        inputs_raw.to(device)
+
+        # Shape check.
+        assert input_ids.shape == (bsz, seq_len)
+        assert position_ids.shape == (bsz, seq_len)
+        assert labels.shape == (bsz, seq_len)
+        assert inputs_raw.shape == (bsz, seq_len, args.dim)
+
+        outputs = model(input_ids, position_ids, labels, inputs_raw)
+
+        # Get g distribution for each side.
+        g_logit_map = outputs[0]
+        g_bid = g_logit_map["bid"]
+        g_ask = g_logit_map["ask"]
+
+        assert g_bid.shape == (bsz, seq_len, 2 * depth + 1)
+        assert g_ask.shape == (bsz, seq_len, 2 * depth + 1, 2 * depth + 1)
+
+        bid_prediction_logits = g_bid[0][-1]
+        ask_prediction_logits = g_ask[0][-1]
+
+        # Type: ``torch.LongTensor``.
+        # Shape: ``(,)``.
+        pred_bid_index_tensor = torch.argmax(bid_prediction_logits)
+        pred_ask_index_tensor = torch.argmax(ask_prediction_logits[pred_bid_index])
+        pred_bid_index: int = pred_bid_index_tensor.item()
+        pred_ask_index: int = pred_ask_index_tensor.item()
+
+        print("Type of actual_bid_index: %s" % type(actual_bid_index))
+        preds = (pred_bid_index, pred_ask_index)
+        actuals = (actual_bid_index, actual_ask_index)
 
         if TERM_PRINT:
-            output_list = term_print(args, output_list, pred)
+            raise NotImplementedError
+            # TODO: Make a fork of terminalplot which allows multiple output lines.
+            output_list = term_print(args, output_list, preds)
 
         # Append scalar arrays to lists.
-        actuals_list.append(actual)
-        preds_list.append(pred)
+        actuals_list.append(actuals)
+        preds_list.append(preds)
 
     return actuals_list, preds_list
 
@@ -333,31 +314,34 @@ def main() -> None:
     adds up to ``args.width``, starting from ``start``, a randomly chosen
     starting index. Generates matplotlib graph as an ``.svg`` file.
     """
+
     # Set hyperparameters.
     parser = argparse.ArgumentParser()
     parser = get_args(parser)
     args = parser.parse_args()
 
-    model_dict: nn.ModuleDict = get_models(args)
+    model: ConditionalGPSTModel = get_model(args)
 
     # Grab config arguments from model.
     args.seq_len = model.config.n_positions
     args.dim = model.config.input_dim
+    args.orderbook_depth = model.config.orderbook_depth
 
     print("Data dimensionality:", args.dim)
     print("Max sequence length :", args.seq_len)
     print("Eval batch size:", args.eval_batch_size)
 
-    input_array = load_from_file(args, debug=True)
+    features = load_from_file(args, debug=True)
 
-    actuals_list, preds_list = prediction_loop(args, model, input_array)
+    actuals_list, preds_list = prediction_loop(args, model, features)
 
     # Stack and cast to ``pd.DataFrame``.
     # ``actuals_array`` and ``preds_array`` shape: (args.width,)
     actuals_array = np.stack(actuals_list)
     preds_array = np.stack(preds_list)
+    arrays = [preds_array, actuals_array]
 
-    gen_plot(actuals_array, preds_array, args.graph_dir, args.dataset)
+    gen_plot(arrays, args.graph_dir, args.dataset)
 
 
 if __name__ == "__main__":

@@ -197,7 +197,7 @@ class GPSTDataset(Dataset):
 
         assert corpus_path[-4:] == ".csv"
         # Shape: (total_data_len, vocab_size).
-        input_df = pd.read_csv(corpus_path, sep=args.sep)
+        input_df = pd.read_csv(corpus_path, sep=sep)
         print("Raw ``input_df`` shape:", input_df.shape)
 
         if stationarization:
@@ -315,6 +315,12 @@ class GPSTDataset(Dataset):
             ask_delta_indices[ask_delta_indices <= (-1 * depth)] = -1 * (depth - 1)
             ask_delta_indices = ask_delta_indices + depth - 1
 
+            # These labels give the true index where the set bit should lie in a
+            # one-hot vector of shape ``(seq_len, (2 * depth + 1) ** 2)`` which has
+            # reshaped from a one-hot matrix of shape
+            #   ``(seq_len, (2 * depth + 1) ** 2), (2 * depth + 1) ** 2)``,
+            # where the second dimension is the true bid index and the third dimension
+            # is the true ask index.
             flat_class_labels = (2 * depth + 1) * bid_delta_indices + ask_delta_indices
 
             assert flat_class_labels.shape == (seq_len,)
