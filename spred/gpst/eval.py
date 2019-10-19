@@ -7,6 +7,7 @@ from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 import torch
 
@@ -229,16 +230,18 @@ def prediction_loop(
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     output_list: List[np.ndarray] = []
-    actuals_list = []
-    preds_list = []
+    pred_bids: List[int] = []
+    pred_asks: List[int] = []
+    actual_bids: List[int] = []
+    actual_asks: List[int] = []
 
     # Iterate in step sizes of 1 over ``input_array``.
     # HARDCODE
     start = random.randint(0, len(features) // 2)
-    for i in range(start, start + args.width):
+    for i in tqdm(range(start, start + args.width)):
 
         # Grab the slice of ``input_array`` we wish to predict on.
-        input_ids, position_ids, labels, inputs_raw = features[i]
+        input_ids, position_ids, _, inputs_raw = features[i]
 
         # Make sure there is room to get actual values.
         assert i < len(features) - 1
@@ -251,27 +254,23 @@ def prediction_loop(
 
         input_ids = torch.LongTensor(input_ids)
         position_ids = torch.LongTensor(position_ids)
-        labels = torch.LongTensor(labels)
         inputs_raw = torch.FloatTensor(inputs_raw)
 
         # Add a batch dimension.
         input_ids = input_ids.unsqueeze(0).expand(bsz, -1)
         position_ids = position_ids.unsqueeze(0).expand(bsz, -1)
-        labels = labels.unsqueeze(0).expand(bsz, -1)
         inputs_raw = inputs_raw.unsqueeze(0).expand(bsz, -1, -1)
 
-        input_ids.to(device)
-        position_ids.to(device)
-        labels.to(device)
-        inputs_raw.to(device)
+        input_ids = input_ids.to(device)
+        position_ids = position_ids.to(device)
+        inputs_raw = inputs_raw.to(device)
 
         # Shape check.
         assert input_ids.shape == (bsz, seq_len)
         assert position_ids.shape == (bsz, seq_len)
-        assert labels.shape == (bsz, seq_len)
         assert inputs_raw.shape == (bsz, seq_len, args.dim)
 
-        outputs = model(input_ids, position_ids, labels, inputs_raw)
+        outputs = model(input_ids, position_ids, None, inputs_raw)
 
         # Get g distribution for each side.
         g_logit_map = outputs[0]
@@ -287,13 +286,12 @@ def prediction_loop(
         # Type: ``torch.LongTensor``.
         # Shape: ``(,)``.
         pred_bid_index_tensor = torch.argmax(bid_prediction_logits)
-        pred_ask_index_tensor = torch.argmax(ask_prediction_logits[pred_bid_index])
         pred_bid_index: int = pred_bid_index_tensor.item()
+        pred_ask_index_tensor = torch.argmax(ask_prediction_logits[pred_bid_index])
         pred_ask_index: int = pred_ask_index_tensor.item()
 
-        print("Type of actual_bid_index: %s" % type(actual_bid_index))
-        preds = (pred_bid_index, pred_ask_index)
-        actuals = (actual_bid_index, actual_ask_index)
+        preds = [pred_bid_index, pred_ask_index]
+        actuals = [actual_bid_index, actual_ask_index]
 
         if TERM_PRINT:
             raise NotImplementedError
@@ -301,10 +299,17 @@ def prediction_loop(
             output_list = term_print(args, output_list, preds)
 
         # Append scalar arrays to lists.
-        actuals_list.append(actuals)
-        preds_list.append(preds)
+        pred_bids.append(pred_bid_index)
+        pred_asks.append(pred_ask_index)
+        actual_bids.append(actual_bid_index)
+        actual_asks.append(actual_ask_index)
 
-    return actuals_list, preds_list
+    pred_bid_array = np.array(pred_bids)
+    pred_ask_array = np.array(pred_asks)
+    actual_bid_array = np.array(actual_bids)
+    actual_ask_array = np.array(actual_asks)
+
+    return pred_bid_array, pred_ask_array, actual_bid_array, actual_ask_array
 
 
 def main() -> None:
@@ -333,13 +338,7 @@ def main() -> None:
 
     features = load_from_file(args, debug=True)
 
-    actuals_list, preds_list = prediction_loop(args, model, features)
-
-    # Stack and cast to ``pd.DataFrame``.
-    # ``actuals_array`` and ``preds_array`` shape: (args.width,)
-    actuals_array = np.stack(actuals_list)
-    preds_array = np.stack(preds_list)
-    arrays = [preds_array, actuals_array]
+    arrays: List[np.ndarray] = list(prediction_loop(args, model, features))
 
     gen_plot(arrays, args.graph_dir, args.dataset)
 
