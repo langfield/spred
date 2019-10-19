@@ -11,7 +11,7 @@ SEED="42"
 EVAL_BATCH_SIZE="1"
 AGGREGATION_SIZE="1"
 GRAPH_DIR="graphs/"
-WIDTH="2000"
+WIDTH="250"
 TERMINAL_PLOT_WIDTH="50"
 
 # Format: ``--<argument_name>``.

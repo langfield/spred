@@ -315,8 +315,8 @@ class GPSTDataset(Dataset):
             ask_delta_indices[ask_delta_indices < (-1 * depth)] = -1 * depth
             ask_delta_indices = ask_delta_indices + depth
 
-            print("bdi:\n", bid_delta_indices)
-            print("adi:\n", ask_delta_indices)
+            # print("bdi:\n", bid_delta_indices)
+            # print("adi:\n", ask_delta_indices)
 
             # These labels give the true index where the set bit should lie in a
             # one-hot vector of shape ``(seq_len, (2 * depth + 1) ** 2)`` which has
