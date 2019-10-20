@@ -22,7 +22,6 @@ def get_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument("--gpst_model", type=str, required=True)
     parser.add_argument("--output_dir", type=str, required=True)
     parser.add_argument("--dataset", type=str, required=True)
-    parser.add_argument("--sep", type=str, required=True)
 
     # Saving.
     parser.add_argument("--model_name", type=str, default="openai-gpt")
@@ -48,6 +47,7 @@ def get_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument("--timeout", type=float, default=0)
 
     # Data preprocessing.
+    parser.add_argument("--sep", type=str, default=",")
     parser.add_argument("--aggregation_size", type=int, default=1)
     parser.add_argument("--normalize", action="store_true")
     parser.add_argument("--seq_norm", action="store_true")

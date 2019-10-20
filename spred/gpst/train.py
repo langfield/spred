@@ -201,6 +201,8 @@ def train(args: argparse.Namespace) -> float:
     start = time.time()
     nb_tr_steps, tr_loss, exp_average_loss = 0.0, 0.0, 0.0
     epoch_avg_loss = 0
+    first_loss = 0
+    normalized_loss_mean = 0
     completed_first_iteration = False
     model.train()
     elapsed_epochs = 0
@@ -256,22 +258,28 @@ def train(args: argparse.Namespace) -> float:
             epoch_avg_loss = np.mean(losses)
             epoch_stddev_loss = np.std(losses)
 
+            # Save first loss value.
+            if i == j == 0:
+                first_loss = epoch_avg_loss
+            normalized_loss_mean = epoch_avg_loss / first_loss
+            normalized_loss_stddev = epoch_stddev_loss / first_loss
+
             statusline = "||| ITERATION::  [epoch: %d of %d \t batch: %d of %d] \t " % (
                 i,
                 args.num_train_epochs,
                 j,
                 len(train_dataloader),
             ) + "LOSS::  [mean: %.9f \t stddev: %.9f] |||" % (
-                epoch_avg_loss,
-                epoch_stddev_loss,
+                normalized_loss_mean,
+                normalized_loss_stddev,
             )
             print(statusline, end="\r")
 
         # Log loss.
-        logger.info("Epoch avg loss: %f\r" % epoch_avg_loss)
+        logger.info("Normalized loss: %f\r" % normalized_loss_mean)
 
         if "trial" in args:
-            trial.report(epoch_avg_loss, time.time() - start)
+            trial.report(normalized_loss_mean, time.time() - start)
             if trial.should_prune():
                 raise optuna.structs.TrialPruned()
 
@@ -289,7 +297,7 @@ def train(args: argparse.Namespace) -> float:
         if args.timeout > 0 and time.time() - start >= args.timeout:
             break
 
-    return epoch_avg_loss
+    return normalized_loss_mean
 
 
 if __name__ == "__main__":
