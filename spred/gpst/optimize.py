@@ -99,7 +99,7 @@ def objective(trial: optuna.Trial) -> float:
     config["layer_norm_epsilon"] = trial.suggest_loguniform("layer_eps", 1e-5, 1e-3)
     config["resid_pdrop"] = trial.suggest_loguniform("resid_pdrop", 0.01, 0.15)
     config["attn_pdrop"] = trial.suggest_loguniform("attn_pdrop", 0.1, 0.3)
-    config["n_embd"] = int(trial.suggest_discrete_uniform("n_embd", 32, 384, 32))
+    config["n_embd"] = int(trial.suggest_discrete_uniform("n_embd", 64, 128, 8))
     config["n_layer"] = trial.suggest_int("n_layer", 4, 8)
     config["initializer_range"] = trial.suggest_loguniform("initrange", 0.005, 0.04)
     config["n_positions"] = n_positions
