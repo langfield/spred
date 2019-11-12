@@ -65,7 +65,6 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
         self.output_attentions = config.output_attentions
         self.output_hidden_states = config.output_hidden_states
 
-        self.tokens_embed = nn.Embedding(config.input_dim, config.n_embd)
         self.positions_embed = nn.Embedding(config.n_positions, config.n_embd)
         self.drop = nn.Dropout(config.embd_pdrop)
         self.layers = nn.ModuleList(
@@ -78,12 +77,6 @@ class OpenAIGPTModel(OpenAIGPTPreTrainedModel):
 
         self.init_weights()
         # self.tie_weights()
-
-    def _resize_token_embeddings(self, new_num_tokens):
-        self.tokens_embed = self._get_resized_embeddings(
-            self.tokens_embed, new_num_tokens
-        )
-        return self.tokens_embed
 
     def _prune_heads(self, heads_to_prune):
         """ Prunes heads of the model.

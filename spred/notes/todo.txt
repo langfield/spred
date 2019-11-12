@@ -39,11 +39,11 @@ Done:   #================================DONE==================================
         
         Fix type annotations and docstrings.
 
-Todo:   #================================TODO==================================
-
         Fix loss computation for optuna.
 
         Rewrite ``eval.py``.
+
+Todo:   #================================TODO==================================
 
         Verify that class label locations in dataset feature creation match
         up with expected locations in outputs from model forward class.
