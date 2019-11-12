@@ -221,23 +221,26 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
             "ask_decrease",
         ]
 
-        self.transformers: Dict[str, OpenAIGPTLMHeadModel] = nn.ModuleDict()
+        # The head will map to a space with the same dim as its input.
+        config.head_output_dim = config.input_dim
 
+        self.headmodel: OpenAIGPTLMHeadModel = OpenAIGPTLMHeadModel(config)
+        self.doubleheads: Dict[str, nn.Linear] = nn.ModuleDict()
+
+        # TODO: Add activations?
         for mode in config.modes:
-            subconfig = copy.deepcopy(config)
-            subconfig.mode = mode
             if mode in ["bid_increase", "bid_decrease"]:
-                subconfig.head_output_dim = self.depth
+                doublehead = nn.Linear(config.input_dim, self.depth)
             elif mode in ["ask_increase", "ask_decrease"]:
-                subconfig.head_output_dim = (2 * self.depth + 1) * self.depth
+                doublehead = nn.Linear(config.input_dim, (2 * self.depth + 1) * self.depth)
             elif mode == "bid_classification":
-                subconfig.head_output_dim = 3
+                doublehead = nn.Linear(config.input_dim, 3)
             elif mode == "ask_classification":
-                subconfig.head_output_dim = (2 * self.depth + 1) * 3
+                doublehead = nn.Linear(config.input_dim, (2 * self.depth + 1) * 3)
             else:
                 print("Value of config param ``mode``: %s" % mode)
                 raise ValueError("Config param ``mode`` is invalid.")
-            self.transformers[mode] = OpenAIGPTLMHeadModel(subconfig)
+            self.doubleheads[mode] = doublehead
         self.init_weights()
 
     def forward(
@@ -253,15 +256,19 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
         transformer_outputs: Dict[str, Tuple[Any, ...]] = {}
         transformer_logits: Dict[str, torch.FloatTensor] = {}
 
+        transformer_output = self.headmodel(
+            input_ids,
+            position_ids=position_ids,
+            inputs_raw=inputs_raw,
+            head_mask=head_mask,
+        )
+        transformer_logits = transformer_outputs[0]
+
+        # TODO: Broken, construct transformer_logits dict, run logits
+        #       through each layer.
+
         # Make forward calls for subtransformers and save outputs and logits.
         for mode in self.modes:
-            transformer_outputs[mode] = self.transformers[mode](
-                input_ids,
-                position_ids=position_ids,
-                inputs_raw=inputs_raw,
-                head_mask=head_mask,
-            )
-            transformer_logits[mode] = transformer_outputs[mode][0]
 
         # SHAPE INFORMATION:
         # Bid increase/decrease outputs have shape:
@@ -373,7 +380,7 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
         # Construct ``outputs`` with logit map and subtransformer outputs.
         outputs = (g_logit_map, h_logit_map)
         for mode in self.modes:
-            outputs += (transformer_outputs[mode],)
+            outputs += (transformer_outputs,)
 
         # Shape of ``labels``: ``(bsz, seq_len)``.
         # Type of ``labels``: ``torch.LongTensor`` (integer values).
@@ -436,7 +443,6 @@ class OpenAIGPTLMHeadModel(OpenAIGPTPreTrainedModel):
         self.transformer = OpenAIGPTModel(config)
         self.depth_range = 2 * config.orderbook_depth + 1
         self.orderbook_depth = config.orderbook_depth
-        self.mode = config.mode
         self.head = nn.Linear(config.input_dim, config.head_output_dim, bias=False)
         self.init_weights()
 
