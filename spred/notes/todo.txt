@@ -43,7 +43,18 @@ Done:   #================================DONE==================================
 
         Rewrite ``eval.py``.
 
+        Make smaller version of the model by fusing all the transformers
+        together.
+
+        Update optimize hyperhyperparams.
+
 Todo:   #================================TODO==================================
+
+        Print out the learning rate at each timestep.
+
+        Make the learning rate scheduler a config argument.
+
+        Fuse the config/args.
 
         Verify that class label locations in dataset feature creation match
         up with expected locations in outputs from model forward class.
