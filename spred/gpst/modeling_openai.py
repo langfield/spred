@@ -5,9 +5,8 @@
 
 from __future__ import absolute_import, division, print_function, unicode_literals
 
-import copy
 import logging
-from typing import List, Dict, Tuple, Any, Union
+from typing import List, Dict, Tuple, Any
 
 import torch
 import torch.nn as nn
@@ -232,7 +231,9 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
             if mode in ["bid_increase", "bid_decrease"]:
                 doublehead = nn.Linear(config.input_dim, self.depth)
             elif mode in ["ask_increase", "ask_decrease"]:
-                doublehead = nn.Linear(config.input_dim, (2 * self.depth + 1) * self.depth)
+                doublehead = nn.Linear(
+                    config.input_dim, (2 * self.depth + 1) * self.depth
+                )
             elif mode == "bid_classification":
                 doublehead = nn.Linear(config.input_dim, 3)
             elif mode == "ask_classification":
@@ -253,22 +254,23 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
     ):
         depth = self.depth
         bsz, seq_len = input_ids.shape[:2]
-        transformer_outputs: Dict[str, Tuple[Any, ...]] = {}
+        headmodel_outputs: Dict[str, Tuple[Any, ...]] = {}
         transformer_logits: Dict[str, torch.FloatTensor] = {}
 
-        transformer_output = self.headmodel(
+        headmodel_outputs = self.headmodel(
             input_ids,
             position_ids=position_ids,
             inputs_raw=inputs_raw,
             head_mask=head_mask,
         )
-        transformer_logits = transformer_outputs[0]
+        headmodel_logits = headmodel_outputs[0]
 
         # TODO: Broken, construct transformer_logits dict, run logits
         #       through each layer.
 
         # Make forward calls for subtransformers and save outputs and logits.
         for mode in self.modes:
+            transformer_logits[mode] = self.doubleheads[mode](headmodel_logits)
 
         # SHAPE INFORMATION:
         # Bid increase/decrease outputs have shape:
@@ -380,7 +382,7 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
         # Construct ``outputs`` with logit map and subtransformer outputs.
         outputs = (g_logit_map, h_logit_map)
         for mode in self.modes:
-            outputs += (transformer_outputs,)
+            outputs += (headmodel_outputs,)
 
         # Shape of ``labels``: ``(bsz, seq_len)``.
         # Type of ``labels``: ``torch.LongTensor`` (integer values).
@@ -390,8 +392,8 @@ class ConditionalGPSTModel(OpenAIGPTPreTrainedModel):
 
             # Shift so that tokens < n predict n.
             assert labels.shape == (bsz, seq_len)
-            shift_logits = logits[..., :-1 * self.horizon, :].contiguous()
-            shift_labels = labels[..., self.horizon:].contiguous()
+            shift_logits = logits[..., : -1 * self.horizon, :].contiguous()
+            shift_labels = labels[..., self.horizon :].contiguous()
 
             # Flatten the tokens.
             loss_fct = CrossEntropyLoss(ignore_index=-1)
