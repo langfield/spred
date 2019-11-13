@@ -19,6 +19,7 @@ from torch.utils.data import DataLoader, RandomSampler
 
 # Transformers imports.
 from transformers import AdamW, WarmupLinearSchedule
+from transformers import WarmupCosineWithHardRestartsSchedule
 from transformers.configuration_openai import OpenAIGPTConfig
 
 # External module imports.
@@ -148,8 +149,15 @@ def setup(
     )
 
     # Scheduler.
+    # TODO: Make scheduler an option.
     scheduler = WarmupLinearSchedule(
         optimizer,
+        warmup_steps=(args.warmup_proportion * num_train_optimization_steps),
+        t_total=num_train_optimization_steps,
+    )
+
+    scheduler = WarmupCosineWithHardRestartsSchedule(
+        optimizer=optimizer,
         warmup_steps=(args.warmup_proportion * num_train_optimization_steps),
         t_total=num_train_optimization_steps,
     )
