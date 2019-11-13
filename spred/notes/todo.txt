@@ -50,6 +50,10 @@ Done:   #================================DONE==================================
 
 Todo:   #================================TODO==================================
 
+        Add time elapsed to statusline as well.
+
+        Log how much time each trial takes when not using timeout.
+
         Print out the learning rate at each timestep.
 
         Make the learning rate scheduler a config argument.
