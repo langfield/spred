@@ -2,8 +2,8 @@
 
 DATASET="/root/books/sampleset.csv"
 SEP=","
-GPST_MODEL="config.json"
-MODEL_NAME="orderbook"
+GPST_MODEL="config.json" # Irrelevant.
+MODEL_NAME="optuna"
 OUTPUT_DIR="ckpts"
 
 # Hyperparameters.
@@ -11,7 +11,7 @@ SEED="42"
 EVAL_BATCH_SIZE="1"
 AGGREGATION_SIZE="1"
 GRAPH_DIR="graphs/"
-WIDTH="2000"
+WIDTH="200"
 TERMINAL_PLOT_WIDTH="50"
 
 # Format: ``--<argument_name>``.

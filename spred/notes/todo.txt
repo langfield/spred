@@ -50,6 +50,11 @@ Done:   #================================DONE==================================
 
 Todo:   #================================TODO==================================
 
+        The eval script still appears to be broken. Need to write tests for it,
+        basically.
+        
+        Need to add support for classification model output in the eval script.
+
         Add time elapsed to statusline as well.
 
         Log how much time each trial takes when not using timeout.
