@@ -38,3 +38,12 @@ Todo:   #================================TODO==================================
 
         Create a script to convert raw orderbook hour json files into
         monolithic csv files with dimension 300.
+
+        Use a multiprocessing Pool. Get a specific start time, then generate
+        an array of parse times for each of the processes. Then use python's
+        built-in ``sched`` library to scrape at exactly those times in each
+        process, where each one has its own Tor-assigned IP address. Then we
+        can collect all of the resuls of the parses as dict key-val pairs
+        where the key is the token parse time in the iterable that was passe to
+        the Pool worker. Then the return iterable can be sorted as the keys
+        come in.
