@@ -17,15 +17,15 @@ def main(args: argparse.Namespace) -> None:
     if not os.path.isdir(args.dir):
         os.mkdir(args.dir)
 
-    url_str = "https://api.cryptowat.ch/markets/kraken/ethusd/orderbook"
+    url = "https://api.cryptowat.ch/markets/kraken/ethusd/orderbook"
     index = 0
     out = {}
     start = time.time()
     file_count = args.start
 
     while True:
-        url = urlopen(url_str)
-        content = url.read()
+        page = urlopen(url)
+        content = page.read()
         data = json.loads(content)
         print("  Finished parsing index %d.\r" % index, end="")
 
