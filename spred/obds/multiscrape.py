@@ -3,15 +3,12 @@ import os
 import sys
 import time
 import json
-import sched
 import argparse
 import datetime
 import functools
 import multiprocessing as mp
 from typing import List, Any, Dict
 from urllib.request import urlopen
-
-from apscheduler.schedulers.background import BackgroundScheduler
 
 
 def round_time(dt: datetime.datetime, granularity: int) -> datetime.datetime:
@@ -33,58 +30,49 @@ def round_time(dt: datetime.datetime, granularity: int) -> datetime.datetime:
     return rounded
 
 
-def parse(date: int, url: str) -> Dict[str, Any]:
-    """ Grab json from the given url. """
-
-    page = urlopen(url)
-    content = page.read()
-    data = json.loads(content)
-    stamp = datetime.datetime.fromtimestamp(date).strftime("%H:%M:%S")
-    print("Parsed at time %s." % stamp)
-    sys.stdout.flush()
-
-    return date, data
-
-
-def schedule(dates: List[int], url: str) -> Dict[int, Dict[str, any]]:
+def schedule(date_quantity: Tuple[float, int], interval: float, url: str) -> Dict[float, Dict[str, any]]:
     """
     Schedules and runs parses at each time in dates, and stores the dictionary
     of resultant data in ``orderbook_dict``.
 
     Parameters
     ----------
-    dates : ``List[int]``.
-        Integer unix times at which to parse the given url.
+    date : ``float``.
+        Unix time at which to begin parsing the given url.
+    interval : ``float``.
+        Interval between parses in seconds.
     url : ``str``.
         Page to scrape json from.
 
     Returns
     -------
-    orderbook_dict : ``Dict[int, Dict[str, Any]]``.
+    books : ``Dict[float, Dict[str, Any]]``.
         Dictionary mapping dates to data.
     """
 
-    s = BackgroundScheduler()
+    date, n = date_quantity
 
-    def my_listener(event):
-        if event.exception:
-            print(event.exception)
-            raise ValueError("A job threw an exception.")
+    # Wait until the requested start date.
+    while 1:
+        if time.time() > date:
+            break
         else:
-            print("The job worked :)")
+            wait = max(time.time() - date, 0.005)
+        time.sleep(wait)
 
-    scheduler.add_listener(my_listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
-    s.add_job(parse, trigger="date", args=(date, url), run_date=date)
-    for date in dates:
-        stamp = date.strftime("%H:%M:%S")
-        print("Parsing at time %s." % stamp)
-        s.add_job(parse, trigger="date", args=(date, url), run_date=date)
-    s.run()
-    print(books)
-    bookdict = dict(books)
-    print(bookdict)
+    books: Dict[float, Dict[str, Any]] = {}
 
-    return bookdict
+    now = date
+    for i in range(n):
+        page = urlopen(url)
+        content = page.read()
+        data = json.loads(content)
+        books[now] = data
+        stamp = datetime.datetime.fromtimestamp(now).strftime("%H:%M:%S")
+        print("Parsed at time %s." % stamp)
+        now += interval
+
+    return books
 
 
 def main(args: argparse.Namespace) -> None:
