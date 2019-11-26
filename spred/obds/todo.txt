@@ -47,3 +47,13 @@ Todo:   #================================TODO==================================
         where the key is the token parse time in the iterable that was passe to
         the Pool worker. Then the return iterable can be sorted as the keys
         come in.
+
+        Create two alternating pools which process one minute at a time or
+        something. This would allow us to run each process at the parse time, 
+        and then still be able to get the return value.
+
+        Each process from the original architecture runs m parses, equally
+        spaced. Each process begins with a scheduled job which only runs a
+        print statement. This effectively makes the parse wait to begin until
+        a specific time. Then the subsequent parse calls are spaced by an
+        adjustable interval.
