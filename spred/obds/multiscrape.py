@@ -7,8 +7,12 @@ import argparse
 import datetime
 import functools
 import multiprocessing as mp
-from typing import List, Any, Dict
-from urllib.request import urlopen
+from typing import List, Any, Dict, Tuple
+from urllib.request import urlopen, Request
+
+from torrequest import TorRequest
+
+# pylint: disable=bad-continuation
 
 
 def round_time(dt: datetime.datetime, granularity: int) -> datetime.datetime:
@@ -30,47 +34,64 @@ def round_time(dt: datetime.datetime, granularity: int) -> datetime.datetime:
     return rounded
 
 
-def schedule(date_quantity: Tuple[float, int], interval: float, url: str) -> Dict[float, Dict[str, any]]:
+def schedule(
+    date_count: Tuple[int, datetime.datetime, int],
+    interval: datetime.timedelta,
+    url: str,
+) -> Dict[int, Dict[str, any]]:
     """
     Schedules and runs parses at each time in dates, and stores the dictionary
     of resultant data in ``orderbook_dict``.
 
     Parameters
     ----------
-    date : ``float``.
-        Unix time at which to begin parsing the given url.
-    interval : ``float``.
+    date_count : ``Tuple[int, int]``.
+        Tuple of the unix time at which to begin parsing the given url, and the number
+        of parses to execute.
+    interval : ``int``.
         Interval between parses in seconds.
     url : ``str``.
         Page to scrape json from.
 
     Returns
     -------
-    books : ``Dict[float, Dict[str, Any]]``.
+    books : ``Dict[int, Dict[str, Any]]``.
         Dictionary mapping dates to data.
     """
 
-    date, n = date_quantity
+    pid, date, n = date_count
+    req = Request(url, data=None, headers={"User-Agent": "IgnoreMe."})
 
-    # Wait until the requested start date.
-    while 1:
-        if time.time() > date:
-            break
-        else:
-            wait = max(time.time() - date, 0.005)
-        time.sleep(wait)
+    with TorRequest() as tr:
 
-    books: Dict[float, Dict[str, Any]] = {}
+        # Wait until the requested start date.
+        while 1:
+            if datetime.datetime.utcnow() > date:
+                break
+            else:
+                diff = (date - datetime.datetime.utcnow()).total_seconds()
+                wait = max(diff, 0.5)
+            print("Waiting for %fs." % wait)
+            time.sleep(wait)
 
-    now = date
-    for i in range(n):
-        page = urlopen(url)
-        content = page.read()
-        data = json.loads(content)
-        books[now] = data
-        stamp = datetime.datetime.fromtimestamp(now).strftime("%H:%M:%S")
-        print("Parsed at time %s." % stamp)
-        now += interval
+        books: Dict[int, Dict[str, Any]] = {}
+
+        # TODO: round ``now`` to nearest millisecond.
+        now = date
+        for i in range(n):
+            try:
+                page = tr.get(url)
+                content = page.read()
+            except Exception as e:
+                print(e.headers)
+                raise ValueError(str(e))
+            data = json.loads(content)
+            books[now] = data
+            stamp = now.strftime("%H:%M:%S")
+            if pid == 0:
+                print("PID: %d  \tParsed at time %s." % (pid, stamp))
+            sys.stdout.flush()
+            now += interval
 
     return books
 
@@ -80,7 +101,7 @@ def main(args: argparse.Namespace) -> None:
 
     # Set the scrape interval delay, and the number of timesteps per file.
     delay = 1.0
-    sec_per_file = 1
+    sec_per_file = 3600
 
     # Make sure the directory exists. Create it if not.
     if not os.path.isdir(args.dir):
@@ -89,29 +110,26 @@ def main(args: argparse.Namespace) -> None:
     url = "https://api.cryptowat.ch/markets/kraken/ethusd/orderbook"
     index = 0
     out = {}
-    start = round_time(dt=datetime.datetime.now(), granularity=1)
+    start = round_time(dt=datetime.datetime.utcnow(), granularity=1)
     start += datetime.timedelta(seconds=5)
     file_count = args.start
     num_workers = 2
 
-    dates = [start + datetime.timedelta(seconds=i) for i in range(sec_per_file)]
-    sec_per_file / num_workers
+    # The first ``remainder`` workers each make ``iterations + 1`` parses, the rest
+    # make ``iterations`` parses.
+    iterations = sec_per_file // num_workers
+    rem = sec_per_file % num_workers
+    dates = [start + datetime.timedelta(seconds=i) for i in range(num_workers)]
+    counts = [iterations + 1 if i < rem else iterations for i in range(num_workers)]
+    pids = [i for i in range(num_workers)]
+    print("Sum of counts:", sum(counts))
+    assert sum(counts) == sec_per_file
+    assert len(counts) == len(dates) == num_workers
 
-    for i in range(num_workers):
-        iterations = (sec_per_file - i) // num_workers
-
-    datelist_map: Dict[int, List[int]] = {}
-    for i, date in enumerate(dates):
-        worker_id = i % num_workers
-        if worker_id not in datelist_map:
-            datelist_map[worker_id] = [date]
-        else:
-            datelist_map[worker_id].append(date)
-    assert len(datelist_map) == num_workers
-    datelists: List[List[int]] = datelist_map.values()
-    schedul = functools.partial(schedule, url=url)
+    date_counts = zip(pids, dates, counts)
+    sfn = functools.partial(schedule, url=url, interval=datetime.timedelta(seconds=1))
     pool = mp.Pool(num_workers)
-    bookdicts: List[Dict[int, Dict[str, Any]]] = pool.map(schedul, datelists)
+    bookdicts: List[Dict[int, Dict[str, Any]]] = pool.map(sfn, date_counts)
 
     sys.exit()
 
