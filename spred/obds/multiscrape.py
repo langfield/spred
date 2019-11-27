@@ -62,26 +62,33 @@ def schedule(
     pid, date, n = date_count
     req = Request(url, data=None, headers={"User-Agent": "IgnoreMe."})
 
-    with TorRequest() as tr:
-
-        # Wait until the requested start date.
+    def until(date: datetime.datetime) -> None:
+        """ Wait until the requested start date. """
         while 1:
             if datetime.datetime.utcnow() > date:
                 break
             else:
                 diff = (date - datetime.datetime.utcnow()).total_seconds()
-                wait = max(diff, 0.5)
-            print("Waiting for %fs." % wait)
+                wait = max(max(diff - 0.01, 0), 0.001)
             time.sleep(wait)
+        diff = (date - datetime.datetime.utcnow()).total_seconds()
+        # print("Margin: %fs." % diff)
 
-        books: Dict[int, Dict[str, Any]] = {}
+    until(date - datetime.timedelta(seconds=5))
+
+    books: Dict[int, Dict[str, Any]] = {}
+
+    with TorRequest() as tr:
+
+        until(date)
+        start = time.time()
 
         # TODO: round ``now`` to nearest millisecond.
         now = date
         for i in range(n):
             try:
-                page = tr.get(url)
-                content = page.read()
+                response = tr.get(url)
+                content = response.text
             except Exception as e:
                 print(e.headers)
                 raise ValueError(str(e))
@@ -89,9 +96,13 @@ def schedule(
             books[now] = data
             stamp = now.strftime("%H:%M:%S")
             if pid == 0:
-                print("PID: %d  \tParsed at time %s." % (pid, stamp))
+                print(
+                    "PID: %d  \tParsed at time %s with true time elapsed %ds."
+                    % (pid, stamp, time.time() - start)
+                )
             sys.stdout.flush()
             now += interval
+            until(now)
 
     return books
 
@@ -100,8 +111,13 @@ def main(args: argparse.Namespace) -> None:
     """ Continuously scrape the specified orderbook and save to a json file. """
 
     # Set the scrape interval delay, and the number of timesteps per file.
-    delay = 1.0
+    delay = 1
     sec_per_file = 3600
+    parse_buffer = 12
+
+    # Needs to be at least as much as the hardcoded line below.
+    #     until(date - datetime.timedelta(seconds=5))
+    assert parse_buffer > 10
 
     # Make sure the directory exists. Create it if not.
     if not os.path.isdir(args.dir):
@@ -111,9 +127,9 @@ def main(args: argparse.Namespace) -> None:
     index = 0
     out = {}
     start = round_time(dt=datetime.datetime.utcnow(), granularity=1)
-    start += datetime.timedelta(seconds=5)
+    start += datetime.timedelta(seconds=parse_buffer)
     file_count = args.start
-    num_workers = 2
+    num_workers = 10
 
     # The first ``remainder`` workers each make ``iterations + 1`` parses, the rest
     # make ``iterations`` parses.
@@ -127,42 +143,10 @@ def main(args: argparse.Namespace) -> None:
     assert len(counts) == len(dates) == num_workers
 
     date_counts = zip(pids, dates, counts)
-    sfn = functools.partial(schedule, url=url, interval=datetime.timedelta(seconds=1))
+    delta = datetime.timedelta(seconds=num_workers * delay)
+    sfn = functools.partial(schedule, url=url, interval=delta)
     pool = mp.Pool(num_workers)
     bookdicts: List[Dict[int, Dict[str, Any]]] = pool.map(sfn, date_counts)
-
-    sys.exit()
-
-    while True:
-        page = urlopen(url)
-        content = page.read()
-        data = json.loads(content)
-        print("  Finished parsing index %d.\r" % index, end="")
-
-        # Construct ``order_dict`` from the json input.
-        seq_num = data["result"]["seqNum"]
-        _allowance = data["allowance"]
-        cur_time = time.time()
-        asks = data["result"]["asks"]
-        bids = data["result"]["bids"]
-        order_dict = {"seq": seq_num, "time": cur_time, "asks": asks, "bids": bids}
-
-        out.update({index: order_dict})
-        index += 1
-
-        # Write to file, and reset ``out`` dict.
-        if index % sec_per_file == 0:
-            path = os.path.join(args.dir, "out_%d.json" % file_count)
-            with open(path, "w") as file_path:
-                json.dump(out, file_path)
-                print("\n  Dumped file %d." % file_count)
-            file_count += 1
-            index = 0
-            out = {}
-
-        time.sleep(delay - ((time.time() - start) % delay))
-
-    print(out)
 
 
 def get_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
