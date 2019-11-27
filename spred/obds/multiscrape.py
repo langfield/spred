@@ -119,7 +119,7 @@ def main(args: argparse.Namespace) -> None:
 
     # Set the scrape interval delay, and the number of books to parse per file.
     delay = 1
-    padding = 5
+    padding = 6
     num_parses = 3600
     num_workers = 10
 

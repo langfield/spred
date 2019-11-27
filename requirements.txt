@@ -10,3 +10,4 @@ pylint
 mypy
 ta
 statsmodels
+torrequest
