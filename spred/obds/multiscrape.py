@@ -7,7 +7,7 @@ import argparse
 import datetime
 import functools
 import multiprocessing as mp
-from typing import List, Any, Dict, Tuple
+from typing import List, Any, Dict, Tuple, Generator
 
 from torrequest import TorRequest
 
@@ -47,6 +47,8 @@ def until(date: datetime.datetime) -> None:
         if datetime.datetime.utcnow() > date:
             break
         diff = (date - datetime.datetime.utcnow()).total_seconds()
+        # TODO: Fix.
+        # Get within a hudredth of a second, then do milliseconds.
         wait = max(max(diff - 0.01, 0), 0.001)
         time.sleep(wait)
     diff = (date - datetime.datetime.utcnow()).total_seconds()
@@ -114,32 +116,45 @@ def schedule(
     return books
 
 
-def main(args: argparse.Namespace) -> None:
-    """ Continuously scrape the specified orderbook and save to a json file. """
+def runpool(
+    start: datetime.datetime,
+    url: str,
+    delay: int,
+    padding: int,
+    num_parses: int,
+    num_workers: int,
+) -> List[Dict[int, Dict[str, Any]]]:
+    """
+    Scrape ``url`` every ``delay`` seconds ``num_parses`` times starting in
+    ``padding`` seconds using ``num_workers`` different processes all running via
+    distinct Tor connections, saving output to ``directory``.
 
-    # Set the scrape interval delay, and the number of books to parse per file.
-    delay = 1
-    padding = 6
-    num_parses = 3600
-    num_workers = 10
+    Parameters
+    ----------
+    start : ``datetime.datetime``.
+        When to start parsing.
+    url : ``str``.
+        Page to scrape json from.
+    delay : ``int``.
+        Parse frequency.
+    padding : ``int``.
+        How many seconds to wait for ``TorRequest()`` to start up.
+    num_parses : ``int``.
+        Total across all processes.
+    num_workers : ``int``.
+        Processes in the pool.
+    """
 
-    # Takes about 4s minimum to execute the ``TorRequests()`` call.
-    assert padding > 5
+    print("Instantiating pool.")
 
-    # Make sure the directory exists. Create it if not.
-    if not os.path.isdir(args.dir):
-        os.mkdir(args.dir)
-
-    url = "https://api.cryptowat.ch/markets/kraken/ethusd/orderbook"
-    start = round_time(date=datetime.datetime.utcnow(), granularity=1)
-    start += datetime.timedelta(seconds=2 * padding)
-    file_count = args.start
+    # Make sure ``start`` is sufficently far in the future.
+    assert start - datetime.datetime.utcnow() > 2 * padding
 
     # The first ``remainder`` workers each make ``iterations + 1`` parses, the rest
     # make ``iterations`` parses.
     iterations = num_parses // num_workers
     rem = num_parses % num_workers
-    dates = [start + datetime.timedelta(seconds=i) for i in range(num_workers)]
+    dates = [start + datetime.timedelta(seconds=i * delay) for i in range(num_workers)]
     counts = [iterations + 1 if i < rem else iterations for i in range(num_workers)]
     pids = range(num_workers)
     print("Sum of counts:", sum(counts))
@@ -151,6 +166,55 @@ def main(args: argparse.Namespace) -> None:
     sfn = functools.partial(schedule, url=url, interval=delta, padding=padding)
     pool = mp.Pool(num_workers)
     bookdicts: List[Dict[int, Dict[str, Any]]] = pool.map(sfn, date_counts)
+
+    return bookdicts
+
+
+def main(args: argparse.Namespace) -> None:
+    """ Continuously scrape the specified orderbook and save to a json file. """
+
+    # Set the scrape interval delay, and the number of books to parse per file.
+    url = "https://api.cryptowat.ch/markets/kraken/ethusd/orderbook"
+    delay = 1
+    padding = 6
+    num_parses = 60
+    num_workers = 10
+
+    # Takes about 4s minimum to execute the ``TorRequests()`` call.
+    assert padding > 5
+
+    # Make sure the directory exists. Create it if not.
+    if not os.path.isdir(args.dir):
+        os.mkdir(args.dir)
+
+    file_count = args.start
+
+    def seeds(start: datetime.datetime, interval: int) -> Generator[int, None, None]:
+        """ Generate hour timestamps. """
+        now = start
+        while 1:
+            yield now
+            now += datetime.timedelta(hours=interval)
+
+    # DEBUG
+    start = round_time(date=datetime.datetime.utcnow(), granularity=1)
+    start += datetime.timedelta(seconds=3 * padding)
+
+    makepool = functools.partial(
+        runpool,
+        url=url,
+        delay=delay,
+        padding=padding,
+        num_parses=num_parses,
+        num_workers=num_workers,
+    )
+
+    seedq = mp.Queue(3)
+    resq = mp.Queue()
+    processes = [mp.Process(target=makepool, args=(seedq, resq))]
+    for p in processes:
+        p.start()
+    book = metapool.map(pool_fn, seeds(start, 1))
 
 
 def get_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
