@@ -8,30 +8,30 @@ import datetime
 import functools
 import multiprocessing as mp
 from typing import List, Any, Dict, Tuple
-from urllib.request import urlopen, Request
 
 from torrequest import TorRequest
 
 # pylint: disable=bad-continuation
 
 
-def round_time(dt: datetime.datetime, granularity: int) -> datetime.datetime:
+def round_time(date: datetime.datetime, granularity: int) -> datetime.datetime:
     """
     Round a datetime object to any time lapse in seconds.
 
     Parameters
     ----------
-    dt : ``datetime.datetime``.
+    date : ``datetime.datetime``.
         A timestamp.
     granularity : ``int``.
         Closest number of seconds to round to, default 1 minute.
     """
 
-    seconds = (dt.replace(tzinfo=None) - dt.min).seconds
+    seconds = (date.replace(tzinfo=None) - date.min).seconds
     rounding = (seconds + granularity / 2) // granularity * granularity
-    rounded = dt + datetime.timedelta(0, rounding - seconds, -dt.microsecond)
+    rounded = date + datetime.timedelta(0, rounding - seconds, -date.microsecond)
 
     return rounded
+
 
 def until(date: datetime.datetime) -> None:
     """
@@ -46,9 +46,8 @@ def until(date: datetime.datetime) -> None:
     while 1:
         if datetime.datetime.utcnow() > date:
             break
-        else:
-            diff = (date - datetime.datetime.utcnow()).total_seconds()
-            wait = max(max(diff - 0.01, 0), 0.001)
+        diff = (date - datetime.datetime.utcnow()).total_seconds()
+        wait = max(max(diff - 0.01, 0), 0.001)
         time.sleep(wait)
     diff = (date - datetime.datetime.utcnow()).total_seconds()
 
@@ -81,12 +80,11 @@ def schedule(
         Dictionary mapping dates to data.
     """
 
-    pid, date, n = date_count
-    req = Request(url, data=None, headers={"User-Agent": "IgnoreMe."})
+    pid, date, num_requests = date_count
     until(date - datetime.timedelta(seconds=padding))
     books: Dict[int, Dict[str, Any]] = {}
 
-    with TorRequest() as tr:
+    with TorRequest() as tor:
 
         # We split the ``until()`` call since ``TorRequest()`` takes around 4s.
         until(date)
@@ -94,13 +92,13 @@ def schedule(
 
         # TODO: round ``now`` to nearest millisecond.
         now = date
-        for i in range(n):
+        for _ in range(num_requests):
             try:
-                response = tr.get(url)
+                response = tor.get(url)
                 content = response.text
-            except Exception as e:
-                print(e)
-                raise ValueError(str(e))
+            except Exception as exc:
+                print(exc)
+                raise ValueError(str(exc))
             data = json.loads(content)
             books[now] = data
             stamp = now.strftime("%H:%M:%S")
@@ -133,8 +131,7 @@ def main(args: argparse.Namespace) -> None:
         os.mkdir(args.dir)
 
     url = "https://api.cryptowat.ch/markets/kraken/ethusd/orderbook"
-    out = {}
-    start = round_time(dt=datetime.datetime.utcnow(), granularity=1)
+    start = round_time(date=datetime.datetime.utcnow(), granularity=1)
     start += datetime.timedelta(seconds=2 * padding)
     file_count = args.start
 
@@ -144,7 +141,7 @@ def main(args: argparse.Namespace) -> None:
     rem = num_parses % num_workers
     dates = [start + datetime.timedelta(seconds=i) for i in range(num_workers)]
     counts = [iterations + 1 if i < rem else iterations for i in range(num_workers)]
-    pids = [i for i in range(num_workers)]
+    pids = range(num_workers)
     print("Sum of counts:", sum(counts))
     assert sum(counts) == num_parses
     assert len(counts) == len(dates) == num_workers
