@@ -7,6 +7,7 @@ import argparse
 import datetime
 import functools
 import multiprocessing as mp
+from multiprocessing.pool import ThreadPool
 from typing import List, Any, Dict, Tuple, Generator
 
 from torrequest import TorRequest
@@ -148,7 +149,8 @@ def runpool(
     print("Instantiating pool.")
 
     # Make sure ``start`` is sufficently far in the future.
-    assert start - datetime.datetime.utcnow() > 2 * padding
+    horizon = 2 * padding
+    assert start - datetime.datetime.utcnow() > datetime.timedelta(seconds=horizon)
 
     # The first ``remainder`` workers each make ``iterations + 1`` parses, the rest
     # make ``iterations`` parses.
@@ -193,6 +195,7 @@ def main(args: argparse.Namespace) -> None:
         """ Generate hour timestamps. """
         now = start
         while 1:
+            print("Seeding.")
             yield now
             now += datetime.timedelta(hours=interval)
 
@@ -200,7 +203,7 @@ def main(args: argparse.Namespace) -> None:
     start = round_time(date=datetime.datetime.utcnow(), granularity=1)
     start += datetime.timedelta(seconds=3 * padding)
 
-    makepool = functools.partial(
+    pool_fn = functools.partial(
         runpool,
         url=url,
         delay=delay,
@@ -209,12 +212,9 @@ def main(args: argparse.Namespace) -> None:
         num_workers=num_workers,
     )
 
-    seedq = mp.Queue(3)
-    resq = mp.Queue()
-    processes = [mp.Process(target=makepool, args=(seedq, resq))]
-    for p in processes:
-        p.start()
-    book = metapool.map(pool_fn, seeds(start, 1))
+    metapool = ThreadPool(2)
+    print("Imapping.")
+    book = list(metapool.imap(pool_fn, seeds(start, 1)))
 
 
 def get_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
