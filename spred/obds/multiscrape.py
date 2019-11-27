@@ -33,11 +33,31 @@ def round_time(dt: datetime.datetime, granularity: int) -> datetime.datetime:
 
     return rounded
 
+def until(date: datetime.datetime) -> None:
+    """
+    Wait until the requested start date. Print ``diff`` at the end to
+    see margin of error.
+
+    Parameters
+    ----------
+    date : ``datedate.datetime``.
+        Wait until this utc time.
+    """
+    while 1:
+        if datetime.datetime.utcnow() > date:
+            break
+        else:
+            diff = (date - datetime.datetime.utcnow()).total_seconds()
+            wait = max(max(diff - 0.01, 0), 0.001)
+        time.sleep(wait)
+    diff = (date - datetime.datetime.utcnow()).total_seconds()
+
 
 def schedule(
     date_count: Tuple[int, datetime.datetime, int],
     interval: datetime.timedelta,
     url: str,
+    padding: int,
 ) -> Dict[int, Dict[str, any]]:
     """
     Schedules and runs parses at each time in dates, and stores the dictionary
@@ -52,6 +72,8 @@ def schedule(
         Interval between parses in seconds.
     url : ``str``.
         Page to scrape json from.
+    padding : ``int``.
+        How many seconds to wait for ``TorRequest()`` to start up.
 
     Returns
     -------
@@ -61,25 +83,12 @@ def schedule(
 
     pid, date, n = date_count
     req = Request(url, data=None, headers={"User-Agent": "IgnoreMe."})
-
-    def until(date: datetime.datetime) -> None:
-        """ Wait until the requested start date. """
-        while 1:
-            if datetime.datetime.utcnow() > date:
-                break
-            else:
-                diff = (date - datetime.datetime.utcnow()).total_seconds()
-                wait = max(max(diff - 0.01, 0), 0.001)
-            time.sleep(wait)
-        diff = (date - datetime.datetime.utcnow()).total_seconds()
-        # print("Margin: %fs." % diff)
-
-    until(date - datetime.timedelta(seconds=5))
-
+    until(date - datetime.timedelta(seconds=padding))
     books: Dict[int, Dict[str, Any]] = {}
 
     with TorRequest() as tr:
 
+        # We split the ``until()`` call since ``TorRequest()`` takes around 4s.
         until(date)
         start = time.time()
 
@@ -90,7 +99,7 @@ def schedule(
                 response = tr.get(url)
                 content = response.text
             except Exception as e:
-                print(e.headers)
+                print(e)
                 raise ValueError(str(e))
             data = json.loads(content)
             books[now] = data
@@ -110,41 +119,39 @@ def schedule(
 def main(args: argparse.Namespace) -> None:
     """ Continuously scrape the specified orderbook and save to a json file. """
 
-    # Set the scrape interval delay, and the number of timesteps per file.
+    # Set the scrape interval delay, and the number of books to parse per file.
     delay = 1
-    sec_per_file = 3600
-    parse_buffer = 12
+    padding = 5
+    num_parses = 3600
+    num_workers = 10
 
-    # Needs to be at least as much as the hardcoded line below.
-    #     until(date - datetime.timedelta(seconds=5))
-    assert parse_buffer > 10
+    # Takes about 4s minimum to execute the ``TorRequests()`` call.
+    assert padding > 5
 
     # Make sure the directory exists. Create it if not.
     if not os.path.isdir(args.dir):
         os.mkdir(args.dir)
 
     url = "https://api.cryptowat.ch/markets/kraken/ethusd/orderbook"
-    index = 0
     out = {}
     start = round_time(dt=datetime.datetime.utcnow(), granularity=1)
-    start += datetime.timedelta(seconds=parse_buffer)
+    start += datetime.timedelta(seconds=2 * padding)
     file_count = args.start
-    num_workers = 10
 
     # The first ``remainder`` workers each make ``iterations + 1`` parses, the rest
     # make ``iterations`` parses.
-    iterations = sec_per_file // num_workers
-    rem = sec_per_file % num_workers
+    iterations = num_parses // num_workers
+    rem = num_parses % num_workers
     dates = [start + datetime.timedelta(seconds=i) for i in range(num_workers)]
     counts = [iterations + 1 if i < rem else iterations for i in range(num_workers)]
     pids = [i for i in range(num_workers)]
     print("Sum of counts:", sum(counts))
-    assert sum(counts) == sec_per_file
+    assert sum(counts) == num_parses
     assert len(counts) == len(dates) == num_workers
 
     date_counts = zip(pids, dates, counts)
     delta = datetime.timedelta(seconds=num_workers * delay)
-    sfn = functools.partial(schedule, url=url, interval=delta)
+    sfn = functools.partial(schedule, url=url, interval=delta, padding=padding)
     pool = mp.Pool(num_workers)
     bookdicts: List[Dict[int, Dict[str, Any]]] = pool.map(sfn, date_counts)
 
