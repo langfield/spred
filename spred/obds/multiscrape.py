@@ -7,11 +7,13 @@ import argparse
 import datetime
 import functools
 import multiprocessing as mp
-from multiprocessing.pool import ThreadPool
+from time import mktime
 from typing import List, Any, Dict, Tuple, Generator
+from multiprocessing.pool import ThreadPool
 
 from torrequest import TorRequest
 
+from lazy import pool_imap_unordered
 # pylint: disable=bad-continuation
 
 
@@ -53,6 +55,7 @@ def until(date: datetime.datetime) -> None:
         wait = max(max(diff - 0.01, 0), 0.001)
         time.sleep(wait)
     diff = (date - datetime.datetime.utcnow()).total_seconds()
+    print("Error %fs." % diff)
 
 
 def schedule(
@@ -85,7 +88,7 @@ def schedule(
 
     pid, date, num_requests = date_count
     until(date - datetime.timedelta(seconds=padding))
-    books: Dict[int, Dict[str, Any]] = {}
+    books: Dict[datetime.datetime, Dict[str, Any]] = {}
 
     with TorRequest() as tor:
 
@@ -103,13 +106,15 @@ def schedule(
                 print(exc)
                 raise ValueError(str(exc))
             data = json.loads(content)
-            books[now] = data
+            unix_secs = mktime(now.timetuple())
+            books[unix_secs] = data
             stamp = now.strftime("%H:%M:%S")
-            if pid == 0:
-                print(
-                    "PID: %d  \tParsed at time %s with true time elapsed %ds."
-                    % (pid, stamp, time.time() - start)
-                )
+
+            # if pid == 0:
+            print(
+                "PID: %d  \tParsed at time %s with true time elapsed %ds."
+                % (pid, stamp, time.time() - start)
+            )
             sys.stdout.flush()
             now += interval
             until(now)
@@ -144,6 +149,11 @@ def runpool(
         Total across all processes.
     num_workers : ``int``.
         Processes in the pool.
+
+    Returns
+    -------
+    all_books : ``Dict[datetime.datetime, Dict[str, Any]]``.
+        Joined dictionary of all orderbooks for the given duration, with dates as keys.
     """
 
     print("Instantiating pool.")
@@ -167,9 +177,24 @@ def runpool(
     delta = datetime.timedelta(seconds=num_workers * delay)
     sfn = functools.partial(schedule, url=url, interval=delta, padding=padding)
     pool = mp.Pool(num_workers)
-    bookdicts: List[Dict[int, Dict[str, Any]]] = pool.map(sfn, date_counts)
 
-    return bookdicts
+    # Get books and merge dicts.
+    dicts: List[Dict[datetime.datetime, Dict[str, Any]]] = pool.map(sfn, date_counts)
+    all_books: Dict[datetime.datetime, Dict[str, Any]] = {}
+    for d in dicts:
+        all_books.update(d)
+
+    return all_books
+
+
+def seeds(
+    start: datetime.datetime, delta: datetime.timedelta
+) -> Generator[datetime.datetime, None, None]:
+    """ Generate hour timestamps. """
+    now = start
+    while 1:
+        yield now
+        now += delta
 
 
 def main(args: argparse.Namespace) -> None:
@@ -179,8 +204,9 @@ def main(args: argparse.Namespace) -> None:
     url = "https://api.cryptowat.ch/markets/kraken/ethusd/orderbook"
     delay = 1
     padding = 6
-    num_parses = 60
+    num_parses = 10
     num_workers = 10
+    num_metaprocesses = 2
 
     # Takes about 4s minimum to execute the ``TorRequests()`` call.
     assert padding > 5
@@ -191,15 +217,7 @@ def main(args: argparse.Namespace) -> None:
 
     file_count = args.start
 
-    def seeds(start: datetime.datetime, interval: int) -> Generator[int, None, None]:
-        """ Generate hour timestamps. """
-        now = start
-        while 1:
-            print("Seeding.")
-            yield now
-            now += datetime.timedelta(hours=interval)
-
-    # DEBUG
+    # Start ``3 * padding`` seconds from now.
     start = round_time(date=datetime.datetime.utcnow(), granularity=1)
     start += datetime.timedelta(seconds=3 * padding)
 
@@ -212,9 +230,15 @@ def main(args: argparse.Namespace) -> None:
         num_workers=num_workers,
     )
 
-    metapool = ThreadPool(2)
-    print("Imapping.")
-    book = list(metapool.imap(pool_fn, seeds(start, 1)))
+    delta = datetime.timedelta(seconds=num_parses * delay)
+    twinparse = pool_imap_unordered(pool_fn, seeds(start, delta), num_metaprocesses)
+    while 1:
+        out = next(twinparse)
+        path = os.path.join(args.dir, "out_%d.json" % file_count)
+        with open(path, "w") as file_path:
+            json.dump(out, file_path)
+            print("\n  Dumped file %d." % file_count)
+        file_count += 1
 
 
 def get_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
