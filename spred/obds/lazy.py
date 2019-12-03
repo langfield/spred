@@ -1,47 +1,45 @@
+from multiprocessing import Process, Queue, cpu_count
 from queue import Full as QueueFull
 from queue import Empty as QueueEmpty
-from typing import Callable, Iterable, Any, Generator
-from multiprocessing import Process, Queue
-# pylint: disable=bad-continuation
 
 
-def worker(outq, inq):
-    for func, args in iter(outq.get, None):
-        result = func(args)
-        inq.put(result)
+def worker(recvq, sendq):
+    for func, args in iter(recvq.get, None):
+        print("Args:", args)
+        result = func(*args)
+        sendq.put(result)
 
 
-def pool_imap_unordered(
-    function: Callable[[Queue, Queue], Any], iterable: Iterable[Any], procs: int
-) -> Generator[Any, None, None]:
-
+def pool_imap_unordered(function, iterable, procs=cpu_count()):
     # Create queues for sending/receiving items from iterable.
-    inq = Queue(procs)
-    outq = Queue()
+
+    sendq = Queue(procs)
+    recvq = Queue()
 
     # Start worker processes.
 
-    for _ in range(procs):
-        Process(target=worker, args=(inq, outq)).start()
+    for rpt in range(procs):
+        Process(target=worker, args=(sendq, recvq)).start()
 
     # Iterate iterable and communicate with worker processes.
 
-    outq_len = 0
-    inq_len = 0
+    send_len = 0
+    recv_len = 0
     itr = iter(iterable)
 
     try:
         value = next(itr)
+        print("Value:", value)
         while True:
             try:
-                inq.put((function, value), True, 0.1)
-                outq_len += 1
+                sendq.put((function, value), True, 0.1)
+                send_len += 1
                 value = next(itr)
             except QueueFull:
                 while True:
                     try:
-                        result = outq.get(False)
-                        inq_len += 1
+                        result = recvq.get(False)
+                        recv_len += 1
                         yield result
                     except QueueEmpty:
                         break
@@ -50,12 +48,12 @@ def pool_imap_unordered(
 
     # Collect all remaining results.
 
-    while inq_len < outq_len:
-        result = outq.get()
-        inq_len += 1
+    while recv_len < send_len:
+        result = recvq.get()
+        recv_len += 1
         yield result
 
     # Terminate worker processes.
 
     for rpt in range(procs):
-        inq.put(None)
+        sendq.put(None)
