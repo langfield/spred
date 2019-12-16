@@ -57,3 +57,9 @@ Todo:   #================================TODO==================================
         print statement. This effectively makes the parse wait to begin until
         a specific time. Then the subsequent parse calls are spaced by an
         adjustable interval.
+
+        Trying spinning up n processes with n input queues and n output queues
+        where we get the data by looping over the output queues and calling
+        queue.get(), which blocks until there is data available. After each
+        full loop, save all the data to disk, and then loop over them all again
+        ad infinitum.
