@@ -96,6 +96,7 @@ def schedule(
             try:
                 response = tor.get(url)
                 content = response.text
+                print(content)
             except Exception as exc:
                 print(exc)
                 raise ValueError(str(exc))
@@ -131,6 +132,7 @@ def main(args: argparse.Namespace) -> None:
         os.mkdir(args.dir)
 
     url = "https://api.cryptowat.ch/markets/kraken/ethusd/orderbook"
+    url = "http://httpbin.org/ip"
     start = round_time(date=datetime.datetime.utcnow(), granularity=1)
     start += datetime.timedelta(seconds=2 * padding)
     file_count = args.start
