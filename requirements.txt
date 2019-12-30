@@ -10,4 +10,5 @@ pylint
 mypy
 ta
 statsmodels
-torrequest
+stem
+requests[socks]

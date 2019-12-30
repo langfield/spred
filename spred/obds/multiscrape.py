@@ -9,7 +9,7 @@ import datetime
 import tempfile
 import functools
 import multiprocessing as mp
-from typing import List, Any, Dict, Tuple
+from typing import Any, Dict, Tuple
 
 from tor_request import TorRequest
 
@@ -45,6 +45,7 @@ def until(date: datetime.datetime) -> None:
     date : ``datedate.datetime``.
         Wait until this utc time.
     """
+    print("Waiting until %s." % str(date))
     while 1:
         if datetime.datetime.utcnow() > date:
             break
@@ -54,11 +55,12 @@ def until(date: datetime.datetime) -> None:
     diff = (date - datetime.datetime.utcnow()).total_seconds()
 
 
-def schedule(
+def parse(
     date_count: Tuple[int, int, int, datetime.datetime, int],
     interval: datetime.timedelta,
     url: str,
     padding: int,
+    save_dir: str,
 ) -> Dict[datetime.datetime, Dict[str, Any]]:
     """
     Schedules and runs parses at each time in dates, and stores the dictionary
@@ -75,6 +77,8 @@ def schedule(
         Page to scrape json from.
     padding : ``int``.
         How many seconds to wait for ``TorRequest()`` to start up.
+    save_dir : ``str``.
+        Directory in which to save the books.
 
     Returns
     -------
@@ -83,47 +87,68 @@ def schedule(
     """
 
     pid, proxy_port, ctrl_port, date, num_requests = date_count
+    bookid = 0
     data_dir = tempfile.mkdtemp()
 
     until(date - datetime.timedelta(seconds=padding))
     books: Dict[datetime.datetime, Dict[str, Any]] = {}
 
+    print(
+        "Done with first wait. If this hangs, make sure tor and "
+        + "SOCKS dependencies are installed. Try running duoscape."
+    )
+
     with TorRequest(
         proxy_port=proxy_port, ctrl_port=ctrl_port, data_dir=data_dir
     ) as tor:
+        print("Opened TorRequest.")
+        sys.stdout.flush()
+        try:
+            while 1:
+                # We split the ``until()`` call since ``TorRequest()`` takes around 4s.
+                until(date)
+                start = time.time()
+                now = date
 
-        # We split the ``until()`` call since ``TorRequest()`` takes around 4s.
-        until(date)
-        start = time.time()
+                # Set date to next interval.
+                date = date + datetime.timedelta(seconds=num_requests * interval)
 
-        # TODO: round ``now`` to nearest millisecond.
-        now = date
-        for _ in range(num_requests):
-            try:
-                response = tor.get(url)
-                content = response.text
-            except Exception as exc:
-                print(exc)
-                raise ValueError(str(exc))
-            data = json.loads(content)
+                for _ in range(num_requests):
+                    try:
+                        response = tor.get(url)
+                        content = response.text
+                        print(content)
 
-            # DEBUG
-            print(data["origin"].split(",")[0])
+                    # Hack to see the real problem.
+                    except Exception as exc:
+                        print(exc)
+                        raise ValueError(str(exc))
+                    data = json.loads(content)
 
-            books[now] = data
-            stamp = now.strftime("%H:%M:%S")
-            if pid == 0:
-                print(
-                    "PID: %d  \tParsed at time %s with true time elapsed %ds."
-                    % (pid, stamp, time.time() - start)
-                )
-            sys.stdout.flush()
-            now += interval
-            until(now)
+                    # DEBUG
+                    print(data["origin"].split(",")[0])
 
-    shutil.rmtree(data_dir)
+                    books[now] = data
+                    stamp = now.strftime("%H:%M:%S")
+                    if pid == 0:
+                        print(
+                            "PID: %d  \tParsed at time %s with true time elapsed %ds."
+                            % (pid, stamp, time.time() - start)
+                        )
+                    sys.stdout.flush()
+                    now += interval
+                    until(now)
 
-    return books
+                filename = "book_%d_pid_%d.json" % (bookid, pid)
+                save_path = os.path.join(save_dir, filename)
+                with open(save_path, "w") as book_file:
+                    json.dump(books, book_file)
+                books = {}
+                bookid += 1
+
+        except Exception as error:
+            shutil.rmtree(data_dir)
+            raise error
 
 
 def main(args: argparse.Namespace) -> None:
@@ -132,8 +157,8 @@ def main(args: argparse.Namespace) -> None:
     # Set the scrape interval delay, and the number of books to parse per file.
     delay = 1
     padding = 16
-    num_parses = 3600
-    num_workers = 10
+    num_parses = 600
+    num_workers = 2
     starting_proxy_port = 9050
     starting_ctrl_port = 9051
 
@@ -152,22 +177,22 @@ def main(args: argparse.Namespace) -> None:
 
     # The first ``remainder`` workers each make ``iterations + 1`` parses, the rest
     # make ``iterations`` parses.
-    iterations = num_parses // num_workers
-    rem = num_parses % num_workers
     proxy_ports = [starting_proxy_port + (i * 10) for i in range(num_workers)]
     ctrl_ports = [starting_ctrl_port + (i * 10) for i in range(num_workers)]
-    dates = [start + datetime.timedelta(seconds=i) for i in range(num_workers)]
-    counts = [iterations + 1 if i < rem else iterations for i in range(num_workers)]
+    dates = [
+        start + datetime.timedelta(seconds=i * num_parses) for i in range(num_workers)
+    ]
+    counts = [num_parses for _ in range(num_workers)]
     pids = range(num_workers)
-    print("Sum of counts:", sum(counts))
-    assert sum(counts) == num_parses
     assert len(counts) == len(dates) == num_workers
 
     date_counts = zip(pids, proxy_ports, ctrl_ports, dates, counts)
-    delta = datetime.timedelta(seconds=num_workers * delay)
-    sfn = functools.partial(schedule, url=url, interval=delta, padding=padding)
+    delta = datetime.timedelta(seconds=delay)
+    sfn = functools.partial(
+        parse, url=url, interval=delta, padding=padding, save_dir=args.dir
+    )
     pool = mp.Pool(num_workers)
-    bookmaps: List[Dict[datetime.datetime, Dict[str, Any]]] = pool.map(sfn, date_counts)
+    pool.map(sfn, date_counts)
 
 
 def get_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:

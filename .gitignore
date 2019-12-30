@@ -14,3 +14,4 @@ spred/gpst/ckpts/*
 *.mypy_cache/
 *results/
 spred/bookdfs/*.csv
+tordatap/
