@@ -1,12 +1,12 @@
 """ Tests the modified TorRequest class. """
-#! /usr/bin/python3
+#!/usr/bin/python3
 import os
+import shutil
+import tempfile
 from tor_request import TorRequest
 
-# url = "https://api.cryptowat.ch/markets/kraken/ethusd/orderbook"
 
-
-def get_ip(tor):
+def get_ip(tor: TorRequest) -> str:
     """ Grab ip address of exit node. """
     url = "http://httpbin.org/ip"
     try:
@@ -18,19 +18,23 @@ def get_ip(tor):
         raise ValueError(str(exc))
 
 
-def main():
+def main() -> None:
     """ Testing function. """
     pid = os.fork()
     if pid == 0:
-        with TorRequest(proxy_port=9050, ctrl_port=9051, data_dir="./tordatac") as tor:
+        data_dir = tempfile.mkdtemp()
+        with TorRequest(proxy_port=9060, ctrl_port=9061, data_dir=data_dir) as tor:
             for _ in range(10):
                 print("child: ", get_ip(tor))  # child
+        shutil.rmtree(data_dir)
     else:
-        with TorRequest(proxy_port=9060, ctrl_port=9061, data_dir="./tordatap") as tor:
+        data_dir = tempfile.mkdtemp()
+        with TorRequest(proxy_port=9070, ctrl_port=9071, data_dir=data_dir) as tor:
             for _ in range(10):
                 print("parent: ", get_ip(tor))  # parent
-
+        shutil.rmtree(data_dir)
         os.waitpid(pid, 0)
+
 
 if __name__ == "__main__":
     main()

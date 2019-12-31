@@ -13,7 +13,10 @@ from typing import Any, Dict, Tuple
 
 from tor_request import TorRequest
 
-# pylint: disable=bad-continuation
+# pylint: disable=bad-continuation, too-many-locals
+
+DEBUG = False
+PARSE_TIME = True
 
 
 def round_time(date: datetime.datetime, granularity: int) -> datetime.datetime:
@@ -35,7 +38,7 @@ def round_time(date: datetime.datetime, granularity: int) -> datetime.datetime:
     return rounded
 
 
-def until(date: datetime.datetime) -> None:
+def until(date: datetime.datetime, pid: int = -1) -> None:
     """
     Wait until the requested start date. Print ``diff`` at the end to
     see margin of error.
@@ -45,7 +48,8 @@ def until(date: datetime.datetime) -> None:
     date : ``datedate.datetime``.
         Wait until this utc time.
     """
-    print("Waiting until %s." % str(date))
+    if DEBUG:
+        print("PID: %d: Waiting until %s." % (pid, str(date)))
     while 1:
         if datetime.datetime.utcnow() > date:
             break
@@ -57,11 +61,11 @@ def until(date: datetime.datetime) -> None:
 
 def parse(
     date_count: Tuple[int, int, int, datetime.datetime, int],
-    interval: datetime.timedelta,
+    interval: int,
     url: str,
     padding: int,
     save_dir: str,
-) -> Dict[datetime.datetime, Dict[str, Any]]:
+) -> Dict[str, Dict[str, Any]]:
     """
     Schedules and runs parses at each time in dates, and stores the dictionary
     of resultant data in ``orderbook_dict``.
@@ -90,54 +94,60 @@ def parse(
     bookid = 0
     data_dir = tempfile.mkdtemp()
 
-    until(date - datetime.timedelta(seconds=padding))
-    books: Dict[datetime.datetime, Dict[str, Any]] = {}
+    until(date - datetime.timedelta(seconds=padding), pid=pid)
+    books: Dict[str, Dict[str, Any]] = {}
 
     print(
-        "Done with first wait. If this hangs, make sure tor and "
-        + "SOCKS dependencies are installed. Try running duoscape."
+        "PID: %d: Done with first wait. If this hangs or takes more than 20s, " % pid
+        + "make sure tor and SOCKS dependencies are installed. Try running duoscape."
     )
 
     with TorRequest(
         proxy_port=proxy_port, ctrl_port=ctrl_port, data_dir=data_dir
     ) as tor:
-        print("Opened TorRequest.")
-        sys.stdout.flush()
+
+        if DEBUG:
+            print("PID: %d: Opened TorRequest." % pid)
+            sys.stdout.flush()
+
         try:
             while 1:
                 # We split the ``until()`` call since ``TorRequest()`` takes around 4s.
-                until(date)
+                until(date, pid=pid)
                 start = time.time()
                 now = date
 
                 # Set date to next interval.
-                date = date + datetime.timedelta(seconds=num_requests * interval)
+                date += datetime.timedelta(seconds=2 * num_requests * interval)
 
                 for _ in range(num_requests):
                     try:
                         response = tor.get(url)
                         content = response.text
-                        print(content)
-
-                    # Hack to see the real problem.
                     except Exception as exc:
                         print(exc)
                         raise ValueError(str(exc))
+                    end = datetime.datetime.utcnow()
+                    error = end - now
+
                     data = json.loads(content)
 
-                    # DEBUG
-                    print(data["origin"].split(",")[0])
+                    if DEBUG:
+                        print(data["origin"].split(",")[0])
 
-                    books[now] = data
-                    stamp = now.strftime("%H:%M:%S")
-                    if pid == 0:
+                    rounded_stamp = now.strftime("%H:%M:%S")
+                    stamp = now.strftime("%H:%M:%S:%f")
+                    end_stamp = end.strftime("%H:%M:%S:%f")
+                    books[rounded_stamp] = data
+                    if PARSE_TIME:
                         print(
-                            "PID: %d  \tParsed at time %s with true time elapsed %ds."
-                            % (pid, stamp, time.time() - start)
+                            "PID: %d: Parse start: '%s' end: '%s' with margin: '%s'"
+                            % (pid, stamp, end_stamp, error)
                         )
-                    sys.stdout.flush()
-                    now += interval
-                    until(now)
+                        sys.stdout.flush()
+
+                    now += datetime.timedelta(seconds=interval)
+                    until(now, pid=pid)
 
                 filename = "book_%d_pid_%d.json" % (bookid, pid)
                 save_path = os.path.join(save_dir, filename)
@@ -147,8 +157,9 @@ def parse(
                 bookid += 1
 
         except Exception as error:
+            print(error)
             shutil.rmtree(data_dir)
-            raise error
+            raise ValueError(str(error))
 
 
 def main(args: argparse.Namespace) -> None:
@@ -156,14 +167,14 @@ def main(args: argparse.Namespace) -> None:
 
     # Set the scrape interval delay, and the number of books to parse per file.
     delay = 1
-    padding = 16
-    num_parses = 600
+    padding = 13
+    num_parses = 30  # 600
     num_workers = 2
-    starting_proxy_port = 9050
-    starting_ctrl_port = 9051
+    starting_proxy_port = 9060
+    starting_ctrl_port = 9061
 
-    # Takes about 4s minimum to execute the ``TorRequests()`` call.
-    assert padding > 15
+    # Takes about 10s minimum to execute the ``TorRequests()`` call.
+    assert padding > 11
 
     # Make sure the directory exists. Create it if not.
     if not os.path.isdir(args.dir):
@@ -172,8 +183,7 @@ def main(args: argparse.Namespace) -> None:
     url = "https://api.cryptowat.ch/markets/kraken/ethusd/orderbook"
     url = "http://httpbin.org/ip"
     start = round_time(date=datetime.datetime.utcnow(), granularity=1)
-    start += datetime.timedelta(seconds=2 * padding)
-    file_count = args.start
+    start += datetime.timedelta(seconds=padding + 2)
 
     # The first ``remainder`` workers each make ``iterations + 1`` parses, the rest
     # make ``iterations`` parses.
@@ -187,9 +197,8 @@ def main(args: argparse.Namespace) -> None:
     assert len(counts) == len(dates) == num_workers
 
     date_counts = zip(pids, proxy_ports, ctrl_ports, dates, counts)
-    delta = datetime.timedelta(seconds=delay)
     sfn = functools.partial(
-        parse, url=url, interval=delta, padding=padding, save_dir=args.dir
+        parse, url=url, interval=delay, padding=padding, save_dir=args.dir
     )
     pool = mp.Pool(num_workers)
     pool.map(sfn, date_counts)
