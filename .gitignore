@@ -15,3 +15,5 @@ spred/gpst/ckpts/*
 *results/
 spred/bookdfs/*.csv
 tordatap/
+books/
+tor_temp_dir/

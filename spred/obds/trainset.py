@@ -8,12 +8,14 @@ import itertools
 import functools
 import multiprocessing as mp
 
-from typing import List
+from typing import List, Dict, Any
 
 import numpy as np
 import pandas as pd
 
 from arguments import df_args
+
+# pylint: disable=too-many-locals
 
 
 def gen_df(hours: int, trunc: int, save_path: str, source_dir: str) -> None:
@@ -55,6 +57,16 @@ def gen_df(hours: int, trunc: int, save_path: str, source_dir: str) -> None:
     print("Finished in %fs" % (time.time() - start))
 
 
+def convert_book_keys(raw_books: Dict[str, Any]) -> Dict[int, Any]:
+    """ Convert the keys (str) of ``raw_books`` to integers. """
+    books = {}
+    for i, index_book_pair in enumerate(raw_books.items()):
+        book_index_str, book = index_book_pair
+        books.update({i: book})
+        assert i == int(book_index_str)
+    return books
+
+
 def process_books(hour: int, trunc: int, source_dir: str) -> List[np.ndarray]:
     """
     Reads the specified orderbook json file and outputs statistics on the
@@ -81,12 +93,7 @@ def process_books(hour: int, trunc: int, source_dir: str) -> List[np.ndarray]:
     with open(path) as json_file:
         raw_books = json.load(json_file)
 
-    # Convert the keys (str) of ``raw_books`` to integers.
-    books = {}
-    for i, index_book_pair in enumerate(raw_books.items()):
-        book_index_str, book = index_book_pair
-        books.update({i: book})
-        assert i == int(book_index_str)
+    books = convert_book_keys(raw_books)
 
     vecs: List[np.array] = []
 

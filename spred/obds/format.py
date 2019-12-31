@@ -17,9 +17,11 @@ import matplotlib
 
 matplotlib.use("Agg")
 # pylint: disable=wrong-import-position, ungrouped-imports, bad-continuation
+# pylint: disable=too-many-arguments, too-many-locals, too-many-statements
 import seaborn as sns
 import matplotlib.pyplot as plt
 from arguments import get_args
+from trainset import convert_book_keys
 
 
 def collect_gaps(subbook: List[List[float]], depth: int, bound: float) -> List[float]:
@@ -327,11 +329,7 @@ def compute_deltas(hour: int, source_dir: str) -> Dict[str, List[float]]:
         raw_books = json.load(json_file)
 
     # Convert the keys (str) of ``raw_books`` to integers.
-    books = {}
-    for i, index_book_pair in enumerate(raw_books.items()):
-        book_index_str, book = index_book_pair
-        books.update({i: book})
-        assert i == int(book_index_str)
+    books = convert_book_keys(raw_books)
 
     best_deltas: Dict[str, List[float]] = {"bids": [], "asks": []}
     for i, book in books.items():
@@ -390,11 +388,7 @@ def print_stats(
         os.mkdir(fig_dir)
 
     # Convert the keys (str) of ``raw_books`` to integers.
-    books = {}
-    for i, index_book_pair in enumerate(raw_books.items()):
-        book_index_str, book = index_book_pair
-        books.update({i: book})
-        assert i == int(book_index_str)
+    books = convert_book_keys(raw_books)
 
     print("Printing orderbook statistics for file ``%s``." % path)
 
