@@ -32,6 +32,7 @@ class TorRequest:
                 self._tor_proc = self._launch_tor()
             except OSError as error:
                 print("\n\n!!!ERROR!!!: Try changing the ports +/-10.")
+                print("\n\n!!!ERROR!!!: Is Tor installed?")
                 raise error
 
         self.ctrl = Controller.from_port(port=self.ctrl_port)
