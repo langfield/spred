@@ -131,6 +131,12 @@ def parse(
                     error = end - now
 
                     data = json.loads(content)
+                    try:
+                        # print(data["allowance"])
+                        print(data["result"]["seqNum"])
+                    except KeyError:
+                        pass
+
 
                     if DEBUG:
                         print(data["origin"].split(",")[0])
@@ -181,7 +187,7 @@ def main(args: argparse.Namespace) -> None:
         os.mkdir(args.dir)
 
     url = "https://api.cryptowat.ch/markets/kraken/ethusd/orderbook"
-    url = "http://httpbin.org/ip"
+    # url = "http://httpbin.org/ip"
     start = round_time(date=datetime.datetime.utcnow(), granularity=1)
     start += datetime.timedelta(seconds=padding + 2)
 
