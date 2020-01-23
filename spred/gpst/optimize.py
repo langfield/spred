@@ -22,9 +22,7 @@ def main() -> None:
     datestring = datestring.replace(" ", "_")
     log_path = get_log("snow")
     logging.getLogger().setLevel(logging.INFO)  # Setup the root logger.
-    logging.getLogger().addHandler(
-        logging.FileHandler(log_path)
-    )
+    logging.getLogger().addHandler(logging.FileHandler(log_path))
     optuna.logging.enable_propagation()  # Propagate logs to the root logger.
     optuna.logging.disable_default_handler()  # Stop showing logs in stderr.
 
@@ -82,7 +80,7 @@ def objective(trial: optuna.Trial) -> float:
     config["initializer_range"] = 0.02
     config["n_head"] = 8
     config["n_embd"] = 256
-    config["n_layer"] = 6 
+    config["n_layer"] = 6
     config["input_dim"] = 300
     config["orderbook_depth"] = 6
     config["horizon"] = 30
@@ -92,7 +90,7 @@ def objective(trial: optuna.Trial) -> float:
         "bid_decrease",
         "ask_classification",
         "ask_increase",
-        "ask_decrease"
+        "ask_decrease",
     ]
 
     # Commented-out trial suggestions should be placed at top of block.

@@ -48,7 +48,7 @@ logger.propagate = False
 
 # pylint: disable=protected-access
 def setup(
-    args: argparse.Namespace
+    args: argparse.Namespace,
 ) -> Tuple[
     argparse.Namespace,
     ConditionalGPSTModel,
