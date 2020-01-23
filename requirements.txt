@@ -12,3 +12,5 @@ ta
 statsmodels
 stem
 requests[socks]
+krakenex
+pykrakenapi

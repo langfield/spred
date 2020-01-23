@@ -269,14 +269,14 @@ class GPSTDataset(Dataset):
         original_data_len = tensor_data.shape[0]
         seq_len = self.seq_len
         depth = self.depth
-        
+
         step_size = self.step_size
 
         # Make sure we didn't truncate away all data via ``rows_to_keep``.
         assert original_data_len > 0
 
         # To see why this formula is correct, consider the space after
-        # the first sequence until the end of the data. This has size 
+        # the first sequence until the end of the data. This has size
         # ``original_data_len - seq_len``, and within it we cound the number
         # of sequences past the first we can fit by counting the indices of
         # the end of each sequence, inclusive. This is equivalent to taking

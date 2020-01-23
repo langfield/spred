@@ -137,7 +137,6 @@ def parse(
                     except KeyError:
                         pass
 
-
                     if DEBUG:
                         print(data["origin"].split(",")[0])
 
