@@ -2,7 +2,7 @@ import krakenex
 from pykrakenapi import KrakenAPI
 
 
-def get_api(api_key_path):
+def get_api(api_key_path: str) -> KrakenAPI:
     with open(api_key_path, "r") as api_key_file:
         lines = api_key_file.readlines()
         api = krakenex.API(key=lines[0], secret=lines[1])
