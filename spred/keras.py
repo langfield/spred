@@ -4,7 +4,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import math
 from sklearn.preprocessing import MinMaxScaler
-from keras import Sequential
+from keras import Sequential # type: ignore
 from keras.layers import Dense, LSTM
 
 stock_data = pd.read_csv("samplespred/ETHUSDT_small.csv")
@@ -40,17 +40,18 @@ input_data[:, 0:2] = sc.fit_transform(input_feature[:, :])
 
 lookback = 50
 test_size = int(0.3 * len(stock_data))
-x = []
-y = []
+xlist = []
+ylist = []
 
 for i in range(len(stock_data) - lookback - 1):
     t = []
     for j in range(0, lookback):
         t.append(input_data[[(i + j)], :])
-    x.append(t)
-    y.append(input_data[i + lookback, 1])
+    xlist.append(t)
+    ylist.append(input_data[i + lookback, 1])
 
-x, y = np.array(x), np.array(y)
+x = np.array(xlist)
+y = np.array(ylist)
 x_test = x[: test_size + lookback]
 
 x = x.reshape(x.shape[0], lookback, 2)
