@@ -1,13 +1,24 @@
 {
-  "initializer_range":  0.02,
-  "layer_norm_epsilon": 4.064249722000914e-05,
-  "n_ctx": 30,
-  "n_embd": 160,
-  "n_head": 8,
-  "n_layer": 6,
-  "n_positions": 30,
-  "vocab_size": 33,
-  "resid_pdrop": 0.023,
-  "attn_pdrop": 0.093
+    "initializer_range":  0.02,
+    "layer_norm_epsilon": 0.00053,
+    "n_ctx": 300,
+    "n_embd": 416,
+    "n_head": 8,
+    "n_layer": 5,
+    "n_positions": 300,
+    "input_dim": 300,
+    "resid_pdrop": 0.021,
+    "attn_pdrop": 0.021,
+    "orderbook_depth": 6,
+    "horizon": 10,
+    "use_bfloat16": true,
+    "modes": [
+        "bid_classification", 
+        "bid_increase", 
+        "bid_decrease",
+        "ask_classification", 
+        "ask_increase", 
+        "ask_decrease"
+    ] 
 }
 

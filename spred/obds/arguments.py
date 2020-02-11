@@ -59,10 +59,37 @@ def get_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
     parser.add_argument("--num_gap_freq_levels", type=int, required=True)
     parser.add_argument("--num_gap_freq_sizes", type=int, required=True)
     parser.add_argument("--fig_dir", type=str, required=True)
+    parser.add_argument("--source_dir", type=str, required=True)
 
     # Compute k-value.
     parser.add_argument("--compute_k", type=strbool, required=True)
     parser.add_argument("--hours", type=int, required=True)
     parser.add_argument("--sigma", type=int, required=True)
+
+    return parser
+
+
+def df_args(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    """
+    Adds arguments for running ``csv.py`` via ``gale.sh`` to the passed
+    ``ArgumentParser`` object.
+
+    Parameters
+    ----------
+    parser : ``argparse.ArgumentParser``, required.
+        A parser object, possibly with existing arguments already added.
+
+    Returns
+    -------
+    parser : ``argparse.ArgumentParser``.
+        The same parser as was passed in as a parameter, but with all
+        the arguments below added.
+    """
+
+    # Construct training df.
+    parser.add_argument("--hours", type=int, required=True)
+    parser.add_argument("--trunc", type=int, required=True)
+    parser.add_argument("--save_path", type=str, required=True)
+    parser.add_argument("--source_dir", type=str, required=True)
 
     return parser

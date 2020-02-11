@@ -1,9 +1,7 @@
 # coding=utf-8
-""" OpenAI GPT model fine-tuning script.
-    Adapted from https://github.com/huggingface/pytorch-openai-transformer-lm/blob/master/train.py
-    Itself adapted from https://github.com/openai/finetune-transformer-lm/blob/master/train.py
-"""
+""" OpenAI GPT model fine-tuning script. """
 import os
+import sys
 import time
 import random
 import logging
@@ -11,29 +9,31 @@ import argparse
 import datetime
 from typing import Tuple
 
-import numpy as np
+# Third-party imports.
 import optuna
+import numpy as np
 
-from tqdm import tqdm, trange
-from pytorch_transformers import AdamW, WarmupLinearSchedule
-
-# pylint: disable=no-name-in-module, wrong-import-order
+# PyTorch imports.
 import torch
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, RandomSampler
 
-if torch.__version__[:5] == "0.3.1":
-    from torch.autograd import Variable
-    from compat.torch.sampler import RandomSampler
-else:
-    from torch.utils.data import RandomSampler
+# Transformers imports.
+from transformers import AdamW, WarmupLinearSchedule
+from transformers import WarmupCosineWithHardRestartsSchedule
+from transformers.configuration_openai import OpenAIGPTConfig
 
-# pylint: disable=wrong-import-position
-from arguments import get_args
+# External module imports.
+from lumber import get_log
 from dataset import GPSTDataset
-from modeling_openai import OpenAIGPTLMHeadModel, OpenAIGPTConfig
+from arguments import get_args
+from modeling_openai import ConditionalGPSTModel
 
 DEBUG = False
-LOSS = 0
+# pylint: disable=invalid-name, no-member, bad-continuation
+
+# HARDCODE
+LOG_PATH = get_log("rain")
+
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
     datefmt="%m/%d/%Y %H:%M:%S",
@@ -43,15 +43,16 @@ logging.basicConfig(
 datestring = str(datetime.datetime.now())
 datestring = datestring.replace(" ", "_")
 logger = logging.getLogger(__name__)
-logger.addHandler(logging.FileHandler("logs/rain_" + datestring + ".log"))
-
+logger.addHandler(logging.FileHandler(LOG_PATH))
+logger.propagate = False
 
 # pylint: disable=protected-access
 def setup(
-    args: argparse.Namespace = None
+    args: argparse.Namespace,
 ) -> Tuple[
     argparse.Namespace,
-    OpenAIGPTLMHeadModel,
+    ConditionalGPSTModel,
+    torch.device,
     torch.optim.Optimizer,
     torch.optim.lr_scheduler._LRScheduler,
     DataLoader,
@@ -68,8 +69,10 @@ def setup(
     -------
     args : ``args.Namespace``.
         Updated training arguments.
-    model : ``OpenAIGPTLMHeadModel``.
+    model : ``ConditionalGPSTModel``.
         Loaded model, set to ``train`` mode.
+    device : ``torch.device``.
+        Device onto which the model is loaded.
     optimizer : ``torch.optim.Optimizer``.
         PyTorch optimizer for training.
     scheduler : ``torch.optim.lr_scheduler._LRScheduler``.
@@ -79,38 +82,37 @@ def setup(
     """
 
     if args is None:
-        parser = argparse.ArgumentParser()
-        parser = get_args(parser)
-        args = parser.parse_args()
+        raise ValueError("Argument parsing required.")
 
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     torch.cuda.manual_seed_all(args.seed)
 
-    if torch.__version__[:5] != "0.3.1":
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     n_gpu = torch.cuda.device_count()
-    if torch.__version__[:5] != "0.3.1":
-        logging.info("device: %s, n_gpu %d", str(device), n_gpu)
+    logging.info("device: %s, n_gpu %d", str(device), n_gpu)
 
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
 
+    # Config.
     config = OpenAIGPTConfig.from_pretrained(args.gpst_model)
-    model = OpenAIGPTLMHeadModel(config)
+    assert config.n_positions == config.n_ctx
+    args.seq_len = config.n_ctx
+    args.dim = config.input_dim
+    args.orderbook_depth = config.orderbook_depth
 
-    if torch.__version__[:5] == "0.3.1":
-        model.cuda()
-    else:
-        model.to(device)
+    # Model.
+    model = ConditionalGPSTModel(config)
 
-    assert model.config.n_positions == model.config.n_ctx
-    args.seq_len = model.config.n_ctx
-    args.dim = model.config.vocab_size
-
+    # Dataset.
     train_data = GPSTDataset(
         args.dataset,
+        args.seq_len,
+        args.dim,
+        args.orderbook_depth,
+        args.sep,
         args.seq_len,
         stationarization=args.stationarize,
         aggregation_size=args.aggregation_size,
@@ -119,48 +121,58 @@ def setup(
         train_batch_size=args.train_batch_size,
     )
     print("Length of training dataset:", len(train_data))
+
     train_sampler = RandomSampler(train_data)
+
     train_dataloader = DataLoader(
         train_data, sampler=train_sampler, batch_size=args.train_batch_size
     )
 
-    # Prepare optimizer.
+    # Optimizer.
+    num_train_optimization_steps = len(train_dataloader) * args.num_train_epochs
     param_optimizer = list(model.named_parameters())
     no_decay = ["bias", "LayerNorm.bias", "LayerNorm.weight"]
+    dec = [p for n, p in param_optimizer if not any(nd in n for nd in no_decay)]
+    no_dec = [p for n, p in param_optimizer if any(nd in n for nd in no_decay)]
     optimizer_grouped_parameters = [
-        {
-            "params": [
-                p for n, p in param_optimizer if not any(nd in n for nd in no_decay)
-            ],
-            "weight_decay": 0.01,
-        },
-        {
-            "params": [
-                p for n, p in param_optimizer if any(nd in n for nd in no_decay)
-            ],
-            "weight_decay": 0.0,
-        },
+        {"params": dec, "weight_decay": 0.01},
+        {"params": no_dec, "weight_decay": 0.0},
     ]
 
-    # --------Optimizer--------
+    args.learning_rate = args.learning_rate
+
     optimizer = AdamW(
         optimizer_grouped_parameters,
         lr=args.learning_rate,
         weight_decay=args.weight_decay,
         eps=args.adam_epsilon,
     )
-    num_train_optimization_steps = len(train_dataloader) * args.num_train_epochs
+
+    # Scheduler.
+    # TODO: Make scheduler an option.
     scheduler = WarmupLinearSchedule(
         optimizer,
         warmup_steps=(args.warmup_proportion * num_train_optimization_steps),
         t_total=num_train_optimization_steps,
     )
-    # --------Optimizer--------
 
-    return args, model, optimizer, scheduler, train_dataloader
+    scheduler = WarmupCosineWithHardRestartsSchedule(
+        optimizer=optimizer,
+        warmup_steps=(args.warmup_proportion * num_train_optimization_steps),
+        t_total=num_train_optimization_steps,
+    )
+
+    # DataParallel.
+    if torch.cuda.device_count() > 1 and False:
+        print("Let's use", torch.cuda.device_count(), "GPUs!")
+        model = torch.nn.DataParallel(model)
+
+    model.to(device)
+
+    return args, model, optimizer, scheduler, device, train_dataloader
 
 
-def train(args: argparse.Namespace = None) -> float:
+def train(args: argparse.Namespace) -> float:
     """
     Train a GPST Model with the arguments parsed via ``arguments.py``.
     Should be run via ``rain.sh``.
@@ -175,11 +187,9 @@ def train(args: argparse.Namespace = None) -> float:
     epoch_avg_loss : ``float``.
         The average loss for the last epoch.
     """
-    args, model, optimizer, scheduler, train_dataloader = setup(args)
 
-    # Define ``device``.
-    if torch.__version__[:5] != "0.3.1":
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    # Get model.
+    args, model, optimizer, scheduler, device, train_dataloader = setup(args)
 
     # Optuna early stopping.
     if "trial" in args:
@@ -189,82 +199,65 @@ def train(args: argparse.Namespace = None) -> float:
     weights_name = args.model_name + ".bin"
     config_name = args.model_name + ".json"
 
+    # Local variables for shape check.
+    bsz = args.train_batch_size
+
+    # Flush output before we begin training.
+    sys.stdout.flush()
+
     # Main training loop.
     start = time.time()
     nb_tr_steps, tr_loss, exp_average_loss = 0.0, 0.0, 0.0
+    epoch_avg_loss = 0
+    first_loss = 0
+    normalized_loss_mean = 0
     completed_first_iteration = False
     model.train()
     elapsed_epochs = 0
-    for _ in trange(int(args.num_train_epochs), desc="Epoch"):
+    for i in range(int(args.num_train_epochs)):
         tr_loss = 0.0
         losses = []
         nb_tr_steps = 0
-        tqdm_bar = tqdm(train_dataloader, desc="Training", position=0, leave=True)
-        for _, batch in enumerate(tqdm_bar):
+        for j, batch in enumerate(train_dataloader):
 
-            if torch.__version__[:5] == "0.3.1":
-                batch = tuple(t.cuda() for t in batch)
-            else:
-                batch = tuple(t.to(device) for t in batch)
-            input_ids, position_ids, lm_labels, inputs_raw, targets_raw = batch
+            batch = tuple(t.to(device) for t in batch)
+            input_ids, position_ids, labels, inputs_raw = batch
+
+            # Cast data to float tensor.
+            # TODO: Is this necessary? What is its type before and after?
             inputs_raw = inputs_raw.float()
-            targets_raw = targets_raw.float()
+            labels = labels.long()
 
-            # Shape check.
-            # ===HACK===
-            # Compensates for lack of batch size data truncation in
-            # ``SAMPLE`` branch of ``GPSTDatatset`` class.
+            # Handles lack of batch size data truncation in dataset class.
             if not args.stationarize and input_ids.shape[0] < args.train_batch_size:
                 continue
-            # ===HACK===
-            bsz = args.train_batch_size
+
+            # Shape check.
             assert input_ids.shape == (bsz, args.seq_len)
             assert position_ids.shape == (bsz, args.seq_len)
-            assert lm_labels.shape == (bsz, args.seq_len)
+            assert labels.shape == (bsz, args.seq_len)
             assert inputs_raw.shape == (bsz, args.seq_len, args.dim)
-            assert targets_raw.shape == (bsz, args.seq_len, args.dim)
 
-            # torch_0.3.1 casting.
-            if torch.__version__[:5] == "0.3.1":
-                position_ids = Variable(position_ids).contiguous()
-                targets_raw = Variable(targets_raw.contiguous())
-                inputs_raw = Variable(inputs_raw.contiguous())
+            outputs = model(input_ids, position_ids, labels, inputs_raw)
 
-            # Get only fourth column (close).
-            targets_raw = targets_raw[:, :, 3]
-
-            # Forward call.
-            outputs = model(input_ids, position_ids, lm_labels, inputs_raw, targets_raw)
-
-            # pylint: disable=redefined-outer-name
             loss = outputs[0]
             loss.backward()
-            LOSS = float(loss)
+            loss_scalar = float(loss)
 
             # Logging.
-            losses.append(LOSS)
+            losses.append(loss_scalar)
 
-            if torch.__version__[:5] != "0.3.1":
-                torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
-            scheduler.step()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), args.max_grad_norm)
             optimizer.step()
             optimizer.zero_grad()
+            scheduler.step()
 
-            if torch.__version__[:5] == "0.3.1":
-                loss_data = float(loss.data)
-                tr_loss += loss_data
-                exp_average_loss = (
-                    loss_data
-                    if completed_first_iteration
-                    else 0.7 * exp_average_loss + 0.3 * loss_data
-                )
-            else:
-                tr_loss += loss.item()
-                exp_average_loss = (
-                    loss.item()
-                    if completed_first_iteration
-                    else 0.7 * exp_average_loss + 0.3 * loss.item()
-                )
+            tr_loss += loss.item()
+            exp_average_loss = (
+                loss.item()
+                if completed_first_iteration
+                else 0.7 * exp_average_loss + 0.3 * loss.item()
+            )
 
             completed_first_iteration = True
             nb_tr_steps += 1
@@ -272,17 +265,35 @@ def train(args: argparse.Namespace = None) -> float:
             # Stats.
             epoch_avg_loss = np.mean(losses)
             epoch_stddev_loss = np.std(losses)
-            tqdm_bar.desc = "Epoch loss dist:: mean: {:.2e}".format(
-                epoch_avg_loss
-            ) + " std: {:.2e}".format(epoch_stddev_loss)
+
+            # Save first loss value.
+            if i == j == 0:
+                first_loss = epoch_avg_loss
+            normalized_loss_mean = epoch_avg_loss / first_loss
+            normalized_loss_stddev = epoch_stddev_loss / first_loss
+
+            statusline = "||| ITERATION::  [epoch: %d of %d \t batch: %d of %d] \t " % (
+                i,
+                args.num_train_epochs,
+                j,
+                len(train_dataloader),
+            ) + "LOSS::  [mean: %.9f \t stddev: %.9f] |||" % (
+                normalized_loss_mean,
+                normalized_loss_stddev,
+            )
+            print(statusline, end="\r")
+
+        # Log loss.
+        logger.info("Normalized loss: %f\r" % normalized_loss_mean)
 
         if "trial" in args:
-            trial.report(epoch_avg_loss, time.time() - start)
+            trial.report(normalized_loss_mean, time.time() - start)
             if trial.should_prune():
                 raise optuna.structs.TrialPruned()
 
         # Save every ``args.save_freq`` epochs.
         elapsed_epochs += 1
+
         if elapsed_epochs % args.save_freq == 0:
             model_to_save = model.module if hasattr(model, "module") else model
             output_model_file = os.path.join(args.output_dir, weights_name)
@@ -294,8 +305,11 @@ def train(args: argparse.Namespace = None) -> float:
         if args.timeout > 0 and time.time() - start >= args.timeout:
             break
 
-    return epoch_avg_loss
+    return normalized_loss_mean
 
 
 if __name__ == "__main__":
-    train()
+    PARSER = argparse.ArgumentParser()
+    PARSER = get_args(PARSER)
+    ARGS = PARSER.parse_args()
+    train(ARGS)

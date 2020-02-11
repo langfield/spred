@@ -37,7 +37,6 @@ Boosting tools:
     LightGBM
 
 Good script names:
-gale
 monsoon
 fog
 wind
@@ -49,3 +48,4 @@ snow
 mist
 sleet
 hail
+gale

@@ -1,5 +1,5 @@
-Done:   #================================DONE================================== 
-        
+Done:   #================================DONE==================================
+
         Finished generating preliminary graphs.
 
         Moved best delta proportion calculations into their own function.
@@ -10,22 +10,20 @@ Done:   #================================DONE==================================
 
         Cleaned up the function structure in ``format.py``.
 
-        Compute something involving a sequence of all gaps on each side. 
+        Compute something involving a sequence of all gaps on each side.
         We currently compute a distribution of all nonzero volume level
         gaps on both sides of the orderbook and generate a histogram for
         both on the same plot. This means that we see gaps from all depths
         of the orderbook at all timesteps all on the same plot. This is
         a start, but we don't really care about really deep gaps. We only
         care about maybe the first 5-10 or so. More importantly, it is
-        important that we can see the distribution of gaps for just the 
+        important that we can see the distribution of gaps for just the
         best nonzero level to the second best nonzero level. This will
         tell us valuable information about the number of zero-volume
         levels we need to compute the conditional probability of using
         Sirignano's model.
-        
-        Create a ``figs/`` directory.
 
-Todo:   #================================TODO================================== 
+        Create a ``figs/`` directory.
 
         Move hardcoded arguments from the bottom of ``format.py`` into
         a bash script with arguments.
@@ -35,3 +33,33 @@ Todo:   #================================TODO==================================
         Merge ``obds`` to master.
 
         Create new dev branch.
+
+Todo:   #================================TODO==================================
+
+        Create a script to convert raw orderbook hour json files into
+        monolithic csv files with dimension 300.
+
+        Use a multiprocessing Pool. Get a specific start time, then generate
+        an array of parse times for each of the processes. Then use python's
+        built-in ``sched`` library to scrape at exactly those times in each
+        process, where each one has its own Tor-assigned IP address. Then we
+        can collect all of the resuls of the parses as dict key-val pairs
+        where the key is the token parse time in the iterable that was passe to
+        the Pool worker. Then the return iterable can be sorted as the keys
+        come in.
+
+        Create two alternating pools which process one minute at a time or
+        something. This would allow us to run each process at the parse time, 
+        and then still be able to get the return value.
+
+        Each process from the original architecture runs m parses, equally
+        spaced. Each process begins with a scheduled job which only runs a
+        print statement. This effectively makes the parse wait to begin until
+        a specific time. Then the subsequent parse calls are spaced by an
+        adjustable interval.
+
+        Trying spinning up n processes with n input queues and n output queues
+        where we get the data by looping over the output queues and calling
+        queue.get(), which blocks until there is data available. After each
+        full loop, save all the data to disk, and then loop over them all again
+        ad infinitum.

@@ -1,4 +1,4 @@
-""" Script for checking if time series data is stationary. """
+""" Checks if time series data is stationary. """
 import numpy as np
 import pandas as pd
 

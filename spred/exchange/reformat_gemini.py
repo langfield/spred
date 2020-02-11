@@ -5,5 +5,5 @@ print(df.head(10))
 df = df.iloc[:100000]
 df = df.iloc[::-1]
 print(df.head(10))
-df = df.drop(['Unix Timestamp', 'Date', 'Symbol'], axis=1)
+df = df.drop(["Unix Timestamp", "Date", "Symbol"], axis=1)
 df.to_csv(path_or_buf="gemini.csv", sep="\t", index=False)

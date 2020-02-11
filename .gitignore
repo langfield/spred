@@ -13,3 +13,7 @@ spred/gpst/checkpoints/*
 spred/gpst/ckpts/*
 *.mypy_cache/
 *results/
+spred/bookdfs/*.csv
+tordatap/
+books/
+tor_temp_dir/

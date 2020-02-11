@@ -1,7 +1,76 @@
-Todo:   Merge ``obds/`` from dev into master (and all the things in the 
-        ``obds/todo.txt`` file.
+Done:   #================================DONE==================================
+        
+        Merge ``obds/`` from dev into master (and all the things in the 
+        ``obds/todo.txt`` file).
 
         Create new dev branch for gpst modifications to implement 
         ``orderbook_notes.tex``.
 
         Begin implementing new model.
+        
+        Pass in labels via labels argument to forward function.
+        
+        Look at original OpenAIGPTLMHeadModel class to copy classification loss
+        code.
+        
+        If the jump is larger than 6, set the label to the most extreme, i.e. 
+        change to level 6.
+        
+        Only train the loss of the network when the correct conditions apply
+        (if we condition on Y > 0, then only in that case, checking ground
+        truth from the labels). (Achieved via masking.)
+
+        building on this, we needs a mask for the ask labels, since we are
+        computing logits of y_2 given y_1 = y_1, and we should only train this
+        classification network for the true value of y_1 for each orderbook.
+        therefore all others must be masked out.
+        
+        Make the other 6 model instances in ``train.py``.
+
+        Figure out how to compute logits for classification loss.
+
+        Add `torch.Tensor.view()`` call to reshape model forward output into
+        a matrix for estimation of ``Y_2``.
+        
+        Rehash feature creation in dataset class to reflect the CrossEntropy
+        loss over a flattened verion of the output space Y = (Y_1, Y_2).
+        
+        Fix output aggregation in return tuple of forward calls to model.
+        
+        Fix type annotations and docstrings.
+
+        Fix loss computation for optuna.
+
+        Rewrite ``eval.py``.
+
+        Make smaller version of the model by fusing all the transformers
+        together.
+
+        Update optimize hyperhyperparams.
+
+Todo:   #================================TODO==================================
+
+        The eval script still appears to be broken. Need to write tests for it,
+        basically.
+        
+        Need to add support for classification model output in the eval script.
+
+        Add time elapsed to statusline as well.
+
+        Log how much time each trial takes when not using timeout.
+
+        Print out the learning rate at each timestep.
+
+        Make the learning rate scheduler a config argument.
+
+        Fuse the config/args.
+
+        Verify that class label locations in dataset feature creation match
+        up with expected locations in outputs from model forward class.
+
+        Rescrape data.
+        
+        Add activation functions to pre-encoding, post-decoding, and lm_head
+        layers in ``modeling_openai.py``.
+
+        Add a MySQL database on macbook for persistent optuna runs.
