@@ -3,13 +3,10 @@ Stock prediction via blind internet trust.
 This repo implements the model from this following applied maths paper:
 https://www.tandfonline.com/doi/abs/10.1080/14697688.2018.1546053?journalCode=rquf20&
 
-The architecture is barely described in the above paper, the authors give
-enough detail that one could derive a complete specification, but they don't
-explicitly give it themselves. Reading Section 4.x feels like listening to
-someone shout the model from behind a closed door. I have derived what I think
-is a correct closed-form expression, which is in `NOTES.pdf` (it's $g_theta^1$
-and $g_theta^2$, equations (14) and (15), if you're interested).  It was a
-pain.
+I have derived what I think is a correct closed-form expression for the
+architecture described in the above paper, which is in `NOTES.pdf` (it's
+$g_theta^1$ and $g_theta^2$, equations (14) and (15), if you're interested).
+It was a pain.
 
 Whereas Sirignano used LSTMs for the base regression models ($f_\theta$), we
 modified OpenAI's GPT to take in a sequence of orderbooks instead of
