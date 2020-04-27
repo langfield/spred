@@ -1,6 +1,6 @@
 Stock prediction via blind internet trust.
 
-This repo implements the model from this following applied maths paper:
+This repo implements the model from the following applied maths paper:
 https://www.tandfonline.com/doi/abs/10.1080/14697688.2018.1546053?journalCode=rquf20&
 
 I have derived what I think is a correct closed-form expression for the
