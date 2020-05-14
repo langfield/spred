@@ -25,8 +25,8 @@ and it worked well enough.
 
 If you want to train the model, take a look at ``spred/gpst/rain.sh``. It calls
 the main training loop, which is in ``spred/gpst/train.py``. Most of the
-arguments are pretty self-explanatory. The ``config.json`` file should bein the
-format given in the example, which is loosely derived from the format
+arguments are pretty self-explanatory. The ``config.json`` file should be in
+the format given in the example, which is loosely derived from the format
 HuggingFace uses for their tranformer configs. To understand the ``modes`` and
 ``orderbook_depth`` arguments completely, I recommend reading the
 derivation/notes mentioned above. The ``modes`` args in particular should
