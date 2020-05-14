@@ -23,4 +23,23 @@ analysis on them in an effort to get more features/alpha. We used MT-DNN for
 this, which was on top of the GLUE benchmark back when we were working in it,
 and it worked well enough.
 
+If you want to train the model, take a look at ``spred/gpst/rain.sh``. It calls
+the main training loop, which is in ``spred/gpst/train.py``. Most of the
+arguments are pretty self-explanatory. The ``config.json`` file should bein the
+format given in the example, which is loosely derived from the format
+HuggingFace uses for their tranformer configs. To understand the ``modes`` and
+``orderbook_depth`` arguments completely, I recommend reading the
+derivation/notes mentioned above. The ``modes`` args in particular should
+probably just be left alone. They're for turning off certain parts of the
+orderbook-specific model for debugging. The dataset format is just a csv where
+each row is a timestep, and all the columns are numerical. It will train on all
+features/columns given. There are options to automatically stationarize and
+normalize the dataset before training. You can also normalize eac sequence
+separately. Look at ``spred/gpst/snow.sh`` for running the hyperparameter
+optimization process, and ``spred/gpst/mist.sh`` for the eval script, which can
+optionally plot the predictions of a single column directly to an ANSI terminal
+live. It also supports generating more detailed plots via matplotlib. The
+``ConditionalGPSTModel`` class inside ``spred/gpst/modeling_openai`` contains
+most of the logic implemented from the paper.
+
 MT-DNN commit hash: 0096f0bff0a8f5c83ccb5562cfe96ddec4b04833
