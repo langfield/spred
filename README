@@ -34,12 +34,12 @@ probably just be left alone. They're for turning off certain parts of the
 orderbook-specific model for debugging. The dataset format is just a csv where
 each row is a timestep, and all the columns are numerical. It will train on all
 features/columns given. There are options to automatically stationarize and
-normalize the dataset before training. You can also normalize eac sequence
+normalize the dataset before training. You can also normalize each sequence
 separately. Look at ``spred/gpst/snow.sh`` for running the hyperparameter
 optimization process, and ``spred/gpst/mist.sh`` for the eval script, which can
-optionally plot the predictions of a single column directly to an ANSI terminal
-live. It also supports generating more detailed plots via matplotlib. The
-``ConditionalGPSTModel`` class inside ``spred/gpst/modeling_openai`` contains
-most of the logic implemented from the paper.
+optionally plot and animate the predictions of a single column directly to an
+ANSI terminal. It also supports generating more detailed plots via matplotlib.
+The ``ConditionalGPSTModel`` class inside ``spred/gpst/modeling_openai``
+contains most of the logic implemented from the paper.
 
 MT-DNN commit hash: 0096f0bff0a8f5c83ccb5562cfe96ddec4b04833
